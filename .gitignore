@@ -1,0 +1,45 @@
+# ── Python ──────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# ── Virtual environment ──────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+
+# ── Streamlit secrets ────────────────────────────────────────────────────────
+.streamlit/secrets.toml
+
+# ── Personal data (real names, payments, draws, predictions) ─────────────────
+# These are regenerated per-competition and must never be public
+data/purchases.csv
+data/player_status.csv
+data/predictions.csv
+data/captains.csv
+data/audit_log.csv
+data/events.csv
+
+# Lock files (contain timestamps and lock state)
+data/*_lock.txt
+
+# ── Generated exports ────────────────────────────────────────────────────────
+exports/
+
+# ── Simulation results (generated, can be large) ────────────────────────────
+simulations/results/
+
+# ── OS files ─────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── IDE ──────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.suo
+*.user
