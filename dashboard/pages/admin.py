@@ -89,6 +89,109 @@ with tabs[0]:
             except Exception as exc:
                 st.error(f"Error: {exc}")
 
+    st.divider()
+
+    # ── Delete / undo a historical draw ──────────────────────────────────────
+    st.subheader("Delete a Draw")
+    st.caption(
+        "Remove a draw event and reverse its effects — as if it never happened. "
+        "The draw can then be re-run from scratch."
+    )
+
+    from src.competition import load_events, load_purchases, load_audit_log
+
+    _ev_df = load_events()
+    _UNDOABLE = {"INITIAL_DRAW", "MULLIGAN_DRAW", "NINTH_TEAM_DRAW", "RESURRECTION_DRAW"}
+    _executed = (
+        _ev_df[
+            _ev_df["EventType"].isin(_UNDOABLE) &
+            (_ev_df["Status"] == "EXECUTED")
+        ]
+        if not _ev_df.empty and "Status" in _ev_df.columns
+        else pd.DataFrame()
+    )
+
+    if _executed.empty:
+        st.info("No executed draw events to delete.")
+    else:
+        _del_opts = [
+            f'{row["EventID"]} · {row["EventType"]} '
+            f'({str(row.get("ExecutedTime",""))[:16]})'
+            for _, row in _executed.iterrows()
+        ]
+        _del_sel = st.selectbox("Select draw to delete", _del_opts, key="del_event_sel")
+        _del_idx = _del_opts.index(_del_sel)
+        _del_row = _executed.iloc[_del_idx]
+        _del_eid = str(_del_row["EventID"])
+        _del_type = str(_del_row["EventType"])
+
+        # Explain what will happen
+        _consequences = {
+            "INITIAL_DRAW":    "allocation.csv will be cleared — all team assignments removed.",
+            "MULLIGAN_DRAW":   "allocation.csv will be cleared — the allocation reverts to nothing (re-run INITIAL_DRAW to restore).",
+            "NINTH_TEAM_DRAW": "All NinthTeam purchases will have their drawn team removed (Selection reset to blank).",
+            "RESURRECTION_DRAW": "All Resurrection purchases will have their replacement removed (Selection reset to blank).",
+        }
+        st.warning(f"**What this undoes:** {_consequences.get(_del_type, 'Event removed from log.')}")
+
+        _confirm_key = f"confirm_delete_{_del_eid}"
+        _confirmed = st.checkbox("I understand — delete this draw", key=_confirm_key)
+
+        if st.button("Delete Draw", type="primary", disabled=not _confirmed):
+            try:
+                _purch = load_purchases()
+                _audit = load_audit_log()
+
+                # 1. Reverse the draw effects
+                if _del_type in ("INITIAL_DRAW", "MULLIGAN_DRAW"):
+                    pd.DataFrame(columns=["Player", "Team"]).to_csv(
+                        DATA / "allocation.csv", index=False
+                    )
+                elif _del_type == "NINTH_TEAM_DRAW":
+                    if not _purch.empty and "PurchaseType" in _purch.columns:
+                        mask = _purch["PurchaseType"] == "NinthTeam"
+                        _purch.loc[mask, "Selection"] = ""
+                        _purch.to_csv(DATA / "purchases.csv", index=False)
+                elif _del_type == "RESURRECTION_DRAW":
+                    if not _purch.empty and "PurchaseType" in _purch.columns:
+                        mask = (
+                            (_purch["PurchaseType"] == "Resurrection") &
+                            (_purch["Selection"].str.contains("->", na=False))
+                        )
+                        _purch.loc[mask, "Selection"] = ""
+                        _purch.to_csv(DATA / "purchases.csv", index=False)
+
+                # 2. Remove the event row
+                _ev_df_new = _ev_df[_ev_df["EventID"].astype(str) != _del_eid].copy()
+                _ev_df_new.to_csv(DATA / "events.csv", index=False)
+
+                # 3. Add audit entry
+                from datetime import datetime, timezone, timedelta
+                _now = datetime.now(timezone(timedelta(hours=1))).isoformat()
+                _new_log = pd.DataFrame([{
+                    "Timestamp": _now,
+                    "Event":  "DRAW_DELETED",
+                    "Player": "ADMIN",
+                    "Action": f"DELETE {_del_type} (EventID {_del_eid})",
+                    "Result": "Draw reversed and event removed",
+                }])
+                _audit_new = pd.concat([_audit, _new_log], ignore_index=True)
+                _audit_new.to_csv(DATA / "audit_log.csv", index=False)
+
+                _refresh()
+                st.success(
+                    f"{_del_type} deleted. "
+                    + {
+                        "INITIAL_DRAW":      "Allocation cleared — re-run INITIAL_DRAW when ready.",
+                        "MULLIGAN_DRAW":     "Allocation cleared — re-run the draw.",
+                        "NINTH_TEAM_DRAW":   "Ninth team selections reset — re-run NINTH_TEAM_DRAW.",
+                        "RESURRECTION_DRAW": "Resurrection selections reset — re-run RESURRECTION_DRAW.",
+                    }.get(_del_type, "")
+                )
+                st.rerun()
+            except Exception as exc:
+                st.error(f"Error: {exc}")
+
 # ─────────────────────────────────────────────
 # Tab 1: Purchases
 # ─────────────────────────────────────────────
