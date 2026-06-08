@@ -34,22 +34,18 @@ def _tournament_phase(events: pd.DataFrame) -> tuple[str, str]:
 
 
 def _last_updated() -> str:
-    """Return a human-readable 'last updated' string from match_stats.csv mtime."""
-    p = ROOT / "data" / "match_stats.csv"
+    """Return a human-readable 'last updated' string from the most recent match result."""
+    p = ROOT / "data" / "match_results.csv"
     if not p.exists():
-        return "Never"
-    ts = datetime.fromtimestamp(p.stat().st_mtime)
-    now = datetime.now()
-    diff = now - ts
-    if diff.total_seconds() < 60:
-        return "Just now"
-    if diff.total_seconds() < 3600:
-        mins = int(diff.total_seconds() / 60)
-        return f"{mins}m ago"
-    if diff.total_seconds() < 86400:
-        hrs = int(diff.total_seconds() / 3600)
-        return f"{hrs}h ago"
-    return f"{ts.day} {ts.strftime('%b')}"
+        return "No results yet"
+    try:
+        df = pd.read_csv(p, dtype=str).fillna("")
+        if df.empty or "match_number" not in df.columns:
+            return "No results yet"
+        # Use row count as proxy — most recent result = last row
+        return f"{len(df)} result{'s' if len(df) != 1 else ''} entered"
+    except Exception:
+        return "—"
 
 
 page_header("WC 2026 Sweepstake", "Live tournament tracker")
