@@ -9,199 +9,189 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 from matplotlib.patches import FancyBboxPatch
 import numpy as np
 
-# ── Palette ───────────────────────────────────────────────────────────────────
+# ── Palette ────────────────────────────────────────────────────────────────────
 BG      = '#0D1B2A'
 PANEL   = '#162032'
 BORDER  = '#2D4460'
 GOLD    = '#D4A017'
 GOLD_DK = '#A07810'
-WHITE   = '#F1F5F9'
-MUTED   = '#94A3B8'
-BLUE    = '#105CAC'
-GREEN   = '#15803D'
-AMBER   = '#C47A1E'
-RED     = '#B91C1C'
-PURPLE  = '#6D28D9'
-TEAL    = '#0E7490'
+WHITE   = '#FFFFFF'
+MUTED   = '#CBD5E1'
+BLUE    = '#1A6FC4'
+GREEN   = '#16A34A'
+AMBER   = '#D97706'
+RED     = '#DC2626'
+PURPLE  = '#7C3AED'
+TEAL    = '#0891B2'
 DIM     = '#1E293B'
-ACCENT  = '#1E3A5F'   # slightly lighter than BG for header accent band
+ACCENT  = '#1E3A5F'
 
 PAD = 0.07
 
-# ── Figure ────────────────────────────────────────────────────────────────────
-W, H = 12, 18
+# ── Figure ─────────────────────────────────────────────────────────────────────
+W, H = 14, 22
 fig = plt.figure(figsize=(W, H), facecolor=BG, dpi=150)
 ax  = fig.add_axes([0, 0, 1, 1])
-ax.set_xlim(0, W); ax.set_ylim(0, H)
-ax.axis('off'); ax.set_facecolor(BG)
+ax.set_xlim(0, W)
+ax.set_ylim(0, H)
+ax.axis('off')
+ax.set_facecolor(BG)
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# ── Helpers ────────────────────────────────────────────────────────────────────
 def box(x, y, w, h, fc=PANEL, ec=BORDER, lw=0.8, z=2):
-    p = FancyBboxPatch((x + PAD, y + PAD), w - 2*PAD, h - 2*PAD,
-                       boxstyle=f"round,pad={PAD}",
-                       facecolor=fc, edgecolor=ec, linewidth=lw, zorder=z)
+    p = FancyBboxPatch(
+        (x + PAD, y + PAD), w - 2 * PAD, h - 2 * PAD,
+        boxstyle=f'round,pad={PAD}',
+        facecolor=fc, edgecolor=ec, linewidth=lw, zorder=z,
+    )
     ax.add_patch(p)
 
-def t(x, y, s, sz=10, c=WHITE, bold=False, italic=False, ha='left', va='center', z=4):
+def t(x, y, s, sz=12, c=WHITE, bold=False, italic=False, ha='left', va='center', z=4):
     ax.text(x, y, s, fontsize=sz, color=c,
             fontweight='bold' if bold else 'normal',
             fontstyle='italic' if italic else 'normal',
             ha=ha, va=va, zorder=z, clip_on=False)
 
 def section_bar(x, y, w, label, fc=BLUE):
-    box(x, y, w, 0.55, fc=fc, ec='none', z=3)
-    t(x + w/2, y + 0.275, label, sz=11, bold=True, ha='center', z=4)
+    box(x, y, w, 0.72, fc=fc, ec='none', z=3)
+    t(x + w / 2, y + 0.36, label, sz=14, bold=True, ha='center', z=4)
 
-def divider_line(y, x0=0.4, x1=None, color=BORDER, lw=0.7, z=3):
-    if x1 is None:
-        x1 = W - 0.4
-    ax.plot([x0, x1], [y, y], color=color, linewidth=lw, zorder=z)
+def divider(y, x0, x1, color=BORDER, lw=0.8):
+    ax.plot([x0, x1], [y, y], color=color, linewidth=lw, zorder=3)
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# HEADER  — gold banner with diagonal stripe accents
+# HEADER
 # ═══════════════════════════════════════════════════════════════════════════════
-box(0, 15.9, W, 2.1, fc=GOLD, ec='none', z=2)
-
-# Diagonal stripe decoration on the gold banner
+box(0, 19.8, W, 2.2, fc=GOLD, ec='none', z=2)
 for xi in np.arange(-1, W + 2, 0.9):
-    ax.fill_betweenx([15.9, 18.0],
-                     [xi, xi + 1.4], [xi + 0.15, xi + 1.55],
+    ax.fill_betweenx([19.8, 22.0], [xi, xi + 1.4], [xi + 0.15, xi + 1.55],
                      color=GOLD_DK, alpha=0.35, zorder=3)
 
-# Tournament start callout (top-right of header)
-box(8.8, 16.8, 3.0, 0.9, fc=BG, ec=GOLD_DK, lw=1.5, z=5)
-t(10.3, 17.35, 'STARTS', sz=7.5, c=MUTED, bold=True, ha='center', z=6)
-t(10.3, 17.05, 'JUNE 11, 2026', sz=9, c=GOLD, bold=True, ha='center', z=6)
+# "STARTS" callout — top right
+box(10.3, 20.55, 3.5, 1.25, fc=BG, ec=GOLD_DK, lw=2.0, z=5)
+t(12.05, 21.25, 'STARTS',        sz=9.5, c=MUTED, bold=True, ha='center', z=6)
+t(12.05, 20.88, 'JUNE 11, 2026', sz=13,  c=GOLD,  bold=True, ha='center', z=6)
 
-# Main title
-t(W/2 - 0.3, 17.38, 'WORLD CUP 2026', sz=26, c=BG, bold=True, ha='center', z=6)
-t(W/2 - 0.3, 16.82, 'SWEEPSTAKE', sz=22, c=BG, bold=True, ha='center', z=6)
+# Title
+t(5.1, 21.42, 'WORLD CUP 2026', sz=36, c=BG, bold=True, ha='center', z=6)
+t(5.1, 20.78, 'SWEEPSTAKE',     sz=30, c=BG, bold=True, ha='center', z=6)
 
-# Tagline on dark strip below header
-box(0, 15.5, W, 0.48, fc=DIM, ec='none', z=2)
-t(W/2, 15.75, '13 Players  ·  48 Teams  ·  4 Tiers  ·  1st 50%  ·  2nd 30%  ·  3rd 20%',
-  sz=10.5, c=MUTED, ha='center', z=3)
+# Tagline strip
+box(0, 19.2, W, 0.62, fc=DIM, ec='none', z=2)
+t(W / 2, 19.52,
+  '13 Players  ·  48 Teams  ·  4 Tiers  ·  1st 50%  ·  2nd 30%  ·  3rd 20%',
+  sz=12.5, c=MUTED, ha='center', z=3)
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# LEFT PANEL – WHAT TO BUY
+# LEFT PANEL — WHAT TO BUY
 # ═══════════════════════════════════════════════════════════════════════════════
-LX, LY, LW, LH = 0.25, 7.8, 5.55, 7.4
+LX, LY, LW, LH = 0.3, 10.05, 6.65, 9.0
 box(LX, LY, LW, LH)
-section_bar(LX, LY + LH - 0.65, LW, 'WHAT TO BUY', fc=BLUE)
+section_bar(LX, LY + LH - 0.80, LW, 'WHAT TO BUY', fc=BLUE)
 
 packages = [
-    ('Buy In',          '€5', GOLD,   'Your entry  ·  8 teams across 4 tiers',       True),
-    ('Prediction Pack', '€5', GREEN,  'WC Winner  ·  Golden Boot  ·  Dark Horse',     False),
-    ('Mulligan',        '€3', AMBER,  'Full redraw of all 8 teams  ·  buy multiple',  False),
-    ('9th Team',        '€3', PURPLE, 'Extra team for the knockout stage',             False),
-    ('Resurrection',    '€5', RED,    'Replace one eliminated team',                   False),
-    ('Insurance',       '€2', TEAL,   '+25 pts per Tier 1 team out before R16',       False),
+    ('Buy In',          '€5', GOLD,   'Your entry  ·  8 teams across 4 tiers',      True),
+    ('Prediction Pack', '€5', GREEN,  'WC Winner  ·  Golden Boot  ·  Dark Horse',    False),
+    ('Mulligan',        '€3', AMBER,  'Full redraw of all 8 teams  ·  buy multiple', False),
+    ('9th Team',        '€3', PURPLE, 'Extra team for the knockout stage',            False),
+    ('Resurrection',    '€5', RED,    'Replace one eliminated team',                  False),
+    ('Insurance',       '€2', TEAL,   '+25 pts per Tier 1 team out before R16',      False),
 ]
 
-ROW = 1.02
+ROW = 1.27
 for i, (name, price, colour, desc, highlight) in enumerate(packages):
-    ry = LY + LH - 1.1 - i * ROW
-    # subtle row highlight for Buy In
+    ry = LY + LH - 1.38 - i * ROW
     if highlight:
-        box(LX + 0.1, ry - 0.35, LW - 0.2, 0.78, fc=ACCENT, ec=GOLD, lw=1.0, z=3)
+        box(LX + 0.1, ry - 0.44, LW - 0.2, 0.96, fc=ACCENT, ec=GOLD, lw=1.2, z=3)
     # price pill
-    box(LX + 0.25, ry - 0.28, 0.82, 0.62, fc=colour, ec='none', z=4)
-    t(LX + 0.66, ry + 0.03, price, sz=13, bold=True, ha='center', z=5)
-    # text
-    t(LX + 1.25, ry + 0.18, name, sz=10.5, bold=True, z=4)
-    t(LX + 1.25, ry - 0.08, desc, sz=8.5,  c=MUTED, z=4)
+    box(LX + 0.25, ry - 0.37, 0.98, 0.80, fc=colour, ec='none', z=4)
+    t(LX + 0.74, ry + 0.03, price, sz=17, bold=True, ha='center', z=5)
+    # label + description
+    t(LX + 1.45, ry + 0.22, name, sz=13.5, bold=True,           z=4)
+    t(LX + 1.45, ry - 0.13, desc, sz=11,   c=MUTED,             z=4)
     if i < len(packages) - 1:
-        divider_line(ry - 0.38, x0=LX + 0.15, x1=LX + LW - 0.15)
+        divider(ry - 0.48, LX + 0.15, LX + LW - 0.15)
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# RIGHT PANEL – WHAT TO SEND US
+# RIGHT PANEL — WHAT TO SEND
 # ═══════════════════════════════════════════════════════════════════════════════
-RX, RY, RW, RH = 6.2, 7.8, 5.55, 7.4
+RX, RY, RW, RH = 7.05, 10.05, 6.65, 9.0
 box(RX, RY, RW, RH)
-section_bar(RX, RY + RH - 0.65, RW, 'WHAT TO SEND', fc=GREEN)
+section_bar(RX, RY + RH - 0.80, RW, 'WHAT TO SEND', fc=GREEN)
 
 groups = [
     ('Your name',
-     [('Your full name  (first + last)', WHITE, False)]),
-    ('Payment reference on Revolut Shared Pocket',
-     [('"NAME  -  BUY IN"',              GOLD,  True),
-      ('"NAME  -  BUY IN, PRED PACK"',   GOLD,  True)]),
-    ('Captain picks, Send to me directly',
-     [('Pre-tournament captain',          MUTED, False),
-      ('Knockout stage captain',          MUTED, False)]),
-    ('Predictions, Send to me directly  (Pred Pack buyers)',
-     [('World Cup Winner',                MUTED, False),
-      ('Golden Boot winner',              MUTED, False),
-      ('Dark Horse  (Tier 3 or 4 team)',  MUTED, False)]),
+     [('Your full name  (first + last)',  WHITE, False)]),
+    ('Payment ref on Revolut Shared Pocket',
+     [('"NAME  -  BUY IN"',               GOLD,  True),
+      ('"NAME  -  BUY IN, PRED PACK"',    GOLD,  True)]),
+    ('Captain picks — send to me directly',
+     [('Pre-tournament captain',           MUTED, False),
+      ('Knockout stage captain',           MUTED, False)]),
+    ('Predictions — Pred Pack buyers only',
+     [('World Cup Winner',                 MUTED, False),
+      ('Golden Boot winner',               MUTED, False),
+      ('Dark Horse  (Tier 3 or 4 team)',   MUTED, False)]),
 ]
 
-gy = RY + RH - 1.05
+gy = RY + RH - 1.32
 for gi, (header, bullets) in enumerate(groups):
-    t(RX + 0.35, gy, header, sz=10, bold=True, c=WHITE, z=4)
-    gy -= 0.40
+    t(RX + 0.40, gy, header, sz=12, bold=True, c=WHITE, z=4)
+    gy -= 0.47
     for text, clr, itl in bullets:
-        t(RX + 0.75, gy, f'→  {text}', sz=9, c=clr, italic=itl, z=4)
-        gy -= 0.38
+        t(RX + 0.85, gy, f'→  {text}', sz=11, c=clr, italic=itl, z=4)
+        gy -= 0.44
     if gi < len(groups) - 1:
-        divider_line(gy + 0.08, x0=RX + 0.2, x1=RX + RW - 0.2)
-        gy -= 0.12
+        divider(gy + 0.10, RX + 0.2, RX + RW - 0.2)
+        gy -= 0.18
 
-# Contact strip
-box(RX + 0.2, RY + 0.2, RW - 0.4, 0.95, fc=DIM, ec=GOLD, lw=1.5, z=4)
-t(RX + RW/2, RY + 0.72, 'Send your details to:', sz=8.5, c=MUTED, ha='center', z=5)
-t(RX + RW/2, RY + 0.42, 'oisincarroll296@gmail.com', sz=9.5, c=GOLD, bold=True, ha='center', z=5)
+# Contact box
+box(RX + 0.2, RY + 0.2, RW - 0.4, 1.22, fc=DIM, ec=GOLD, lw=1.8, z=4)
+t(RX + RW / 2, RY + 0.94, 'Send your details to:',     sz=11,  c=MUTED, ha='center', z=5)
+t(RX + RW / 2, RY + 0.54, 'oisincarroll296@gmail.com', sz=12.5, c=GOLD, bold=True, ha='center', z=5)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TIMELINE
 # ═══════════════════════════════════════════════════════════════════════════════
-TX, TY, TW, TH = 0.25, 1.3, W - 0.5, 6.2
+TX, TY, TW, TH = 0.3, 1.2, W - 0.6, 8.65
 box(TX, TY, TW, TH)
-section_bar(TX, TY + TH - 0.65, TW, 'KEY DATES & TIMELINE', fc=PURPLE)
+section_bar(TX, TY + TH - 0.80, TW, 'KEY DATES & TIMELINE', fc=PURPLE)
 
 events = [
-    ('NOW',      'Sign up  ·  Pay your Buy In',                            GOLD),
-    ('11 Jun',   'Tournament begins  —  48 teams, 6 weeks',               BLUE),
-    ('19 Jun',   'All deadlines  —  Buy In, Mulligan, Predictions',       AMBER),
-    ('28 Jun',   'Knockouts begin  —  Ninth Team & KO captain draws',    GREEN),
-    ('29 Jun',   'Resurrection window closes',                            PURPLE),
-    ('19 Jul',   'THE FINAL!',                                            GOLD),
+    ('NOW',     'Sign up  ·  Pay your Buy In',                        GOLD),
+    ('11 Jun',  'Tournament begins  —  48 teams, 6 weeks',            BLUE),
+    ('19 Jun',  'All deadlines  —  Buy In, Mulligan, Predictions',    AMBER),
+    ('28 Jun',  'Knockouts begin  —  Ninth Team & KO captain draws',  GREEN),
+    ('29 Jun',  'Resurrection window closes',                         PURPLE),
+    ('19 Jul',  'THE FINAL!',                                         GOLD),
 ]
 
-DX   = TX + 2.1
-TOP  = TY + TH - 1.1
-BOT  = TY + 0.65
+DX   = TX + 2.6
+TOP  = TY + TH - 1.38
+BOT  = TY + 0.90
 STEP = (TOP - BOT) / (len(events) - 1)
 
-ax.plot([DX, DX], [BOT, TOP], color=BORDER, linewidth=2.5,
+ax.plot([DX, DX], [BOT, TOP], color=BORDER, linewidth=3.0,
         solid_capstyle='round', zorder=3)
 
 for i, (date, desc, colour) in enumerate(events):
     ey = TOP - i * STEP
-    # horizontal tick
-    ax.plot([DX - 0.12, DX + 0.12], [ey, ey], color=colour, linewidth=1.5, zorder=4)
-    ax.plot(DX, ey, 'o', ms=16, color=colour, zorder=5)
-    ax.plot(DX, ey, 'o', ms=7,  color=BG,     zorder=6)
-    t(DX - 0.22, ey, date, sz=9.5, c=colour, bold=True, ha='right', z=5)
-    t(DX + 0.35, ey, desc, sz=9.5, c=WHITE,              ha='left',  z=5)
-
-# Connector label between "NOW" and first match
-ax.annotate('', xy=(DX, TOP - STEP * 0.5),
-            xytext=(DX, TOP - STEP * 0.5 + 0.01),
-            arrowprops=dict(arrowstyle='-', color=BORDER, lw=0))  # no-op spacer
+    ax.plot(DX, ey, 'o', ms=22, color=colour, zorder=5)
+    ax.plot(DX, ey, 'o', ms=10, color=BG,     zorder=6)
+    t(DX - 0.32, ey, date, sz=13.5, c=colour, bold=True, ha='right', z=5)
+    t(DX + 0.45, ey, desc, sz=13.5, c=WHITE,             ha='left',  z=5)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # FOOTER
 # ═══════════════════════════════════════════════════════════════════════════════
-box(0.25, 0.2, W - 0.5, 0.85, fc=DIM, ec=GOLD, lw=1.5, z=2)
-t(W/2, 0.69, 'Live scores, portfolios & full rules:', sz=8.5, c=MUTED, ha='center', z=3)
-t(W/2, 0.39, 'https://fellas-wc2026-sweepstake.streamlit.app/',
-  sz=9.5, c=GOLD, bold=True, ha='center', z=3)
+box(0.3, 0.2, W - 0.6, 0.88, fc=DIM, ec=GOLD, lw=1.8, z=2)
+t(W / 2, 0.68, 'Live scores, portfolios & full rules:', sz=11,  c=MUTED, ha='center', z=3)
+t(W / 2, 0.37, 'https://fellas-wc2026-sweepstake.streamlit.app/', sz=13, c=GOLD, bold=True, ha='center', z=3)
 
-# ── Save ──────────────────────────────────────────────────────────────────────
+# ── Save ───────────────────────────────────────────────────────────────────────
 os.makedirs(os.path.dirname(os.path.abspath(__file__)), exist_ok=True)
 out = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sweepstake_promo.jpg')
 plt.savefig(out, dpi=150, facecolor=BG)
