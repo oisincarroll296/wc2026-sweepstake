@@ -85,4 +85,4 @@ For a long-running tournament:
 python -m pytest -q                      # macOS / Linux
 ```
 
-All 496 tests should pass.
+All 589 tests should pass.

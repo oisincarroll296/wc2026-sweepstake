@@ -47,9 +47,8 @@ This is a **Python + Streamlit** application. The Excel/VBA approach was replace
 | `data/match_stats.csv` | Per-team stats: goals, CS, penalty/comeback wins, RoundReached |
 | `data/match_results.csv` | Raw match-by-match result entries |
 | `data/fixtures.csv` | Full fixture list with match numbers |
-| `data/purchases.csv` | Purchase ledger — see types below |
-| `data/player_status.csv` | PAID / UNPAID per participant |
-| `data/player_picks.csv` | One row per player: PreTournamentCaptain, KnockoutCaptain, WorldCupWinner, GoldenBoot, DarkHorse |
+| `data/purchases.csv` | Purchase ledger — columns: `Player, PurchaseType, Selection, Reference, Timestamp` |
+| `data/players.csv` | One row per player: Status, PaidTimestamp, PreTournamentCaptain, KnockoutCaptain, WorldCupWinner, GoldenBoot, DarkHorse |
 | `data/events.csv` | Draw events (INITIAL_DRAW, GROUP_STAGE_CLOSE, etc.) |
 | `data/audit_log.csv` | Full action audit trail |
 | `data/score_history.csv` | Historical score snapshots (`Date,Player,Points`) |
@@ -224,4 +223,4 @@ Key test files:
 - `tests/test_rules_alignment.py` — 100 rule-alignment tests
 - `tests/test_event_engine.py` — draw event tests (ninth team, resurrection, etc.)
 
-All 599 tests pass as of last run.
+All 589 tests pass as of last run.

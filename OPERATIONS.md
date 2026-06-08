@@ -73,8 +73,8 @@ When a player sends money to the **Shared Revolut Pocket**, go to **Admin → Pu
 
 > **Purchase type casing matters.** Use exactly: `BuyIn`, `PredictionPack`, `Insurance`, `Mulligan`, `NinthTeam`, `Resurrection`. Wrong casing = scoring engine ignores it.
 
-`BuyIn`, `PredictionPack`, and `Insurance` are processed immediately when added.  
-`Mulligan`, `NinthTeam`, and `Resurrection` stay **PENDING** until you run their draw event.
+`BuyIn`, `PredictionPack`, and `Insurance` take effect immediately when added.  
+`Mulligan`, `NinthTeam`, and `Resurrection` require a draw event to be run before they are applied.
 
 ---
 
@@ -100,11 +100,11 @@ Ask each Prediction Pack holder to send you three picks:
 - **Golden Boot** — player name (free text)
 - **Dark Horse** — must be Tier 3 or 4, and a team they do NOT own
 
-Edit `data/player_picks.csv` directly — fill in the `WorldCupWinner`, `GoldenBoot`, and `DarkHorse` columns for each player:
+Edit `data/players.csv` directly — fill in the `WorldCupWinner`, `GoldenBoot`, and `DarkHorse` columns for each player:
 
 ```csv
-Player,PreTournamentCaptain,KnockoutCaptain,WorldCupWinner,GoldenBoot,DarkHorse
-Alice,Brazil,,Brazil,Vinicius Jr,Tunisia
+Player,Status,PaidTimestamp,PreTournamentCaptain,KnockoutCaptain,WorldCupWinner,GoldenBoot,DarkHorse
+Alice,PAID,2026-06-01T10:00:00+01:00,Brazil,,Brazil,Vinicius Jr,Tunisia
 ```
 
 ---
@@ -113,11 +113,11 @@ Alice,Brazil,,Brazil,Vinicius Jr,Tunisia
 
 Deadline: **19 Jun 20:00 UTC+1**
 
-Each player sends you their Pre-Tournament captain. Edit `data/player_picks.csv` directly — fill in the `PreTournamentCaptain` column:
+Each player sends you their Pre-Tournament captain. Edit `data/players.csv` directly — fill in the `PreTournamentCaptain` column:
 
 ```csv
-Player,PreTournamentCaptain,KnockoutCaptain,WorldCupWinner,GoldenBoot,DarkHorse
-Alice,Brazil,,,Brazil,Vinicius Jr
+Player,Status,PaidTimestamp,PreTournamentCaptain,KnockoutCaptain,WorldCupWinner,GoldenBoot,DarkHorse
+Alice,PAID,2026-06-01T10:00:00+01:00,Brazil,,,Brazil,Vinicius Jr
 ```
 
 - Each player gets one Pre-Tournament captain
@@ -229,11 +229,11 @@ A random surviving team the player doesn't already own is assigned to their knoc
 
 Deadline: **28 Jun 20:00 UTC+1** (same as Ninth Team draw)
 
-Ask each player for their Knockout captain pick before the Round of 16 starts. Edit `data/player_picks.csv` — fill in the `KnockoutCaptain` column for each player:
+Ask each player for their Knockout captain pick before the Round of 16 starts. Edit `data/players.csv` — fill in the `KnockoutCaptain` column for each player:
 
 ```csv
-Player,PreTournamentCaptain,KnockoutCaptain,...
-Alice,Brazil,France,...
+Player,Status,PaidTimestamp,PreTournamentCaptain,KnockoutCaptain,...
+Alice,PAID,2026-06-01T10:00:00+01:00,Brazil,France,...
 ```
 
 - Knockout captain earns ×1.5 on that team's knockout points only
@@ -331,8 +331,8 @@ All data is stored in plain CSV files in `data/`. You can edit any of them direc
 | Problem | Fix |
 |---------|-----|
 | Wrong purchase entered | Open `data/purchases.csv`, delete or correct the row, push to git |
-| Wrong captain entered | Edit `data/player_picks.csv` directly |
-| Wrong prediction entered | Edit `data/player_picks.csv` directly (before prediction lock only) |
+| Wrong captain entered | Edit `data/players.csv` directly |
+| Wrong prediction entered | Edit `data/players.csv` directly (before prediction lock only) |
 | Predictions locked too early | Admin → Locking → Unlock Predictions |
 | Buy-ins locked too early | Admin → Locking → Unlock Buy-Ins |
 | Wrong match result | Re-enter via Admin → Results Entry → By Match (overwrites) |
@@ -348,17 +348,15 @@ All data is stored in plain CSV files in `data/`. You can edit any of them direc
 
 | File | What it contains | Updated by |
 |------|-----------------|------------|
-| `data/player_status.csv` | PAID / UNPAID per player | Admin → Purchases (automatic) |
-| `data/purchases.csv` | All purchases | Admin → Purchases |
+| `data/players.csv` | PAID/UNPAID status, captains, predictions (one row per player) | Admin → Purchases (status); edit directly (picks) |
+| `data/purchases.csv` | All purchases — `Player, PurchaseType, Selection, Reference, Timestamp` | Admin → Purchases |
 | `data/allocation.csv` | Which 8 teams each player owns | Admin → Draw Events (INITIAL_DRAW) |
 | `data/match_results.csv` | Raw match-by-match results | Admin → Results Entry |
 | `data/match_stats.csv` | Cumulative per-team stats | Auto-calculated from match_results |
-| `data/player_picks.csv` | Captain selections + predictions (one row per player) | Edit directly |
 | `data/events.csv` | Event log (with seeds) | Automatic |
 | `data/audit_log.csv` | Full action audit trail | Automatic |
 | `data/score_history.csv` | Historical score snapshots | Automatic |
 | `data/deadlines.json` | Deadline timestamps | Admin → Deadlines |
-| `data/purchases.csv` | Purchase ledger | Admin → Purchases |
 
 ---
 
@@ -405,7 +403,7 @@ All data is stored in plain CSV files in `data/`. You can edit any of them direc
 | Dark Horse reaches Final | +40 |
 | Dark Horse wins | +50 |
 
-Dark Horse bonuses are cumulative — if your dark horse wins, you get +50 (not +15+30+40+50).  
+Dark Horse bonuses are additive — if your dark horse wins, you get +15+30+40+50 = +135 total.  
 Dark Horse must be Tier 3 or 4, and a team you do not own.
 
 ### Tiebreakers (in order)

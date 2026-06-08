@@ -42,7 +42,7 @@ dashboard/      Streamlit application
   pages/        — one file per page
   components/   — shared UI helpers
   assets/       — CSS
-tests/          496 tests (pytest)
+tests/          589 tests (pytest)
 exports/        Draw results, VAR Room exports
 ```
 

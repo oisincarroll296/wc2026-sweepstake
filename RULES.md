@@ -214,11 +214,13 @@ All Mulligans purchased before the deadline are processed together in a single d
 
 Available before the opening match.
 
-If either of your original Tier 1 teams is eliminated during the Group Stage, you receive:
+If one of your original Tier 1 teams is eliminated during the Group Stage, you receive:
 
 **+25 points**
 
-This bonus can only trigger once.
+If both of your original Tier 1 teams are eliminated during the Group Stage, you receive:
+
+**+50 points**
 
 Round of 16 elimination does not qualify.
 
