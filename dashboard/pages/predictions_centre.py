@@ -8,7 +8,7 @@ import pandas as pd
 
 from dashboard.data import (
     get_predictions_centre_data, is_predictions_locked,
-    get_predictions, get_participants,
+    get_predictions, get_participants, get_purchases,
     get_deadlines, countdown,
 )
 from dashboard.components.ui import page_header, empty_state
@@ -55,25 +55,42 @@ else:
 
     # Show who has submitted without revealing what they picked
     st.subheader("Pack Holders")
-    if preds_df.empty or participants == []:
-        empty_state("No predictions submitted yet.")
-    else:
-        submitted = set(preds_df["Player"].tolist()) if not preds_df.empty else set()
-        rows = []
-        for p in sorted(participants):
-            has_pack = not preds_df.empty and p in submitted
-            rows.append({"Player": p, "Status": "Submitted" if has_pack else "No Pack"})
-        status_df = pd.DataFrame(rows)
-
-        def _style(row):
-            if row["Status"] == "Submitted":
-                return ["", "color: #6EE7B7; font-weight: 600"]
-            return ["", "color: #6B7280"]
-
-        st.dataframe(
-            status_df.style.apply(_style, axis=1),
-            use_container_width=True, hide_index=True,
+    purchases_df = get_purchases()
+    pack_holders: set[str] = set()
+    if not purchases_df.empty and "PurchaseType" in purchases_df.columns:
+        pack_holders = set(
+            purchases_df[purchases_df["PurchaseType"] == "PredictionPack"]["Player"].tolist()
         )
+
+    def _has_picks(player: str) -> bool:
+        if preds_df.empty:
+            return False
+        row = preds_df[preds_df["Player"] == player]
+        if row.empty:
+            return False
+        r = row.iloc[0]
+        return any(str(r.get(col, "")).strip() for col in ["WorldCupWinner", "GoldenBoot", "DarkHorse"])
+
+    rows = []
+    for p in sorted(participants):
+        if p in pack_holders:
+            status = "Submitted ✓" if _has_picks(p) else "Pending"
+        else:
+            status = "No Pack"
+        rows.append({"Player": p, "Status": status})
+    status_df = pd.DataFrame(rows)
+
+    def _style(row):
+        if row["Status"].startswith("Submitted"):
+            return ["", "color: #6EE7B7; font-weight: 600"]
+        if row["Status"] == "Pending":
+            return ["", "color: #D4A017"]
+        return ["", "color: #6B7280"]
+
+    st.dataframe(
+        status_df.style.apply(_style, axis=1),
+        use_container_width=True, hide_index=True,
+    )
     st.stop()
 
 # ── Predictions revealed ───────────────────────────────────────────────────

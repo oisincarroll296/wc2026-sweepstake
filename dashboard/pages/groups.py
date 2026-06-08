@@ -183,11 +183,19 @@ with tab_fixtures:
         st.info("Fixture data not found.")
     else:
         all_owned = {t for ts in assignments.values() for t in ts} if assignments else set()
+        tier_map_local = {str(r["Team"]): int(r.get("Tier", 4)) for _, r in teams_df.iterrows()}
 
-        # Entered match numbers
+        # Entered match numbers → score lookup
         entered_nums: set = set()
+        score_lookup: dict[int, tuple[int, int]] = {}
         if not results_df.empty and "match_number" in results_df.columns:
-            entered_nums = set(results_df["match_number"].dropna().astype(int).tolist())
+            for _, rr in results_df.iterrows():
+                mn_r = int(pd.to_numeric(rr.get("match_number", 0), errors="coerce") or 0)
+                if mn_r:
+                    entered_nums.add(mn_r)
+                    hg = int(float(rr.get("home_goals", 0) or 0))
+                    ag = int(float(rr.get("away_goals", 0) or 0))
+                    score_lookup[mn_r] = (hg, ag)
 
         viewer = st.session_state.get("viewer")
         viewer_teams: set = set(assignments.get(viewer, [])) if viewer else set()
@@ -195,10 +203,10 @@ with tab_fixtures:
         today = date.today()
         col1, col2 = st.columns([2, 1])
         with col1:
-            days_ahead = st.slider("Show fixtures for next N days", 1, 21, 7)
+            days_ahead = st.slider("Show fixtures for next N days", 1, 30, 14)
         with col2:
             toggle_label = (
-                f"Only {viewer}'s matches" if viewer else "Only my teams' matches"
+                f"Only {viewer}'s matches" if viewer else "Sweepstake matches only"
             )
             owned_only = st.toggle(
                 toggle_label, value=False,
@@ -225,59 +233,118 @@ with tab_fixtures:
                 ]
                 upcoming = relevant if not relevant.empty else upcoming
 
+            # Summary line
+            sweepstake_count = int(
+                upcoming["home_team"].isin(all_owned).sum() +
+                upcoming[~upcoming["home_team"].isin(all_owned)]["away_team"].isin(all_owned).sum()
+            ) if all_owned else 0
+            total_count = len(upcoming)
+            completed_count = sum(1 for mn in upcoming["match_number"].dropna().astype(int) if mn in entered_nums)
+            st.markdown(
+                f'<div style="color:#9CA3AF;font-size:0.8rem;margin-bottom:0.6rem">'
+                f'{total_count} fixtures · {completed_count} completed · '
+                f'{sweepstake_count} with sweepstake teams'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+            def _tier_badge(team: str) -> str:
+                tier = tier_map_local.get(team, 0)
+                if not tier:
+                    return ""
+                color = TIER_COLORS.get(tier, "#9CA3AF")
+                return (
+                    f'<span style="background:{color}33;color:{color};font-size:0.58rem;'
+                    f'font-weight:700;border-radius:3px;padding:1px 4px;margin-right:3px">T{tier}</span>'
+                )
+
             for match_date in sorted(upcoming["match_date"].unique()):
                 day_matches = upcoming[upcoming["match_date"] == match_date]
                 _ts = pd.Timestamp(match_date)
-                day_label = f"{_ts.day} {_ts.strftime('%b')}"
+                is_today = match_date == today
+                day_label = ("Today · " if is_today else "") + f"{_ts.day} {_ts.strftime('%b %Y')}"
                 st.markdown(
                     f'<div style="color:#D4A017;font-weight:700;font-size:0.88rem;'
-                    f'margin:0.75rem 0 0.3rem;border-bottom:1px solid #2A3A4A;padding-bottom:0.15rem">'
+                    f'margin:0.9rem 0 0.35rem;border-bottom:1px solid #2A3A4A;padding-bottom:0.15rem">'
                     f'{day_label}</div>',
                     unsafe_allow_html=True,
                 )
                 for _, m in day_matches.iterrows():
-                    home  = m["home_team"]
-                    away  = m["away_team"]
-                    grp   = m.get("group", "")
-                    venue = m.get("venue", "")
+                    home  = str(m.get("home_team", ""))
+                    away  = str(m.get("away_team", ""))
+                    grp   = str(m.get("group", "")).strip()
+                    venue = str(m.get("venue", "")).strip()
                     mn    = int(pd.to_numeric(m["match_number"], errors="coerce") or 0)
                     done  = mn in entered_nums
 
-                    # Get score if entered
-                    score_html = ""
-                    if done and not results_df.empty:
-                        rr = results_df[results_df["match_number"] == mn]
-                        if not rr.empty:
-                            hg = int(float(rr.iloc[0].get("home_goals", 0) or 0))
-                            ag = int(float(rr.iloc[0].get("away_goals", 0) or 0))
-                            score_html = (
-                                f'<span style="color:#6EE7B7;font-size:0.78rem;'
-                                f'font-weight:700;margin:0 0.4rem">{hg}–{ag}</span>'
-                            )
-
                     home_owned = home in all_owned
                     away_owned = away in all_owned
-                    border = "border:1px solid #D4A017;" if (home_owned or away_owned) else ""
-                    home_col = "#D4A017" if home_owned else "#F5F5F5"
-                    away_col = "#D4A017" if away_owned else "#F5F5F5"
                     home_owners = ", ".join(ownership.get(home, []))
                     away_owners = ", ".join(ownership.get(away, []))
-                    home_note = f'<span style="color:#6EE7B7;font-size:0.65rem"> ({home_owners})</span>' if home_owners else ""
-                    away_note = f'<span style="color:#6EE7B7;font-size:0.65rem"> ({away_owners})</span>' if away_owners else ""
-                    done_dot  = '<span style="color:#6EE7B7;font-size:0.7rem">✓</span>' if done else ""
+
+                    # Score or VS
+                    if done and mn in score_lookup:
+                        hg, ag = score_lookup[mn]
+                        mid_html = (
+                            f'<div style="text-align:center;min-width:3.5rem">'
+                            f'<span style="color:#6EE7B7;font-size:1rem;font-weight:800">'
+                            f'{hg} – {ag}</span>'
+                            f'<div style="color:#6EE7B7;font-size:0.58rem">FT</div>'
+                            f'</div>'
+                        )
+                    else:
+                        mid_html = (
+                            f'<div style="text-align:center;min-width:3.5rem">'
+                            f'<span style="color:#4B5563;font-size:0.85rem;font-weight:600">vs</span>'
+                            f'</div>'
+                        )
+
+                    border_style = "border:1px solid #D4A017;" if (home_owned or away_owned) else "border:1px solid #2A3A4A;"
+                    home_name_col = "#D4A017" if home_owned else "#F1F5F9"
+                    away_name_col = "#D4A017" if away_owned else "#F1F5F9"
+
+                    round_label = f"Group {grp}" if grp else "Knockout"
+                    venue_short = venue.replace(" Stadium", "").replace(" Estadio", "") if venue else ""
+
+                    home_owner_html = (
+                        f'<div style="color:#6EE7B7;font-size:0.65rem;margin-top:2px">{home_owners}</div>'
+                        if home_owners else '<div style="font-size:0.65rem"> </div>'
+                    )
+                    away_owner_html = (
+                        f'<div style="color:#6EE7B7;font-size:0.65rem;margin-top:2px">{away_owners}</div>'
+                        if away_owners else '<div style="font-size:0.65rem"> </div>'
+                    )
 
                     st.markdown(
-                        f'<div style="background:#1E2937;border-radius:6px;padding:0.4rem 0.7rem;'
-                        f'margin:0.2rem 0;display:flex;align-items:center;gap:0.4rem;{border}">'
-                        f'<span style="color:#6B7280;font-size:0.68rem;min-width:2rem">G{grp}</span>'
-                        f'<span style="color:{home_col};font-weight:600;font-size:0.83rem">{home}</span>'
-                        f'{home_note}{score_html}'
-                        f'<span style="color:#6B7280;font-size:0.75rem">v</span>'
-                        f'<span style="color:{away_col};font-weight:600;font-size:0.83rem">{away}</span>'
-                        f'{away_note}'
-                        f'<span style="margin-left:auto;display:flex;gap:0.3rem;align-items:center">'
-                        f'<span style="color:#4B5563;font-size:0.65rem">{venue}</span>'
-                        f'{done_dot}</span>'
+                        f'<div style="background:#1E2937;border-radius:7px;padding:0.55rem 0.8rem;'
+                        f'margin:0.25rem 0;{border_style}">'
+                        # top row: round label + venue
+                        f'<div style="display:flex;justify-content:space-between;'
+                        f'margin-bottom:0.35rem;align-items:center">'
+                        f'<span style="color:#6B7280;font-size:0.65rem">{round_label}</span>'
+                        f'<span style="color:#4B5563;font-size:0.63rem">{venue_short}</span>'
+                        f'</div>'
+                        # match row: home | score | away
+                        f'<div style="display:flex;align-items:center;gap:0.5rem">'
+                        # home side
+                        f'<div style="flex:1;text-align:right">'
+                        f'<div style="display:flex;align-items:center;justify-content:flex-end;gap:4px">'
+                        f'{_tier_badge(home)}'
+                        f'<span style="color:{home_name_col};font-weight:700;font-size:0.88rem">{home}</span>'
+                        f'</div>'
+                        f'{home_owner_html}'
+                        f'</div>'
+                        # score / vs
+                        f'{mid_html}'
+                        # away side
+                        f'<div style="flex:1;text-align:left">'
+                        f'<div style="display:flex;align-items:center;gap:4px">'
+                        f'<span style="color:{away_name_col};font-weight:700;font-size:0.88rem">{away}</span>'
+                        f'{_tier_badge(away)}'
+                        f'</div>'
+                        f'{away_owner_html}'
+                        f'</div>'
+                        f'</div>'
                         f'</div>',
                         unsafe_allow_html=True,
                     )

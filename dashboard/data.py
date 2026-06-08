@@ -264,7 +264,7 @@ def get_fixtures() -> pd.DataFrame:
     try:
         df = pd.read_csv(p, dtype=str).fillna("")
         df["match_number"] = pd.to_numeric(df["match_number"], errors="coerce").astype("Int64")
-        df["match_date"]   = pd.to_datetime(df["match_date"], errors="coerce").dt.date
+        df["match_date"]   = pd.to_datetime(df["match_date"], dayfirst=True, errors="coerce").dt.date
         return df
     except Exception:
         return pd.DataFrame()
