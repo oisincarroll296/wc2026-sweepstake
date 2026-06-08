@@ -12,7 +12,8 @@ from dashboard.data import (
     get_overall_leaderboard, get_prize_pool, get_match_stats,
     get_tier_map, get_team_ownership_data, get_predictions_centre_data,
     get_captains, get_purchases, get_statuses, is_predictions_locked,
-    get_remaining_potential, get_goals_conceded_map, get_score_history,
+    get_remaining_potential, get_remaining_potential_detail,
+    get_goals_conceded_map, get_score_history,
     get_assignments, get_insurance_overview,
 )
 from dashboard.config import PLOTLY_LAYOUT, TIER_COLORS, COLORS
@@ -332,28 +333,124 @@ else:
 st.divider()
 
 # ── 8. Remaining Potential ─────────────────────────────────────────────────
-st.subheader("🎯 Remaining Potential (Max Pts Still Earnable)")
-_potential = get_remaining_potential()
-if _potential:
-    _pot_df = pd.DataFrame(
-        sorted(_potential.items(), key=lambda x: -x[1]),
-        columns=["Player", "Potential"],
+st.subheader("🎯 Remaining Potential")
+_pot_detail = get_remaining_potential_detail()
+
+if _pot_detail:
+    # Sort players by max possible total descending
+    _pot_players = sorted(
+        _pot_detail.keys(),
+        key=lambda p: -_pot_detail[p]["max_possible_total"],
     )
-    _pot_colors = [COLORS["gold"] if r["Potential"] == _pot_df["Potential"].max()
-                   else "#4A6FA5" for _, r in _pot_df.iterrows()]
-    fig_pot = go.Figure(go.Bar(
-        x=_pot_df["Player"].tolist(),
-        y=_pot_df["Potential"].tolist(),
-        marker_color=_pot_colors,
+    _current_scores = [_pot_detail[p]["current_score"] for p in _pot_players]
+    _max_potentials = [_pot_detail[p]["max_potential"] for p in _pot_players]
+
+    # Stacked bar: current score (solid) + max potential (semi-transparent)
+    _fig_pot = go.Figure()
+    _fig_pot.add_trace(go.Bar(
+        name="Current Score",
+        x=_pot_players,
+        y=_current_scores,
+        marker_color=COLORS["gold"],
+        hovertemplate="%{x}: %{y:.0f} pts current<extra></extra>",
+    ))
+    _fig_pot.add_trace(go.Bar(
+        name="Max Remaining",
+        x=_pot_players,
+        y=_max_potentials,
+        marker_color="rgba(74,111,165,0.55)",
         hovertemplate="%{x}: +%{y:.0f} pts max remaining<extra></extra>",
     ))
     _pot_layout = {**PLOTLY_LAYOUT}
-    _pot_layout.update(title="Max Remaining Potential by Player", height=320, yaxis_title="Potential Pts")
-    fig_pot.update_layout(**_pot_layout)
-    st.plotly_chart(fig_pot, use_container_width=True)
-    st.caption("Based on progression bonuses for rounds each surviving team can still reach. Estimate — does not account for teams that have already been eliminated.")
-else:
-    empty_state("Potential calculated from active teams. No match data yet.")
+    _pot_layout.update(
+        barmode="stack",
+        title="Current Score + Max Possible Remaining (progression bonuses only)",
+        height=360,
+        yaxis_title="Points",
+        legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(size=11), orientation="h", y=-0.15),
+    )
+    _fig_pot.update_layout(**_pot_layout)
+    st.plotly_chart(_fig_pot, use_container_width=True)
+    st.caption(
+        "Gold = current points. Blue = maximum remaining if every surviving team wins the tournament. "
+        "Minimum remaining is 0 — any alive team can be knocked out next game."
+    )
+
+    # ── Breakdown table ──────────────────────────────────────────────────────
+    st.markdown("**Breakdown by surviving team**")
+
+    _ROUND_LABEL_SHORT = {
+        "": "Not started", "GroupStage": "Group stage",
+        "R16": "Round of 16", "QF": "Quarter-final",
+        "SF": "Semi-final", "Final": "Final", "Winner": "Champion",
+    }
+    _TIER_COLORS_HEX = {1: "#105AAC", 2: "#15803D", 3: "#A16207", 4: "#B91C1C"}
+
+    # Rank order from leaderboard for consistent player ordering
+    _lb_order = {p: i for i, p in enumerate(lb["Player"].tolist())} if not lb.empty else {}
+    _breakdown_rows = []
+    for _pl in sorted(_pot_detail.keys(), key=lambda p: _lb_order.get(p, 99)):
+        _info = _pot_detail[_pl]
+        for _t in _info["teams"]:
+            if not _t["alive"]:
+                continue
+            _breakdown_rows.append({
+                "_player":  _pl,
+                "_team":    _t["team"],
+                "_tier":    _t["tier"],
+                "_rnd":     _t["round_reached"],
+                "_max":     _t["max_remaining"],
+            })
+
+    if _breakdown_rows:
+        # Render as styled HTML cards — one row per alive team
+        _html_rows = []
+        _prev_player = None
+        for _br in _breakdown_rows:
+            _pl_label = (
+                f'<td style="color:#D4A017;font-weight:700;font-size:0.78rem;'
+                f'padding:0.3rem 0.5rem;white-space:nowrap">{_br["_player"]}</td>'
+                if _br["_player"] != _prev_player else
+                '<td style="padding:0.3rem 0.5rem"></td>'
+            )
+            _prev_player = _br["_player"]
+            _tc = _TIER_COLORS_HEX.get(_br["_tier"], "#9CA3AF")
+            _rnd_lbl = _ROUND_LABEL_SHORT.get(_br["_rnd"], _br["_rnd"])
+            _max_str = f"+{_br['_max']:.0f}" if _br["_max"] > 0 else "—"
+            _max_col = "#6EE7B7" if _br["_max"] > 0 else "#6B7280"
+            _html_rows.append(
+                f'<tr>'
+                f'{_pl_label}'
+                f'<td style="padding:0.3rem 0.5rem">'
+                f'<span style="background:{_tc}22;color:{_tc};border-radius:3px;'
+                f'font-size:0.62rem;font-weight:700;padding:1px 4px;margin-right:4px">T{_br["_tier"]}</span>'
+                f'<span style="color:#F5F5F5;font-size:0.8rem">{_br["_team"]}</span>'
+                f'</td>'
+                f'<td style="color:#9CA3AF;font-size:0.75rem;padding:0.3rem 0.5rem">{_rnd_lbl}</td>'
+                f'<td style="color:{_max_col};font-size:0.8rem;font-weight:700;'
+                f'padding:0.3rem 0.5rem;text-align:right">{_max_str} pts</td>'
+                f'</tr>'
+            )
+
+        _table_html = (
+            '<table style="width:100%;border-collapse:collapse;background:#131B2A">'
+            '<thead><tr>'
+            '<th style="color:#6B7280;font-size:0.7rem;font-weight:600;padding:0.3rem 0.5rem;'
+            'text-align:left;border-bottom:1px solid #2A3A4A">Player</th>'
+            '<th style="color:#6B7280;font-size:0.7rem;font-weight:600;padding:0.3rem 0.5rem;'
+            'text-align:left;border-bottom:1px solid #2A3A4A">Team</th>'
+            '<th style="color:#6B7280;font-size:0.7rem;font-weight:600;padding:0.3rem 0.5rem;'
+            'text-align:left;border-bottom:1px solid #2A3A4A">Current Round</th>'
+            '<th style="color:#6B7280;font-size:0.7rem;font-weight:600;padding:0.3rem 0.5rem;'
+            'text-align:right;border-bottom:1px solid #2A3A4A">Max Remaining</th>'
+            '</tr></thead>'
+            '<tbody>' + "".join(_html_rows) + '</tbody>'
+            '</table>'
+        )
+        st.markdown(_table_html, unsafe_allow_html=True)
+        st.caption("Max remaining = progression bonuses if this team wins the tournament from here. Excludes match points (goals, clean sheets) which are unpredictable.")
+    else:
+        st.info("No surviving teams yet — breakdown appears once the knockout stage begins.")
 
 st.divider()
 

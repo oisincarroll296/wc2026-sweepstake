@@ -415,38 +415,82 @@ def get_goals_conceded_map() -> dict[str, int]:
 
 @st.cache_data(ttl=30)
 def get_remaining_potential() -> dict[str, float]:
-    """Max additional progression points each player could earn from still-surviving teams.
+    """Max additional progression points each player could earn from still-surviving teams."""
+    detail = get_remaining_potential_detail()
+    return {p: d["max_potential"] for p, d in detail.items()}
 
-    A team is considered 'still alive' if its RoundReached is not GroupStage or R16
-    (i.e., it is currently at QF or beyond but hasn't been marked as Winner yet).
-    This is an estimate — it assumes all QF+ teams can still progress further.
+
+@st.cache_data(ttl=30)
+def get_remaining_potential_detail() -> dict:
+    """Per-player, per-team remaining potential with current score context.
+
+    Returns:
+        { player: {
+            current_score: float,
+            max_potential: float,
+            max_possible_total: float,
+            alive_count: int,
+            teams: [ {team, tier, round_reached, alive, max_remaining} ]
+          }
+        }
+    Min remaining is always 0 (a team can be knocked out next match).
+    Max remaining assumes every surviving team wins the tournament.
     """
     from src.scoring_engine import PROGRESSION_BONUSES, ROUND_ORDER, KNOCKOUT_ROUNDS
     assignments = get_assignments()
     match_stats = get_match_stats()
     tier_map    = get_tier_map()
+    lb          = get_overall_leaderboard()
 
-    ELIMINATED_ROUNDS = {"GroupStage", "R16"}
+    score_map: dict[str, float] = {}
+    if not lb.empty and "TotalPoints" in lb.columns:
+        score_map = dict(zip(lb["Player"], lb["TotalPoints"].astype(float)))
 
-    result: dict[str, float] = {}
+    ELIMINATED = {"GroupStage", "R16"}
+
+    result: dict = {}
     for player, teams in assignments.items():
-        potential = 0.0
+        current_score = score_map.get(player, 0.0)
+        max_potential = 0.0
+        team_details  = []
+
         for team in teams:
             if match_stats.empty:
+                td = {"team": team, "tier": tier_map.get(team, 1),
+                      "round_reached": "", "alive": True, "max_remaining": 0.0}
+                team_details.append(td)
                 continue
             row = match_stats[match_stats["Team"] == team]
             if row.empty:
                 continue
             rnd  = str(row.iloc[0].get("RoundReached", "") or "").strip()
-            if rnd in ELIMINATED_ROUNDS or rnd == "Winner":
-                continue
             tier = tier_map.get(team, 1)
             bonuses = PROGRESSION_BONUSES.get(tier, {})
-            current_idx = ROUND_ORDER.index(rnd) if rnd in ROUND_ORDER else 0
-            for ko_rnd in KNOCKOUT_ROUNDS:
-                if ROUND_ORDER.index(ko_rnd) > current_idx:
-                    potential += float(bonuses.get(ko_rnd, 0))
-        result[player] = potential
+
+            alive = rnd not in ELIMINATED and rnd != "Winner"
+            if alive and rnd in ROUND_ORDER:
+                current_idx = ROUND_ORDER.index(rnd)
+                team_max = sum(
+                    float(bonuses.get(ko_rnd, 0))
+                    for ko_rnd in KNOCKOUT_ROUNDS
+                    if ROUND_ORDER.index(ko_rnd) > current_idx
+                )
+            else:
+                team_max = 0.0
+
+            max_potential += team_max
+            team_details.append({
+                "team": team, "tier": tier, "round_reached": rnd,
+                "alive": alive, "max_remaining": team_max,
+            })
+
+        result[player] = {
+            "current_score":      current_score,
+            "max_potential":      max_potential,
+            "max_possible_total": current_score + max_potential,
+            "alive_count":        sum(1 for t in team_details if t["alive"]),
+            "teams":              sorted(team_details, key=lambda x: (-x["max_remaining"], x["team"])),
+        }
     return result
 
 
