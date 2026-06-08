@@ -1,21 +1,22 @@
 Team,GroupGoals,GroupCleanSheets,GroupPenaltyWins,GroupComebackWins,GroupWinner,KnockoutGoals,KnockoutCleanSheets,KnockoutPenaltyWins,KnockoutComebackWins,RoundReached
-France,7,2,0,1,1,3,1,0,1,QF
-Spain,13,3,0,0,1,6,1,0,0,QF
-Argentina,7,2,0,0,1,3,2,0,1,QF
-England,12,2,0,1,1,4,2,0,1,QF
-Portugal,7,2,0,1,1,3,0,0,0,R16
+France,7,2,0,1,1,9,3,0,2,SF
+England,12,2,0,1,1,9,3,0,1,SF
+Spain,13,3,0,0,1,11,3,0,0,SF
+Argentina,7,2,0,0,1,8,4,1,2,SF
 Brazil,7,3,0,1,1,5,2,0,0,QF
-Netherlands,10,3,0,0,1,3,1,0,0,R16
 Morocco,13,3,0,1,0,5,2,0,1,QF
-Belgium,5,2,0,0,1,3,1,0,0,R16
 Germany,10,3,0,1,1,6,2,0,1,QF
+Norway,5,2,0,1,1,3,1,1,0,QF
+Portugal,7,2,0,1,1,3,0,0,0,R16
+Netherlands,10,3,0,0,1,3,1,0,0,R16
+Belgium,5,2,0,0,1,3,1,0,0,R16
 Croatia,9,2,0,0,0,3,0,0,0,R16
-Colombia,7,0,0,0,0,0,0,0,0,GroupStage
-Senegal,7,0,0,0,0,0,0,0,0,GroupStage
-Mexico,6,2,0,0,0,0,0,0,0,GroupStage
 USA,10,1,0,1,0,3,1,0,0,R16
 Uruguay,6,2,0,1,0,1,0,0,0,R16
 Japan,10,2,0,1,0,3,1,0,0,R16
+Colombia,7,0,0,0,0,0,0,0,0,GroupStage
+Senegal,7,0,0,0,0,0,0,0,0,GroupStage
+Mexico,6,2,0,0,0,0,0,0,0,GroupStage
 Switzerland,6,1,0,0,0,0,0,0,0,GroupStage
 IR Iran,5,2,0,0,0,0,0,0,0,GroupStage
 Tuerkiye,5,2,0,0,0,0,0,0,0,GroupStage
@@ -26,7 +27,6 @@ Australia,1,0,0,0,0,0,0,0,0,GroupStage
 Algeria,2,2,0,0,0,0,0,0,0,GroupStage
 Egypt,5,1,0,0,0,0,0,0,0,GroupStage
 Canada,7,2,0,0,0,0,0,0,0,GroupStage
-Norway,5,2,0,1,1,3,1,1,0,QF
 Panama,7,1,0,0,0,0,0,0,0,GroupStage
 Cote d Ivoire,5,2,0,0,0,0,0,0,0,GroupStage
 Sweden,1,1,0,0,0,0,0,0,0,GroupStage

@@ -16,19 +16,11 @@ env/
 .streamlit/secrets.toml
 
 # ── Personal data ─────────────────────────────────────────────────────────────
-# These lines keep personal data OUT of a PUBLIC repo.
-# If you are deploying from a PRIVATE repo (recommended for Streamlit Cloud),
-# delete or comment out this entire block so the data files are committed
-# and the live dashboard has real scores.
-data/purchases.csv
-data/player_status.csv
-data/predictions.csv
-data/captains.csv
-data/audit_log.csv
-data/events.csv
-data/allocation.csv
+# Private repo — data files ARE committed so Streamlit Cloud can read them.
+# Operational files that don't need to be on Cloud are still excluded below.
 data/payment_ledger.csv
 data/*_lock.txt
+simulate_sf_stage.py
 
 # ── Claude Code local settings ───────────────────────────────────────────────
 .claude/
