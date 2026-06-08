@@ -76,7 +76,9 @@ def get_assignments() -> dict[str, list[str]]:
 
 @st.cache_data(ttl=30)
 def get_prize_pool() -> dict:
-    return calculate_prize_pool(get_purchases())
+    # Load directly — avoids nested @st.cache_data call which can return
+    # a stale/empty result on first render before the inner cache is primed.
+    return calculate_prize_pool(load_purchases())
 
 
 @st.cache_data(ttl=30)
