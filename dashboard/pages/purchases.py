@@ -26,12 +26,12 @@ if not statuses.empty:
         status_map[r["Player"]] = r.get("Status", "UNPAID")
 
 PTYPES = [
-    ("BUYIN",        "Buy In",      5),
-    ("PACK",         "Pack",        5),
-    ("INSURANCE",    "Insurance",   2),
-    ("MULLIGAN",     "Mulligan",    3),
-    ("NINTH",        "Ninth",       3),
-    ("RESURRECTION", "Resurrection",5),
+    ("BuyIn",         "Buy In",       5),
+    ("PredictionPack","Pack",         5),
+    ("Insurance",     "Insurance",    2),
+    ("Mulligan",      "Mulligan",     3),
+    ("NinthTeam",     "Ninth",        3),
+    ("Resurrection",  "Resurrection", 5),
 ]
 COSTS = {pt: cost for pt, _, cost in PTYPES}
 
@@ -90,13 +90,13 @@ st.divider()
 n = len(participants)
 c1, c2, c3, c4 = st.columns(4)
 with c1:
-    paid_in = sum(1 for p in participants if "BUYIN" in processed.get(p, set()))
+    paid_in = sum(1 for p in participants if "BuyIn" in processed.get(p, set()))
     st.metric("Bought In", f"{paid_in} / {n}")
 with c2:
-    has_pack = sum(1 for p in participants if "PACK" in processed.get(p, set()))
+    has_pack = sum(1 for p in participants if "PredictionPack" in processed.get(p, set()))
     st.metric("Prediction Packs", f"{has_pack} / {n}")
 with c3:
-    has_insurance = sum(1 for p in participants if "INSURANCE" in processed.get(p, set()))
+    has_insurance = sum(1 for p in participants if "Insurance" in processed.get(p, set()))
     st.metric("Insurance", f"{has_insurance} / {n}")
 with c4:
     total_collected = sum(
