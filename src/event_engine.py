@@ -29,20 +29,18 @@ _ROOT = Path(__file__).parent.parent
 DATA_DIR    = _ROOT / "data"
 EXPORTS_DIR = _ROOT / "exports"
 
-ALLOCATION_PATH          = DATA_DIR / "allocation.csv"
-PAYMENT_LEDGER_PATH      = DATA_DIR / "payment_ledger.csv"
-MULLIGAN_RESULTS_PATH    = EXPORTS_DIR / "mulligan_results.csv"
-NINTH_RESULTS_PATH       = EXPORTS_DIR / "ninth_team_results.csv"
+ALLOCATION_PATH           = DATA_DIR / "allocation.csv"
+PAYMENT_LEDGER_PATH       = DATA_DIR / "payment_ledger.csv"
+MULLIGAN_RESULTS_PATH     = EXPORTS_DIR / "mulligan_results.csv"
+NINTH_RESULTS_PATH        = EXPORTS_DIR / "ninth_team_results.csv"
 RESURRECTION_RESULTS_PATH = EXPORTS_DIR / "resurrection_results.csv"
-RANDOM_SEEDS_PATH        = EXPORTS_DIR / "random_seeds.csv"
-TEAM_OWNERSHIP_PATH      = EXPORTS_DIR / "team_ownership.csv"
-PREDICTIONS_LOCK_PATH    = DATA_DIR / "predictions_lock.txt"
-BUYIN_LOCK_PATH          = DATA_DIR / "buyin_lock.txt"
+RANDOM_SEEDS_PATH         = EXPORTS_DIR / "random_seeds.csv"
+TEAM_OWNERSHIP_PATH       = EXPORTS_DIR / "team_ownership.csv"
 
 PURCHASES_PATH = DATA_DIR / "purchases.csv"
 EVENTS_PATH    = DATA_DIR / "events.csv"
 AUDIT_LOG_PATH = DATA_DIR / "audit_log.csv"
-STATUS_PATH    = DATA_DIR / "player_status.csv"
+STATUS_PATH    = DATA_DIR / "players.csv"
 
 # Purchase types processed immediately (no draw required)
 _IMMEDIATE_TYPES = frozenset({"BuyIn", "PredictionPack", "Insurance"})
@@ -510,7 +508,6 @@ def lock_predictions(
     eid = uevents.iloc[-1]["EventID"]
     uevents = update_event_status(eid, "EXECUTED", uevents, executed_time=ts)
     ulog = log_action("PREDICTION_LOCK", "", "PREDICTIONS_LOCKED", ts, audit_log, ts)
-    PREDICTIONS_LOCK_PATH.write_text(ts, encoding="utf-8")
     return uevents, ulog
 
 
@@ -526,7 +523,6 @@ def lock_buyins(
     eid = uevents.iloc[-1]["EventID"]
     uevents = update_event_status(eid, "EXECUTED", uevents, executed_time=ts)
     ulog = log_action("BUYIN_LOCK", "", "BUYINS_LOCKED", ts, audit_log, ts)
-    BUYIN_LOCK_PATH.write_text(ts, encoding="utf-8")
     return statuses, uevents, ulog
 
 # ---------------------------------------------------------------------------

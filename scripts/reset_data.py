@@ -37,16 +37,16 @@ def reset():
 
     import pandas as pd
 
-    # ── Player status: keep names, reset to UNPAID ──────────────────────────
-    status_path = DATA / "player_status.csv"
+    # ── Player status: keep names/picks, reset to UNPAID ────────────────────
+    status_path = DATA / "players.csv"
     if status_path.exists():
         df = pd.read_csv(status_path, dtype=str).fillna("")
         df["Status"] = "UNPAID"
         df["PaidTimestamp"] = ""
         df.to_csv(status_path, index=False)
-        print(f"  [OK] player_status.csv — {len(df)} players reset to UNPAID")
+        print(f"  [OK] players.csv — {len(df)} players reset to UNPAID")
     else:
-        print("  [SKIP] player_status.csv not found")
+        print("  [SKIP] players.csv not found")
 
     # ── Match stats: keep all 48 teams, zero all stats ──────────────────────
     stats_path = DATA / "match_stats.csv"
@@ -69,10 +69,10 @@ def reset():
 
     # ── Clear CSV files ──────────────────────────────────────────────────────
     empties = {
-        "purchases.csv":    ["Player", "PurchaseType", "Amount", "Selection", "Reference", "Timestamp", "Status"],
-        "events.csv":       ["EventID", "EventType", "Status", "Seed", "ScheduledTime", "ExecutedTime"],
-        "audit_log.csv":    ["Timestamp", "Event", "Player", "Action", "Result"],
-        "allocation.csv":   ["Player", "Team"],
+        "purchases.csv":     ["Player", "PurchaseType", "Selection", "Reference", "Timestamp"],
+        "events.csv":        ["EventID", "EventType", "ScheduledTime", "ExecutedTime", "Status", "RandomSeed"],
+        "audit_log.csv":     ["Timestamp", "Event", "Player", "Action", "Result"],
+        "allocation.csv":    ["Player", "Team"],
         "match_results.csv": ["match_number", "home_goals", "away_goals", "extra_time", "penalty_winner", "comeback_home", "comeback_away"],
         "score_history.csv": ["Date", "Player", "Points"],
     }
@@ -81,21 +81,15 @@ def reset():
         pd.DataFrame(columns=cols).to_csv(path, index=False)
         print(f"  [OK] {filename} cleared")
 
-    # ── Clear KnockoutCaptain from player_picks.csv ──────────────────────────
-    picks_path = DATA / "player_picks.csv"
-    if picks_path.exists():
-        df = pd.read_csv(picks_path, dtype=str).fillna("")
-        if "KnockoutCaptain" in df.columns:
-            df["KnockoutCaptain"] = ""
-        df.to_csv(picks_path, index=False)
-        print(f"  [OK] player_picks.csv — KnockoutCaptain cleared")
-
-    # ── Remove lock files ────────────────────────────────────────────────────
-    for lock_file in ["predictions_lock.txt", "buyin_lock.txt"]:
-        p = DATA / lock_file
-        if p.exists():
-            p.unlink()
-            print(f"  [OK] {lock_file} removed")
+    # ── Clear picks from players.csv (keep names and status) ─────────────────
+    players_path = DATA / "players.csv"
+    if players_path.exists():
+        df = pd.read_csv(players_path, dtype=str).fillna("")
+        for col in ["PreTournamentCaptain", "KnockoutCaptain", "WorldCupWinner", "GoldenBoot", "DarkHorse"]:
+            if col in df.columns:
+                df[col] = ""
+        df.to_csv(players_path, index=False)
+        print(f"  [OK] players.csv — picks cleared")
 
     # ── Clear exports ────────────────────────────────────────────────────────
     if EXPORTS.exists():

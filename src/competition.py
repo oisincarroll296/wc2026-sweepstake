@@ -22,7 +22,7 @@ _ROOT = Path(__file__).parent.parent
 DATA_DIR  = _ROOT / "data"
 EXPORTS_DIR = _ROOT / "exports"
 
-PLAYER_STATUS_PATH = DATA_DIR / "player_status.csv"
+PLAYER_STATUS_PATH = DATA_DIR / "players.csv"
 PURCHASES_PATH     = DATA_DIR / "purchases.csv"
 EVENTS_PATH        = DATA_DIR / "events.csv"
 AUDIT_LOG_PATH     = DATA_DIR / "audit_log.csv"
@@ -95,7 +95,11 @@ def _safe_int(val: object) -> int:
 def load_player_status(path: Optional[Path | str] = None) -> pd.DataFrame:
     p = Path(path) if path else PLAYER_STATUS_PATH
     if not p.exists():
-        return pd.DataFrame(columns=["Player", "Status", "PaidTimestamp"])
+        return pd.DataFrame(columns=[
+            "Player", "Status", "PaidTimestamp",
+            "PreTournamentCaptain", "KnockoutCaptain",
+            "WorldCupWinner", "GoldenBoot", "DarkHorse",
+        ])
     return pd.read_csv(p, dtype=str).fillna("")
 
 

@@ -40,7 +40,7 @@ def _save_purchases(df: pd.DataFrame):
 
 
 def _save_statuses(df: pd.DataFrame):
-    df.to_csv(DATA / "player_status.csv", index=False)
+    df.to_csv(DATA / "players.csv", index=False)
 
 
 # ── Tabs ──────────────────────────────────────────────────────────────────
@@ -148,10 +148,11 @@ with tabs[1]:
 # ─────────────────────────────────────────────
 with tabs[2]:
     st.subheader("Lock Controls")
+    st.caption("Locks are time-based — they trigger automatically when the deadline passes. Use the Deadlines tab to adjust timing. The buttons below force an immediate lock.")
 
-    from dashboard.data import is_predictions_locked
+    from dashboard.data import is_predictions_locked, is_buyin_locked, save_deadlines, get_deadlines
     pred_locked  = is_predictions_locked()
-    buyin_locked = (DATA / "buyin_lock.txt").exists()
+    buyin_locked = is_buyin_locked()
 
     col_status_a, col_status_b = st.columns(2)
     with col_status_a:
@@ -171,13 +172,18 @@ with tabs[2]:
 
     with col_a:
         if not pred_locked:
-            if st.button("Lock Predictions", type="primary"):
+            if st.button("Lock Predictions Now", type="primary"):
                 try:
                     from src.competition import load_events, load_audit_log, load_predictions
                     from src.event_engine import lock_predictions
+                    from datetime import datetime, timezone, timedelta
+                    now_iso = datetime.now(timezone(timedelta(hours=1))).isoformat()
                     ev, log = lock_predictions(load_events(), load_audit_log())
                     ev.to_csv(DATA / "events.csv", index=False)
                     log.to_csv(DATA / "audit_log.csv", index=False)
+                    dl = get_deadlines()
+                    dl["prediction_lock"] = now_iso
+                    save_deadlines(dl)
                     preds = load_predictions()
                     n = len(preds) if not preds.empty else 0
                     st.success(f"Predictions locked. {n} player prediction(s) now public.")
@@ -186,17 +192,22 @@ with tabs[2]:
                 except Exception as exc:
                     st.error(f"{exc}")
         else:
-            st.info("Predictions are locked. To unlock, delete `data/predictions_lock.txt` and restart the app.")
+            st.info("Predictions are locked. To unlock, update the prediction_lock deadline in the Deadlines tab.")
 
     with col_b:
         if not buyin_locked:
-            if st.button("Lock Buy-Ins", type="primary"):
+            if st.button("Lock Buy-Ins Now", type="primary"):
                 try:
                     from src.competition import load_events, load_audit_log, load_player_status
                     from src.event_engine import lock_buyins
+                    from datetime import datetime, timezone, timedelta
+                    now_iso = datetime.now(timezone(timedelta(hours=1))).isoformat()
                     s, ev, log = lock_buyins(load_player_status(), load_events(), load_audit_log())
                     ev.to_csv(DATA / "events.csv", index=False)
                     log.to_csv(DATA / "audit_log.csv", index=False)
+                    dl = get_deadlines()
+                    dl["buy_in_deadline"] = now_iso
+                    save_deadlines(dl)
                     paid = s[s["Status"] == "PAID"] if not s.empty else pd.DataFrame()
                     unpaid = s[s["Status"] != "PAID"] if not s.empty else pd.DataFrame()
                     st.success(f"Buy-ins locked. {len(paid)} paid / {len(unpaid)} unpaid.")
@@ -208,29 +219,7 @@ with tabs[2]:
                 except Exception as exc:
                     st.error(f"{exc}")
         else:
-            st.info("Buy-ins are locked. To unlock, delete `data/buyin_lock.txt` and restart the app.")
-
-    st.divider()
-    with st.expander("Unlock / Emergency Reset"):
-        st.warning("Only use these if you made a mistake and the tournament has not started yet.")
-        if st.button("Unlock Predictions"):
-            p = DATA / "predictions_lock.txt"
-            if p.exists():
-                p.unlink()
-                st.success("Predictions unlocked.")
-                _refresh()
-                st.rerun()
-            else:
-                st.info("Not locked.")
-        if st.button("Unlock Buy-Ins"):
-            p = DATA / "buyin_lock.txt"
-            if p.exists():
-                p.unlink()
-                st.success("Buy-ins unlocked.")
-                _refresh()
-                st.rerun()
-            else:
-                st.info("Not locked.")
+            st.info("Buy-ins are locked. To unlock, update the buy_in_deadline in the Deadlines tab.")
 
 # ─────────────────────────────────────────────
 # Tab 3: Results Entry

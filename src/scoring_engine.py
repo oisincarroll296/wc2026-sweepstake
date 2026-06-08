@@ -13,7 +13,7 @@ from src.team_database import load_teams
 _ROOT = Path(__file__).parent.parent
 MATCH_STATS_PATH  = _ROOT / "data" / "match_stats.csv"
 PURCHASES_PATH    = _ROOT / "data" / "purchases.csv"
-PLAYER_PICKS_PATH = _ROOT / "data" / "player_picks.csv"
+PLAYER_PICKS_PATH = _ROOT / "data" / "players.csv"
 PLAYER_SUMMARY_PATH = _ROOT / "exports" / "player_summary.csv"
 
 # ---------------------------------------------------------------------------

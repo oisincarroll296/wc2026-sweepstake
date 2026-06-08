@@ -187,9 +187,24 @@ def get_top_team() -> tuple[str, float] | tuple[None, None]:
     return best, best_pts
 
 
+def _deadline_passed(key: str) -> bool:
+    from datetime import datetime, timezone
+    deadlines = get_deadlines()
+    iso = deadlines.get(key, "")
+    if not iso:
+        return False
+    try:
+        return datetime.now(timezone.utc) >= datetime.fromisoformat(iso).astimezone(timezone.utc)
+    except Exception:
+        return False
+
+
 def is_predictions_locked() -> bool:
-    lock = _ROOT / "data" / "predictions_lock.txt"
-    return lock.exists() and lock.stat().st_size > 0
+    return _deadline_passed("prediction_lock")
+
+
+def is_buyin_locked() -> bool:
+    return _deadline_passed("buy_in_deadline")
 
 
 def get_deadlines() -> dict:
