@@ -47,7 +47,7 @@ def _save_statuses(df: pd.DataFrame):
 tabs = st.tabs([
     "Draw Events", "Purchases",
     "Locking", "Results Entry",
-    "WhatsApp", "Draw Broadcast", "Deadlines",
+    "WhatsApp", "Draw Broadcast", "Deadlines", "Snapshots",
 ])
 
 # ─────────────────────────────────────────────
@@ -628,3 +628,64 @@ with tabs[6]:
             _refresh()
             st.success("Deadlines saved.")
             st.rerun()
+
+# ─────────────────────────────────────────────
+# Tab 7: Snapshots
+# ─────────────────────────────────────────────
+with tabs[7]:
+    import shutil
+    from datetime import datetime as _dt
+
+    SNAPSHOTS_DIR = DATA / "snapshots"
+    SNAPSHOTS_DIR.mkdir(parents=True, exist_ok=True)
+
+    st.subheader("💾 Snapshots")
+    st.caption(
+        "A snapshot copies every file in data/ so you can restore to a known state. "
+        "All draw seeds are recorded in events.csv — restoring a pre-draw snapshot "
+        "and re-running with the same seed reproduces the identical allocation."
+    )
+
+    # ── Take snapshot ────────────────────────────────────────────────────────
+    with st.form("snapshot_form"):
+        snap_label = st.text_input("Label (optional)", placeholder="e.g. pre_draw, after_r16")
+        if st.form_submit_button("📸 Take Snapshot", type="primary"):
+            ts = _dt.now().strftime("%Y-%m-%d_%H%M%S")
+            name = f"{ts}_{snap_label}" if snap_label.strip() else ts
+            dest = SNAPSHOTS_DIR / name
+            dest.mkdir(parents=True, exist_ok=True)
+            for f in sorted(DATA.glob("*.csv")):
+                shutil.copy2(f, dest / f.name)
+            for f in sorted(DATA.glob("*.json")):
+                shutil.copy2(f, dest / f.name)
+            st.success(f"Snapshot saved: **{name}**")
+            st.rerun()
+
+    st.divider()
+
+    # ── List + restore ────────────────────────────────────────────────────────
+    snaps = sorted(SNAPSHOTS_DIR.iterdir(), reverse=True) if SNAPSHOTS_DIR.exists() else []
+    if not snaps:
+        st.info("No snapshots yet. Take one above before making any changes.")
+    else:
+        st.markdown(f"**{len(snaps)} snapshot{'s' if len(snaps) != 1 else ''} available**")
+        for snap in snaps:
+            files = list(snap.glob("*.csv")) + list(snap.glob("*.json"))
+            col_name, col_btn = st.columns([4, 1])
+            with col_name:
+                st.markdown(
+                    f'<div style="font-size:0.85rem;color:#E5E7EB;padding:0.3rem 0">'
+                    f'<strong>{snap.name}</strong> '
+                    f'<span style="color:#6B7280;font-size:0.75rem">({len(files)} files)</span>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+            with col_btn:
+                if st.button("Restore", key=f"restore_{snap.name}"):
+                    for f in snap.glob("*.csv"):
+                        shutil.copy2(f, DATA / f.name)
+                    for f in snap.glob("*.json"):
+                        shutil.copy2(f, DATA / f.name)
+                    _refresh()
+                    st.success(f"Restored from **{snap.name}**")
+                    st.rerun()
