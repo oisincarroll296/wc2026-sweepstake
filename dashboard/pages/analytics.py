@@ -171,9 +171,9 @@ st.divider()
 
 # ── 5. Prize Pool Growth ──────────────────────────────────────────────────
 st.subheader("💰 Prize Pool Contribution by Type")
-p = get_purchases()
+from src.competition import PRICES, load_purchases as _load_purchases
+p = _load_purchases()  # read directly — avoids cold-start cache miss
 if not p.empty:
-    from src.competition import PRICES
     proc = p[p["Status"] == "PROCESSED"]
     breakdown = {}
     for ptype, price in PRICES.items():

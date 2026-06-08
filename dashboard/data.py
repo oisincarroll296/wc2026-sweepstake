@@ -38,8 +38,20 @@ def get_match_stats() -> pd.DataFrame:
 
 
 @st.cache_data(ttl=30)
-def get_purchases() -> pd.DataFrame:
+def _purchases_cached() -> pd.DataFrame:
     return load_purchases()
+
+
+def get_purchases() -> pd.DataFrame:
+    """Return purchases, bypassing a stale empty cache if the file has content."""
+    df = _purchases_cached()
+    if df.empty:
+        path = _ROOT / "data" / "purchases.csv"
+        if path.exists() and path.stat().st_size > 100:
+            # Cache served empty despite file having content — re-read directly.
+            _purchases_cached.clear()
+            return load_purchases()
+    return df
 
 
 @st.cache_data(ttl=30)
