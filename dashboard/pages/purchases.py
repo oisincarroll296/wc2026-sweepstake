@@ -11,6 +11,33 @@ from dashboard.components.ui import page_header, empty_state
 
 page_header("Purchases", "Who has bought what — full purchase overview")
 
+# ── How to buy ───────────────────────────────────────────────────────────────
+_price_chips = "".join(
+    f'<span style="background:#0D1B2A;border:1px solid #2A3A4A;border-radius:6px;'
+    f'padding:0.2rem 0.6rem;font-size:0.78rem;color:#F5F5F5;white-space:nowrap">'
+    f'{lbl} <strong style="color:#D4A017">€{cost}</strong></span> '
+    for _, lbl, cost in [
+        ("Buy In", "Buy In", 5), ("Prediction Pack", "Prediction Pack", 5),
+        ("Insurance", "Insurance", 2), ("Mulligan", "Mulligan", 3),
+        ("Ninth Team", "Ninth Team", 3), ("Resurrection", "Resurrection", 5),
+    ]
+)
+st.markdown(
+    '<div style="background:#1A2535;border:1px solid #D4A01744;border-radius:10px;'
+    'padding:0.85rem 1.1rem;margin-bottom:1.1rem">'
+    '<div style="color:#D4A017;font-weight:700;font-size:0.92rem;margin-bottom:0.45rem">'
+    '💳 How to Buy an Add-On</div>'
+    '<div style="color:#E5E7EB;font-size:0.84rem;line-height:1.65">'
+    '1. Send the money to <strong style="color:#D4A017">Oisin\'s Revolut</strong><br>'
+    '2. Message him what you\'re buying<br>'
+    '3. For <strong>Ninth Team</strong> or <strong>Resurrection</strong> — include the team(s).<br>'
+    '&nbsp;&nbsp;&nbsp;For <strong>Prediction Pack</strong> — message your picks separately.'
+    '</div>'
+    f'<div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.65rem">{_price_chips}</div>'
+    '</div>',
+    unsafe_allow_html=True,
+)
+
 participants = get_participants()
 purchases    = get_purchases()
 statuses     = get_statuses()
@@ -88,17 +115,18 @@ st.dataframe(
 # ── Summary strip ───────────────────────────────────────────────────────────
 st.divider()
 n = len(participants)
-c1, c2, c3, c4 = st.columns(4)
-with c1:
+r1c1, r1c2 = st.columns(2)
+r2c1, r2c2 = st.columns(2)
+with r1c1:
     paid_in = sum(1 for p in participants if "BuyIn" in processed.get(p, set()))
-    st.metric("Bought In", f"{paid_in} / {n}")
-with c2:
+    st.metric("Bought In (€5)", f"{paid_in} / {n}")
+with r1c2:
     has_pack = sum(1 for p in participants if "PredictionPack" in processed.get(p, set()))
-    st.metric("Prediction Packs", f"{has_pack} / {n}")
-with c3:
+    st.metric("Pred. Packs (€5)", f"{has_pack} / {n}")
+with r2c1:
     has_insurance = sum(1 for p in participants if "Insurance" in processed.get(p, set()))
-    st.metric("Insurance", f"{has_insurance} / {n}")
-with c4:
+    st.metric("Insurance (€2)", f"{has_insurance} / {n}")
+with r2c2:
     total_collected = sum(
         COSTS.get(pt, 0) for player_set in processed.values() for pt in player_set
     )

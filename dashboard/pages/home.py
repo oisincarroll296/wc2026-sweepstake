@@ -149,14 +149,15 @@ packs    = get_pack_count()
 top_t, top_pts = get_top_team()
 lb       = get_overall_leaderboard()
 
-c1, c2, c3, c4 = st.columns(4)
-with c1:
+r1c1, r1c2 = st.columns(2)
+r2c1, r2c2 = st.columns(2)
+with r1c1:
     st.metric("Prize Pool", f"€{pool.get('current_pot', 0):.2f}")
-with c2:
+with r1c2:
     st.metric("Paid Players", f"{paid} / {len(lb)}" if not lb.empty else str(paid))
-with c3:
+with r2c1:
     st.metric("Prediction Packs", packs)
-with c4:
+with r2c2:
     if top_t:
         st.metric("Top Team", top_t, f"{top_pts:.0f} pts")
     else:

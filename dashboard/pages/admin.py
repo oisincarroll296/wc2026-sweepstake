@@ -103,7 +103,7 @@ with tabs[1]:
         from dashboard.data import get_participants
         players = get_participants() or []
         add_player = st.selectbox("Player", players or ["—"])
-        add_type   = st.selectbox("Type", ["BUYIN", "PACK", "INSURANCE", "MULLIGAN", "NINTH", "RESURRECTION"])
+        add_type   = st.selectbox("Type", ["BuyIn", "PredictionPack", "Insurance", "Mulligan", "NinthTeam", "Resurrection"])
         add_ref    = st.text_input("Payment Reference", placeholder="e.g. ALICE - BUY IN")
         add_sel    = st.text_input("Selection (Resurrection only)", placeholder="e.g. Spain->Germany")
         submitted  = st.form_submit_button("Add Purchase", type="primary")
@@ -554,9 +554,9 @@ with tabs[5]:
             else:
                 p = load_purchases()
                 ptype_map = {
-                    "Mulligan Draw":     "MULLIGAN",
-                    "Ninth Team Draw":   "NINTH",
-                    "Resurrection Draw": "RESURRECTION",
+                    "Mulligan Draw":     "Mulligan",
+                    "Ninth Team Draw":   "NinthTeam",
+                    "Resurrection Draw": "Resurrection",
                 }
                 key = ptype_map[bc_type]
                 done = p[(p["PurchaseType"] == key) & (p["Status"] == "PROCESSED")]
