@@ -1,5 +1,5 @@
 """Generate fake QF-stage test data for dashboard demonstration."""
-import sys, random, csv
+import sys, random, json
 from pathlib import Path
 import pandas as pd
 
@@ -78,157 +78,130 @@ ms = pd.DataFrame(rows)
 ms.to_csv(DATA / "match_stats.csv", index=False)
 print(f"✓ match_stats.csv — {len(ms)} teams")
 
-# ── Player status — mark all as PAID ─────────────────────────────────────────
-now = "2026-06-01T10:00:00+00:00"
-statuses = pd.read_csv(DATA / "player_status.csv")
-statuses["Status"] = "PAID"
-statuses["PaidTimestamp"] = now
-statuses.to_csv(DATA / "player_status.csv", index=False)
-print(f"✓ player_status.csv — {len(statuses)} players marked PAID")
+# ── Player status + picks — all in players.csv ────────────────────────────────
+now = "2026-06-01T10:00:00+01:00"
+players_path = DATA / "players.csv"
+players_df = pd.read_csv(players_path, dtype=str).fillna("")
+players_df["Status"] = "PAID"
+players_df["PaidTimestamp"] = now
 
-# ── Purchases ─────────────────────────────────────────────────────────────────
-PLAYERS = statuses["Player"].tolist()
+# Captain + prediction picks (must match players in the CSV)
+PICKS = {
+    "Guilly":  dict(PreTournamentCaptain="Spain",     KnockoutCaptain="England",   WorldCupWinner="Spain",     GoldenBoot="Lamine Yamal",  DarkHorse="Norway"),
+    "Campo":   dict(PreTournamentCaptain="France",    KnockoutCaptain="Germany",   WorldCupWinner="France",    GoldenBoot="Mbappe",         DarkHorse="Norway"),
+    "Aod":     dict(PreTournamentCaptain="Brazil",    KnockoutCaptain="Spain",     WorldCupWinner="Brazil",    GoldenBoot="Vinicius Jr",    DarkHorse="Czech Republic"),
+    "Moorsey": dict(PreTournamentCaptain="Argentina", KnockoutCaptain="Morocco",   WorldCupWinner="Argentina", GoldenBoot="Lionel Messi",   DarkHorse="Morocco"),
+    "Harry":   dict(PreTournamentCaptain="Argentina", KnockoutCaptain="England",   WorldCupWinner="Argentina", GoldenBoot="Lionel Messi",   DarkHorse="Algeria"),
+    "Jack C":  dict(PreTournamentCaptain="Argentina", KnockoutCaptain="France",    WorldCupWinner="Argentina", GoldenBoot="Julián Álvarez", DarkHorse="Panama"),
+    "Oisin C": dict(PreTournamentCaptain="Morocco",   KnockoutCaptain="Norway",    WorldCupWinner="Morocco",   GoldenBoot="Hakimi",         DarkHorse="Algeria"),
+    "Ronan":   dict(PreTournamentCaptain="Brazil",    KnockoutCaptain="Spain",     WorldCupWinner="Brazil",    GoldenBoot="Rodrygo",        DarkHorse="Scotland"),
+    "Oisin E": dict(PreTournamentCaptain="England",   KnockoutCaptain="France",    WorldCupWinner="England",   GoldenBoot="Harry Kane",     DarkHorse="Norway"),
+    "Wheelo":  dict(PreTournamentCaptain="Portugal",  KnockoutCaptain="Norway",    WorldCupWinner="Portugal",  GoldenBoot="Ronaldo",        DarkHorse="Czech Republic"),
+    "Mcgree":  dict(PreTournamentCaptain="Belgium",   KnockoutCaptain="Germany",   WorldCupWinner="France",    GoldenBoot="Mbappe",         DarkHorse="Panama"),
+    "Ian":     dict(PreTournamentCaptain="France",    KnockoutCaptain="Argentina", WorldCupWinner="France",    GoldenBoot="Mbappe",         DarkHorse="Egypt"),
+}
+pick_cols = ["PreTournamentCaptain", "KnockoutCaptain", "WorldCupWinner", "GoldenBoot", "DarkHorse"]
+for col in pick_cols:
+    if col not in players_df.columns:
+        players_df[col] = ""
+for player, picks in PICKS.items():
+    mask = players_df["Player"] == player
+    for col, val in picks.items():
+        players_df.loc[mask, col] = val
+
+players_df.to_csv(players_path, index=False)
+PLAYERS = players_df["Player"].tolist()
+print(f"✓ players.csv — {len(players_df)} players marked PAID with picks")
+
+# ── Purchases (no Amount, no Status) ─────────────────────────────────────────
 purchases = []
 
 # Everyone buys in
 for p in PLAYERS:
     purchases.append({
-        "Player": p, "PurchaseType": "BUYIN", "Amount": 5,
-        "Reference": f"{p} - BUY IN", "Timestamp": "2026-06-01T10:00:00+00:00",
-        "Status": "PROCESSED",
+        "Player": p, "PurchaseType": "BuyIn", "Selection": "",
+        "Reference": f"{p} - BUY IN", "Timestamp": "2026-06-01T10:00:00+01:00",
     })
 
 # Most buy prediction pack
 pack_players = [p for p in PLAYERS if p not in {"Lobber"}]
 for p in pack_players:
     purchases.append({
-        "Player": p, "PurchaseType": "PACK", "Amount": 5,
-        "Reference": f"{p} - PREDICTION PACK", "Timestamp": "2026-06-01T11:00:00+00:00",
-        "Status": "PROCESSED",
+        "Player": p, "PurchaseType": "PredictionPack", "Selection": "",
+        "Reference": f"{p} - PREDICTION PACK", "Timestamp": "2026-06-01T11:00:00+01:00",
     })
 
 # Some buy insurance (Tier 1 owners who might get hit)
 insurance_players = ["Aod", "Oisin C", "Moorsey", "Guilly", "Campo", "Harry", "Wheelo"]
 for p in insurance_players:
     purchases.append({
-        "Player": p, "PurchaseType": "INSURANCE", "Amount": 2,
-        "Reference": f"{p} - INSURANCE", "Timestamp": "2026-06-02T09:00:00+00:00",
-        "Status": "PROCESSED",
+        "Player": p, "PurchaseType": "Insurance", "Selection": "",
+        "Reference": f"{p} - INSURANCE", "Timestamp": "2026-06-02T09:00:00+01:00",
     })
 
 # A few mulligans taken before tournament
 for p in ["Jack C", "Lobber"]:
     purchases.append({
-        "Player": p, "PurchaseType": "MULLIGAN", "Amount": 3,
-        "Reference": f"{p} - MULLIGAN", "Timestamp": "2026-06-08T15:00:00+00:00",
-        "Status": "PROCESSED",
+        "Player": p, "PurchaseType": "Mulligan", "Selection": "",
+        "Reference": f"{p} - MULLIGAN", "Timestamp": "2026-06-08T15:00:00+01:00",
     })
 
-# Some ninth teams (post group stage)
-for p in ["Oisin E", "Harry", "Ronan"]:
+# Some ninth teams (post group stage) — Selection = team drawn
+ninth_draws = {"Oisin E": "Sweden", "Harry": "Austria", "Ronan": "Senegal"}
+for p, team in ninth_draws.items():
     purchases.append({
-        "Player": p, "PurchaseType": "NINTH", "Amount": 3,
-        "Reference": f"{p} - NINTH TEAM", "Timestamp": "2026-06-28T16:00:00+00:00",
-        "Status": "PROCESSED",
+        "Player": p, "PurchaseType": "NinthTeam", "Selection": team,
+        "Reference": f"{p} - NINTH TEAM", "Timestamp": "2026-06-28T16:00:00+01:00",
     })
 
-# One resurrection
+# One resurrection — Selection = "EliminatedTeam->ReplacementTeam"
 purchases.append({
-    "Player": "Mcgree", "PurchaseType": "RESURRECTION", "Amount": 5,
-    "Reference": "Mcgree - RESURRECTION", "Timestamp": "2026-06-28T18:00:00+00:00",
-    "Status": "PROCESSED",
+    "Player": "Mcgree", "PurchaseType": "Resurrection", "Selection": "Colombia->Austria",
+    "Reference": "Mcgree - RESURRECTION", "Timestamp": "2026-06-28T18:00:00+01:00",
 })
 
 pd.DataFrame(purchases).to_csv(DATA / "purchases.csv", index=False)
 print(f"✓ purchases.csv — {len(purchases)} purchase records")
 
-# ── Captains ──────────────────────────────────────────────────────────────────
-captains = [
-    # Pre-tournament captains (must be from original 8, best Tier 1)
-    {"Player": "Guilly",  "CaptainType": "PreTournament",  "Team": "Spain"},
-    {"Player": "Campo",   "CaptainType": "PreTournament",  "Team": "France"},
-    {"Player": "Aod",     "CaptainType": "PreTournament",  "Team": "Brazil"},
-    {"Player": "Moorsey", "CaptainType": "PreTournament",  "Team": "Argentina"},
-    {"Player": "Harry",   "CaptainType": "PreTournament",  "Team": "Argentina"},
-    {"Player": "Oisin C", "CaptainType": "PreTournament",  "Team": "Morocco"},
-    {"Player": "Ronan",   "CaptainType": "PreTournament",  "Team": "Brazil"},
-    {"Player": "Jack C",  "CaptainType": "PreTournament",  "Team": "Argentina"},
-    {"Player": "Lobber",  "CaptainType": "PreTournament",  "Team": "Germany"},
-    {"Player": "Oisin E", "CaptainType": "PreTournament",  "Team": "England"},
-    {"Player": "Wheelo",  "CaptainType": "PreTournament",  "Team": "Portugal"},
-    {"Player": "Mcgree",  "CaptainType": "PreTournament",  "Team": "Belgium"},
-    {"Player": "Ian",     "CaptainType": "PreTournament",  "Team": "France"},
-
-    # Knockout captains — all 13 players set, must be surviving team, different from pre-tournament
-    {"Player": "Guilly",  "CaptainType": "Knockout",  "Team": "England"},
-    {"Player": "Campo",   "CaptainType": "Knockout",  "Team": "Germany"},
-    {"Player": "Aod",     "CaptainType": "Knockout",  "Team": "Spain"},
-    {"Player": "Moorsey", "CaptainType": "Knockout",  "Team": "Morocco"},
-    {"Player": "Harry",   "CaptainType": "Knockout",  "Team": "England"},
-    {"Player": "Oisin C", "CaptainType": "Knockout",  "Team": "Norway"},
-    {"Player": "Ronan",   "CaptainType": "Knockout",  "Team": "Spain"},
-    {"Player": "Jack C",  "CaptainType": "Knockout",  "Team": "France"},
-    {"Player": "Lobber",  "CaptainType": "Knockout",  "Team": "Brazil"},
-    {"Player": "Oisin E", "CaptainType": "Knockout",  "Team": "France"},
-    {"Player": "Wheelo",  "CaptainType": "Knockout",  "Team": "Norway"},
-    {"Player": "Mcgree",  "CaptainType": "Knockout",  "Team": "Germany"},
-    {"Player": "Ian",     "CaptainType": "Knockout",  "Team": "Argentina"},
-]
-pd.DataFrame(captains).to_csv(DATA / "captains.csv", index=False)
-print(f"✓ captains.csv — {len(captains)} captain selections")
-
-# ── Predictions ───────────────────────────────────────────────────────────────
-preds = [
-    {"Player": "Guilly",  "WorldCupWinner": "Spain",    "GoldenBoot": "Lamine Yamal",    "DarkHorse": "Norway"},
-    {"Player": "Campo",   "WorldCupWinner": "France",   "GoldenBoot": "Mbappe",          "DarkHorse": "Norway"},
-    {"Player": "Aod",     "WorldCupWinner": "Brazil",   "GoldenBoot": "Vinicius Jr",     "DarkHorse": "Czechia"},
-    {"Player": "Moorsey", "WorldCupWinner": "Argentina","GoldenBoot": "Lionel Messi",    "DarkHorse": "Morocco"},
-    {"Player": "Harry",   "WorldCupWinner": "Argentina","GoldenBoot": "Lionel Messi",    "DarkHorse": "Algeria"},
-    {"Player": "Jack C",  "WorldCupWinner": "Argentina","GoldenBoot": "Julián Álvarez",  "DarkHorse": "Panama"},
-    {"Player": "Oisin C", "WorldCupWinner": "Morocco",  "GoldenBoot": "Hakimi",          "DarkHorse": "Norway"},
-    {"Player": "Ronan",   "WorldCupWinner": "Brazil",   "GoldenBoot": "Rodrygo",         "DarkHorse": "Scotland"},
-    {"Player": "Oisin E", "WorldCupWinner": "England",  "GoldenBoot": "Harry Kane",      "DarkHorse": "Norway"},
-    {"Player": "Wheelo",  "WorldCupWinner": "Portugal", "GoldenBoot": "Ronaldo",         "DarkHorse": "Czechia"},
-    {"Player": "Mcgree",  "WorldCupWinner": "France",   "GoldenBoot": "Mbappe",          "DarkHorse": "Panama"},
-    {"Player": "Ian",     "WorldCupWinner": "France",   "GoldenBoot": "Mbappe",          "DarkHorse": "Egypt"},
-]
-pd.DataFrame(preds).to_csv(DATA / "predictions.csv", index=False)
-print(f"✓ predictions.csv — {len(preds)} prediction records")
-
-# ── Lock predictions ──────────────────────────────────────────────────────────
-(DATA / "predictions_lock.txt").write_text("2026-06-11T19:00:00+00:00")
-# Remove buyin lock to keep it clean
-bl = DATA / "buyin_lock.txt"
-if bl.exists(): bl.unlink()
-print("✓ predictions locked, buyin lock removed")
+# ── Lock predictions via deadlines.json ───────────────────────────────────────
+deadlines_path = ROOT / "data" / "deadlines.json"
+if deadlines_path.exists():
+    with open(deadlines_path) as f:
+        dl = json.load(f)
+else:
+    dl = {}
+dl["prediction_lock"] = "2026-06-11T19:00:00+01:00"
+dl["buy_in_deadline"] = "2026-06-27T21:00:00+01:00"
+with open(deadlines_path, "w") as f:
+    json.dump(dl, f, indent=2)
+print("✓ deadlines.json — prediction_lock and buy_in_deadline set")
 
 # ── Events ────────────────────────────────────────────────────────────────────
 events = [
-    {"EventID": "EVT001", "EventType": "INITIAL_DRAW",      "Status": "EXECUTED", "Seed": 2026, "ScheduledTime": "2026-06-07T18:00:00+00:00", "ExecutedTime": "2026-06-07T18:05:00+00:00"},
-    {"EventID": "EVT002", "EventType": "GROUP_STAGE_CLOSE",  "Status": "EXECUTED", "Seed": "",   "ScheduledTime": "2026-06-27T21:00:00+00:00", "ExecutedTime": "2026-06-27T21:30:00+00:00"},
-    {"EventID": "EVT003", "EventType": "NINTH_TEAM_DRAW",    "Status": "EXECUTED", "Seed": 42,   "ScheduledTime": "2026-06-28T16:00:00+00:00", "ExecutedTime": "2026-06-28T16:10:00+00:00"},
-    {"EventID": "EVT004", "EventType": "RESURRECTION_DRAW",  "Status": "EXECUTED", "Seed": 99,   "ScheduledTime": "2026-06-28T18:00:00+00:00", "ExecutedTime": "2026-06-28T18:05:00+00:00"},
-    {"EventID": "EVT005", "EventType": "TOURNAMENT_COMPLETE","Status": "SCHEDULED","Seed": "",   "ScheduledTime": "2026-07-19T20:00:00+00:00", "ExecutedTime": ""},
+    {"EventID": "EVT001", "EventType": "INITIAL_DRAW",      "Status": "EXECUTED",  "RandomSeed": 2026, "ScheduledTime": "2026-06-07T18:00:00+01:00", "ExecutedTime": "2026-06-07T18:05:00+01:00"},
+    {"EventID": "EVT002", "EventType": "GROUP_STAGE_CLOSE",  "Status": "EXECUTED",  "RandomSeed": "",   "ScheduledTime": "2026-06-27T21:00:00+01:00", "ExecutedTime": "2026-06-27T21:30:00+01:00"},
+    {"EventID": "EVT003", "EventType": "NINTH_TEAM_DRAW",    "Status": "EXECUTED",  "RandomSeed": 42,   "ScheduledTime": "2026-06-28T16:00:00+01:00", "ExecutedTime": "2026-06-28T16:10:00+01:00"},
+    {"EventID": "EVT004", "EventType": "RESURRECTION_DRAW",  "Status": "EXECUTED",  "RandomSeed": 99,   "ScheduledTime": "2026-06-28T18:00:00+01:00", "ExecutedTime": "2026-06-28T18:05:00+01:00"},
+    {"EventID": "EVT005", "EventType": "TOURNAMENT_COMPLETE","Status": "SCHEDULED", "RandomSeed": "",   "ScheduledTime": "2026-07-19T20:00:00+01:00", "ExecutedTime": ""},
 ]
 pd.DataFrame(events).to_csv(DATA / "events.csv", index=False)
 print(f"✓ events.csv — {len(events)} events")
 
 # ── Audit log snippet ─────────────────────────────────────────────────────────
 audit = [
-    {"Timestamp": "2026-06-07T18:05:00+00:00", "Event": "INITIAL_DRAW",     "Player": "ALL",     "Action": "DRAW",    "Result": "OK — 13 players allocated"},
-    {"Timestamp": "2026-06-07T18:10:00+00:00", "Event": "BUYIN_LOCK",       "Player": "ALL",     "Action": "LOCK",    "Result": "OK — 13 paid"},
-    {"Timestamp": "2026-06-11T19:00:00+00:00", "Event": "PREDICTION_LOCK",  "Player": "ALL",     "Action": "LOCK",    "Result": f"OK — 12 packs submitted"},
-    {"Timestamp": "2026-06-27T21:30:00+00:00", "Event": "GROUP_STAGE_CLOSE","Player": "ALL",     "Action": "CLOSE",   "Result": "OK — 32 teams qualify"},
-    {"Timestamp": "2026-06-28T16:10:00+00:00", "Event": "NINTH_TEAM_DRAW",  "Player": "Oisin E", "Action": "ASSIGN",  "Result": "Sweden assigned"},
-    {"Timestamp": "2026-06-28T16:10:00+00:00", "Event": "NINTH_TEAM_DRAW",  "Player": "Harry",   "Action": "ASSIGN",  "Result": "Austria assigned"},
-    {"Timestamp": "2026-06-28T16:10:00+00:00", "Event": "NINTH_TEAM_DRAW",  "Player": "Ronan",   "Action": "ASSIGN",  "Result": "Senegal assigned"},
-    {"Timestamp": "2026-06-28T18:05:00+00:00", "Event": "RESURRECTION_DRAW","Player": "Mcgree",  "Action": "ASSIGN",  "Result": "Colombia (T2) → Austria"},
+    {"Timestamp": "2026-06-07T18:05:00+01:00", "Event": "INITIAL_DRAW",     "Player": "ALL",     "Action": "DRAW",    "Result": "OK — 13 players allocated"},
+    {"Timestamp": "2026-06-07T18:10:00+01:00", "Event": "BUYIN_LOCK",       "Player": "ALL",     "Action": "LOCK",    "Result": "OK — 13 paid"},
+    {"Timestamp": "2026-06-11T19:00:00+01:00", "Event": "PREDICTION_LOCK",  "Player": "ALL",     "Action": "LOCK",    "Result": "OK — 12 packs submitted"},
+    {"Timestamp": "2026-06-27T21:30:00+01:00", "Event": "GROUP_STAGE_CLOSE","Player": "ALL",     "Action": "CLOSE",   "Result": "OK — 32 teams qualify"},
+    {"Timestamp": "2026-06-28T16:10:00+01:00", "Event": "NINTH_TEAM_DRAW",  "Player": "Oisin E", "Action": "ASSIGN",  "Result": "Sweden assigned"},
+    {"Timestamp": "2026-06-28T16:10:00+01:00", "Event": "NINTH_TEAM_DRAW",  "Player": "Harry",   "Action": "ASSIGN",  "Result": "Austria assigned"},
+    {"Timestamp": "2026-06-28T16:10:00+01:00", "Event": "NINTH_TEAM_DRAW",  "Player": "Ronan",   "Action": "ASSIGN",  "Result": "Senegal assigned"},
+    {"Timestamp": "2026-06-28T18:05:00+01:00", "Event": "RESURRECTION_DRAW","Player": "Mcgree",  "Action": "ASSIGN",  "Result": "Colombia (T2) → Austria"},
 ]
 pd.DataFrame(audit).to_csv(DATA / "audit_log.csv", index=False)
 print(f"✓ audit_log.csv — {len(audit)} records")
 
 # ── A few match results (to show the system works) ────────────────────────────
-# Enter 5 recent QF-adjacent fixtures
 sample_results = [
     # Group C: Brazil 3-0 Morocco, Scotland 1-2 Brazil, Morocco 4-0 Haiti
     {"match_number": 7,  "home_goals": 3, "away_goals": 1, "extra_time": 0, "penalty_winner": "", "comeback_home": 0, "comeback_away": 0},
@@ -243,17 +216,12 @@ pd.DataFrame(sample_results).to_csv(DATA / "match_results.csv", index=False)
 print(f"✓ match_results.csv — {len(sample_results)} results entered")
 
 # ── Score history (cumulative points by gameweek for line chart) ──────────────
-# Synthetic trajectory: each player's points grow from 0 to a plausible final score.
-# Dates correspond to: after MD1, MD2, MD3, R16, and QF stages.
-# Final scores are rough estimates matching our QF scenario.
-
 FINAL_SCORES = {
     "Campo":   176, "Oisin E": 175, "Oisin C": 173, "Guilly": 169,
     "Harry":   155, "Moorsey": 151, "Ronan":   147, "Aod":    143,
     "Ian":     132, "Jack C":  128, "Lobber":  117, "Wheelo": 109, "Mcgree": 98,
 }
 gameweeks  = ["2026-06-11", "2026-06-18", "2026-06-25", "2026-07-01", "2026-07-09"]
-# Fraction of final score earned by each milestone
 gw_weights = [0.28, 0.44, 0.59, 0.74, 1.00]
 
 history_rows = []

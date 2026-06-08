@@ -8,7 +8,7 @@ from src.competition import (
     get_player_status, mark_paid, mark_unpaid,
     get_paid_players, get_unpaid_players,
     # purchases
-    add_purchase, process_purchase, cancel_purchase,
+    add_purchase,
     get_player_purchases, purchases_to_scoring_format,
     # payment reference
     parse_payment_reference,

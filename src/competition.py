@@ -207,46 +207,6 @@ def add_purchase(
     return pd.concat([purchases, pd.DataFrame([new_row])], ignore_index=True)
 
 
-def process_purchase(
-    player: str,
-    ptype: str,
-    reference: str,
-    purchases: pd.DataFrame,
-    selection: str = "",
-) -> pd.DataFrame:
-    """Mark the first matching PENDING purchase as PROCESSED."""
-    df = purchases.copy()
-    mask = (
-        (df["Player"] == player)
-        & (df["PurchaseType"] == ptype)
-        & (df["Reference"] == reference)
-        & (df["Status"] == "PENDING")
-    )
-    if mask.any():
-        idx = df[mask].index[0]
-        df.loc[idx, "Status"] = "PROCESSED"
-        if selection:
-            df.loc[idx, "Selection"] = selection
-    return df
-
-
-def cancel_purchase(
-    player: str,
-    ptype: str,
-    reference: str,
-    purchases: pd.DataFrame,
-) -> pd.DataFrame:
-    """Mark the first matching PENDING purchase as CANCELLED."""
-    df = purchases.copy()
-    mask = (
-        (df["Player"] == player)
-        & (df["PurchaseType"] == ptype)
-        & (df["Reference"] == reference)
-        & (df["Status"] == "PENDING")
-    )
-    if mask.any():
-        df.loc[df[mask].index[0], "Status"] = "CANCELLED"
-    return df
 
 
 def get_player_purchases(player: str, purchases: pd.DataFrame) -> pd.DataFrame:

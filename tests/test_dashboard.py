@@ -150,7 +150,7 @@ class TestBackendIntegration:
 
     def test_prize_pool_empty_purchases(self):
         from src.competition import calculate_prize_pool
-        p = self._empty_df(["Player", "PurchaseType", "Status", "Timestamp", "Reference", "Selection"])
+        p = self._empty_df(["Player", "PurchaseType", "Selection", "Reference", "Timestamp"])
         pool = calculate_prize_pool(p)
         assert pool["current_pot"] == 0.0
         assert pool["first_prize"] == 0.0
@@ -158,10 +158,8 @@ class TestBackendIntegration:
     def test_prize_pool_with_buyins(self):
         from src.competition import calculate_prize_pool
         rows = [
-            {"Player": "Alice", "PurchaseType": "BuyIn", "Status": "PROCESSED",
-             "Timestamp": "", "Reference": "", "Selection": ""},
-            {"Player": "Bob",   "PurchaseType": "BuyIn", "Status": "PROCESSED",
-             "Timestamp": "", "Reference": "", "Selection": ""},
+            {"Player": "Alice", "PurchaseType": "BuyIn", "Timestamp": "", "Reference": "", "Selection": ""},
+            {"Player": "Bob",   "PurchaseType": "BuyIn", "Timestamp": "", "Reference": "", "Selection": ""},
         ]
         p = pd.DataFrame(rows)
         pool = calculate_prize_pool(p)
@@ -170,7 +168,7 @@ class TestBackendIntegration:
 
     def test_prize_leaderboard_no_paid_returns_empty(self):
         from src.competition import prize_leaderboard
-        p = self._empty_df(["Player", "PurchaseType", "Status", "Timestamp", "Reference", "Selection"])
+        p = self._empty_df(["Player", "PurchaseType", "Selection", "Reference", "Timestamp"])
         s = self._empty_df(["Player", "Status", "PaidTimestamp"])
         ms = self._empty_df(["Team", "GroupGoals", "GroupCleanSheets", "GroupPenaltyWins",
                               "GroupComebackWins", "GroupWinner", "KnockoutGoals",
@@ -185,7 +183,7 @@ class TestBackendIntegration:
         from src.competition import overall_leaderboard, mark_paid
         from src.scoring_engine import load_match_stats
         ms = load_match_stats()
-        p = self._empty_df(["Player", "PurchaseType", "Status", "Timestamp", "Reference", "Selection"])
+        p = self._empty_df(["Player", "PurchaseType", "Selection", "Reference", "Timestamp"])
         s = pd.DataFrame([
             {"Player": "Alice", "Status": "PAID",   "PaidTimestamp": ""},
             {"Player": "Bob",   "Status": "UNPAID", "PaidTimestamp": ""},
@@ -198,7 +196,7 @@ class TestBackendIntegration:
 
     def test_team_ownership_empty_assignments(self):
         from src.competition import get_team_ownership
-        p     = self._empty_df(["Player", "PurchaseType", "Status", "Timestamp", "Reference", "Selection"])
+        p     = self._empty_df(["Player", "PurchaseType", "Selection", "Reference", "Timestamp"])
         caps  = self._empty_df(["Player", "CaptainType", "Team"])
         preds = self._empty_df(["Player", "WorldCupWinner", "GoldenBoot", "DarkHorse"])
         result = get_team_ownership({}, caps, preds, p)
