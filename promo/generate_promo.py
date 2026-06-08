@@ -122,18 +122,18 @@ for i, (name, price, colour, desc, highlight) in enumerate(packages):
 # ═══════════════════════════════════════════════════════════════════════════════
 RX, RY, RW, RH = 6.2, 7.8, 5.55, 7.4
 box(RX, RY, RW, RH)
-section_bar(RX, RY + RH - 0.65, RW, 'WHAT TO SEND US', fc=GREEN)
+section_bar(RX, RY + RH - 0.65, RW, 'WHAT TO SEND', fc=GREEN)
 
 groups = [
     ('Your name',
      [('Your full name  (first + last)', WHITE, False)]),
-    ('Payment reference',
+    ('Payment reference on Revolut Shared Pocket',
      [('"NAME  -  BUY IN"',              GOLD,  True),
       ('"NAME  -  BUY IN, PRED PACK"',   GOLD,  True)]),
-    ('Captain picks',
+    ('Captain picks, Send to me directly',
      [('Pre-tournament captain',          MUTED, False),
       ('Knockout stage captain',          MUTED, False)]),
-    ('Predictions  (Pred Pack buyers)',
+    ('Predictions, Send to me directly  (Pred Pack buyers)',
      [('World Cup Winner',                MUTED, False),
       ('Golden Boot winner',              MUTED, False),
       ('Dark Horse  (Tier 3 or 4 team)',  MUTED, False)]),
@@ -168,7 +168,7 @@ events = [
     ('26 Jun',    'Buy-in deadline  —  before last group game',            AMBER),
     ('29 Jun',    'Knockouts begin  —  Resurrection & KO captains open',  GREEN),
     ('Late Jun',  'Ninth Team draw for eligible players',                  PURPLE),
-    ('19 Jul',    'THE FINAL  —  Winner takes the pot!',                   GOLD),
+    ('19 Jul',    'THE FINAL!',                   GOLD),
 ]
 
 DX   = TX + 2.1

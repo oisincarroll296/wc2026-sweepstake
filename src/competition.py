@@ -32,7 +32,7 @@ AUDIT_LOG_PATH     = DATA_DIR / "audit_log.csv"
 # ---------------------------------------------------------------------------
 PLAYER_STATUSES    = frozenset({"UNPAID", "PAID"})
 PURCHASE_TYPES     = frozenset({
-    "BUYIN", "PACK", "MULLIGAN", "NINTH", "RESURRECTION", "INSURANCE",
+    "BuyIn", "PredictionPack", "Mulligan", "NinthTeam", "Resurrection", "Insurance",
 })
 PURCHASE_STATUSES  = frozenset({"PENDING", "PROCESSED", "CANCELLED"})
 EVENT_TYPES        = frozenset({
@@ -43,32 +43,32 @@ EVENT_STATUSES     = frozenset({"SCHEDULED", "OPEN", "CLOSED", "EXECUTED"})
 QF_ROUNDS = frozenset({"QF", "SF", "Final", "Winner"})
 
 PRICES: dict[str, float] = {
-    "BUYIN":       5.0,
-    "PACK":        5.0,
-    "MULLIGAN":    3.0,
-    "NINTH":       3.0,
-    "RESURRECTION": 5.0,
-    "INSURANCE":   2.0,
+    "BuyIn":        5.0,
+    "PredictionPack": 5.0,
+    "Mulligan":     3.0,
+    "NinthTeam":    3.0,
+    "Resurrection": 5.0,
+    "Insurance":    2.0,
 }
 
 PRIZE_SHARES = (0.50, 0.30, 0.20)   # 1st, 2nd, 3rd
 
 # Maps competition purchase types → scoring engine purchase types
 _SCORING_TYPE_MAP: dict[str, str] = {
-    "NINTH":       "NinthTeam",
-    "RESURRECTION":"Resurrection",
-    "PACK":        "PredictionPack",
-    "INSURANCE":   "Insurance",
+    "NinthTeam":      "NinthTeam",
+    "Resurrection":   "Resurrection",
+    "PredictionPack": "PredictionPack",
+    "Insurance":      "Insurance",
 }
 
 # Full purchase name → PURCHASE_TYPE (for payment reference parsing)
 _NAME_TO_TYPE: dict[str, str] = {
-    "BUY IN":          "BUYIN",
-    "PREDICTION PACK": "PACK",
-    "MULLIGAN":        "MULLIGAN",
-    "NINTH TEAM":      "NINTH",
-    "RESURRECTION":    "RESURRECTION",
-    "INSURANCE":       "INSURANCE",
+    "BUY IN":          "BuyIn",
+    "PREDICTION PACK": "PredictionPack",
+    "MULLIGAN":        "Mulligan",
+    "NINTH TEAM":      "NinthTeam",
+    "RESURRECTION":    "Resurrection",
+    "INSURANCE":       "Insurance",
 }
 
 # ---------------------------------------------------------------------------
@@ -563,7 +563,7 @@ def execute_mulligan(
 
     # Must have a processed mulligan
     p = purchases[purchases["Player"] == player] if not purchases.empty else pd.DataFrame()
-    if p.empty or p[p["PurchaseType"] == "MULLIGAN"][p["Status"] == "PROCESSED"].empty:
+    if p.empty or p[p["PurchaseType"] == "Mulligan"][p["Status"] == "PROCESSED"].empty:
         errors.append(f"{player} has no PROCESSED MULLIGAN purchase")
         return allocation, errors
 

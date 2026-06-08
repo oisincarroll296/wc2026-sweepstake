@@ -98,22 +98,22 @@ class TestPrices:
     """Buy-in prices must match the official rule sheet."""
 
     def test_buyin_is_5_euros(self):
-        assert PRICES["BUYIN"] == 5.0
+        assert PRICES["BuyIn"] == 5.0
 
     def test_prediction_pack_is_5_euros(self):
-        assert PRICES["PACK"] == 5.0
+        assert PRICES["PredictionPack"] == 5.0
 
     def test_mulligan_is_3_euros(self):
-        assert PRICES["MULLIGAN"] == 3.0
+        assert PRICES["Mulligan"] == 3.0
 
     def test_ninth_team_is_3_euros(self):
-        assert PRICES["NINTH"] == 3.0
+        assert PRICES["NinthTeam"] == 3.0
 
     def test_resurrection_is_5_euros(self):
-        assert PRICES["RESURRECTION"] == 5.0
+        assert PRICES["Resurrection"] == 5.0
 
     def test_insurance_is_2_euros(self):
-        assert PRICES["INSURANCE"] == 2.0
+        assert PRICES["Insurance"] == 2.0
 
 
 # ---------------------------------------------------------------------------

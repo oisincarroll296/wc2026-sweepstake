@@ -199,7 +199,7 @@ class TestNinthTeamCandidates:
     def test_processed_ninth_team_excluded_from_selection(self):
         # If Alice already has Germany as a ninth team, Germany should not appear again
         purch = pd.DataFrame([
-            _purch(_ALICE, "NINTH", status="PROCESSED", selection="Germany"),
+            _purch(_ALICE, "NinthTeam", status="PROCESSED", selection="Germany"),
         ])
         ms = _make_stats(_stat("Germany", "QF"), _stat("Spain", "SF"))
         result = ninth_team_candidates(_ALICE, _ASSIGNMENTS, ms, purch)
@@ -294,39 +294,39 @@ class TestProcessPendingPurchases:
         assert "No purchases found" in msgs[0]
 
     def test_buyin_processed_and_player_paid(self):
-        purch = pd.DataFrame([_purch(_ALICE, "BUYIN")])
+        purch = pd.DataFrame([_purch(_ALICE, "BuyIn")])
         st    = pd.DataFrame([{"Player": _ALICE, "Status": "UNPAID", "PaidTimestamp": ""}])
         upurch, ust, msgs = process_pending_purchases(purch, st)
         assert upurch.iloc[0]["Status"] == "PROCESSED"
         assert ust.loc[ust["Player"] == _ALICE, "Status"].iloc[0] == "PAID"
 
     def test_pack_processed(self):
-        purch = pd.DataFrame([_purch(_ALICE, "PACK")])
+        purch = pd.DataFrame([_purch(_ALICE, "PredictionPack")])
         upurch, ust, msgs = process_pending_purchases(purch, _empty_statuses())
         assert upurch.iloc[0]["Status"] == "PROCESSED"
 
     def test_insurance_processed(self):
-        purch = pd.DataFrame([_purch(_ALICE, "INSURANCE")])
+        purch = pd.DataFrame([_purch(_ALICE, "Insurance")])
         upurch, ust, msgs = process_pending_purchases(purch, _empty_statuses())
         assert upurch.iloc[0]["Status"] == "PROCESSED"
 
     def test_mulligan_stays_pending(self):
-        purch = pd.DataFrame([_purch(_ALICE, "MULLIGAN")])
+        purch = pd.DataFrame([_purch(_ALICE, "Mulligan")])
         upurch, ust, msgs = process_pending_purchases(purch, _empty_statuses())
         assert upurch.iloc[0]["Status"] == "PENDING"
 
     def test_ninth_stays_pending(self):
-        purch = pd.DataFrame([_purch(_ALICE, "NINTH")])
+        purch = pd.DataFrame([_purch(_ALICE, "NinthTeam")])
         upurch, ust, msgs = process_pending_purchases(purch, _empty_statuses())
         assert upurch.iloc[0]["Status"] == "PENDING"
 
     def test_resurrection_stays_pending(self):
-        purch = pd.DataFrame([_purch(_ALICE, "RESURRECTION")])
+        purch = pd.DataFrame([_purch(_ALICE, "Resurrection")])
         upurch, ust, msgs = process_pending_purchases(purch, _empty_statuses())
         assert upurch.iloc[0]["Status"] == "PENDING"
 
     def test_messages_list_nonempty_when_processed(self):
-        purch = pd.DataFrame([_purch(_ALICE, "BUYIN")])
+        purch = pd.DataFrame([_purch(_ALICE, "BuyIn")])
         _, _, msgs = process_pending_purchases(purch, _empty_statuses())
         assert any(_ALICE in m for m in msgs)
 
@@ -350,22 +350,22 @@ class TestMulliganDraw:
         assert result["errors"] == {}
 
     def test_pending_mulligan_gives_new_teams(self):
-        purch = pd.DataFrame([_purch(_ALICE, "MULLIGAN")])
+        purch = pd.DataFrame([_purch(_ALICE, "Mulligan")])
         alloc = self._base_allocation()
         result = run_mulligan_draw(alloc, list(_ASSIGNMENTS), purch, _empty_events(), _empty_audit(), seed=42)
         assert _ALICE in result["results"] or _ALICE in result["errors"]
 
     def test_purchase_marked_processed_on_success(self):
-        purch = pd.DataFrame([_purch(_ALICE, "MULLIGAN")])
+        purch = pd.DataFrame([_purch(_ALICE, "Mulligan")])
         alloc = self._base_allocation()
         result = run_mulligan_draw(alloc, list(_ASSIGNMENTS), purch, _empty_events(), _empty_audit(), seed=42)
         upurch = result["updated_purchases"]
         if _ALICE in result["results"]:
-            row = upurch[(upurch["Player"] == _ALICE) & (upurch["PurchaseType"] == "MULLIGAN")]
+            row = upurch[(upurch["Player"] == _ALICE) & (upurch["PurchaseType"] == "Mulligan")]
             assert row.iloc[0]["Status"] == "PROCESSED"
 
     def test_event_created_and_executed(self):
-        purch = pd.DataFrame([_purch(_ALICE, "MULLIGAN")])
+        purch = pd.DataFrame([_purch(_ALICE, "Mulligan")])
         alloc = self._base_allocation()
         result = run_mulligan_draw(alloc, list(_ASSIGNMENTS), purch, _empty_events(), _empty_audit(), seed=42)
         uevents = result["updated_events"]
@@ -374,7 +374,7 @@ class TestMulliganDraw:
         assert executed.iloc[-1]["Status"] == "EXECUTED"
 
     def test_audit_log_updated(self):
-        purch = pd.DataFrame([_purch(_ALICE, "MULLIGAN")])
+        purch = pd.DataFrame([_purch(_ALICE, "Mulligan")])
         alloc = self._base_allocation()
         result = run_mulligan_draw(alloc, list(_ASSIGNMENTS), purch, _empty_events(), _empty_audit(), seed=42)
         ulog = result["updated_audit_log"]
@@ -393,15 +393,15 @@ class TestMulliganDraw:
 
     def test_reproducible_with_same_seed(self):
         alloc = self._base_allocation()
-        purch = pd.DataFrame([_purch(_ALICE, "MULLIGAN")])
+        purch = pd.DataFrame([_purch(_ALICE, "Mulligan")])
         r1 = run_mulligan_draw(alloc, list(_ASSIGNMENTS), purch, _empty_events(), _empty_audit(), seed=77)
-        purch = pd.DataFrame([_purch(_ALICE, "MULLIGAN")])
+        purch = pd.DataFrame([_purch(_ALICE, "Mulligan")])
         r2 = run_mulligan_draw(alloc, list(_ASSIGNMENTS), purch, _empty_events(), _empty_audit(), seed=77)
         if _ALICE in r1["results"] and _ALICE in r2["results"]:
             assert sorted(r1["results"][_ALICE]["new"]) == sorted(r2["results"][_ALICE]["new"])
 
     def test_non_pending_mulligan_ignored(self):
-        purch = pd.DataFrame([_purch(_ALICE, "MULLIGAN", status="PROCESSED")])
+        purch = pd.DataFrame([_purch(_ALICE, "Mulligan", status="PROCESSED")])
         alloc = self._base_allocation()
         result = run_mulligan_draw(alloc, list(_ASSIGNMENTS), purch, _empty_events(), _empty_audit(), seed=42)
         assert result["results"] == {}
@@ -423,60 +423,60 @@ class TestNinthTeamDraw:
         assert result["results"] == {}
 
     def test_valid_candidate_assigned(self):
-        purch = pd.DataFrame([_purch(_ALICE, "NINTH")])
+        purch = pd.DataFrame([_purch(_ALICE, "NinthTeam")])
         ms = _make_stats(_stat("Germany", "QF", gw=1))
         result = run_ninth_team_draw(_ASSIGNMENTS, ms, purch, _empty_events(), _empty_audit(), seed=42)
         assert _ALICE in result["results"]
         assert result["results"][_ALICE] == "Germany"
 
     def test_selection_written_to_purchase(self):
-        purch = pd.DataFrame([_purch(_ALICE, "NINTH")])
+        purch = pd.DataFrame([_purch(_ALICE, "NinthTeam")])
         ms = _make_stats(_stat("Germany", "QF", gw=1))
         result = run_ninth_team_draw(_ASSIGNMENTS, ms, purch, _empty_events(), _empty_audit(), seed=42)
         row = result["updated_purchases"][
             (result["updated_purchases"]["Player"] == _ALICE) &
-            (result["updated_purchases"]["PurchaseType"] == "NINTH")
+            (result["updated_purchases"]["PurchaseType"] == "NinthTeam")
         ]
         assert row.iloc[0]["Selection"] == "Germany"
 
     def test_purchase_marked_processed(self):
-        purch = pd.DataFrame([_purch(_ALICE, "NINTH")])
+        purch = pd.DataFrame([_purch(_ALICE, "NinthTeam")])
         ms = _make_stats(_stat("Germany", "QF", gw=1))
         result = run_ninth_team_draw(_ASSIGNMENTS, ms, purch, _empty_events(), _empty_audit(), seed=42)
         row = result["updated_purchases"][
             (result["updated_purchases"]["Player"] == _ALICE) &
-            (result["updated_purchases"]["PurchaseType"] == "NINTH")
+            (result["updated_purchases"]["PurchaseType"] == "NinthTeam")
         ]
         assert row.iloc[0]["Status"] == "PROCESSED"
 
     def test_audit_log_entry_added(self):
-        purch = pd.DataFrame([_purch(_ALICE, "NINTH")])
+        purch = pd.DataFrame([_purch(_ALICE, "NinthTeam")])
         ms = _make_stats(_stat("Germany", "QF", gw=1))
         result = run_ninth_team_draw(_ASSIGNMENTS, ms, purch, _empty_events(), _empty_audit(), seed=42)
         assert any(result["updated_audit_log"]["Event"] == "NINTH_TEAM_DRAW")
 
     def test_event_created(self):
-        purch = pd.DataFrame([_purch(_ALICE, "NINTH")])
+        purch = pd.DataFrame([_purch(_ALICE, "NinthTeam")])
         ms = _make_stats(_stat("Germany", "QF", gw=1))
         result = run_ninth_team_draw(_ASSIGNMENTS, ms, purch, _empty_events(), _empty_audit(), seed=42)
         assert any(result["updated_events"]["EventType"] == "NINTH_TEAM_DRAW")
 
     def test_error_when_no_candidates(self):
-        purch = pd.DataFrame([_purch(_ALICE, "NINTH")])
+        purch = pd.DataFrame([_purch(_ALICE, "NinthTeam")])
         ms = _make_stats(_stat("Germany", "GroupStage"))  # eliminated
         result = run_ninth_team_draw(_ASSIGNMENTS, ms, purch, _empty_events(), _empty_audit(), seed=42)
         assert _ALICE in result["errors"]
         assert _ALICE not in result["results"]
 
     def test_non_pending_skipped(self):
-        purch = pd.DataFrame([_purch(_ALICE, "NINTH", status="PROCESSED")])
+        purch = pd.DataFrame([_purch(_ALICE, "NinthTeam", status="PROCESSED")])
         ms = _make_stats(_stat("Germany", "QF"))
         result = run_ninth_team_draw(_ASSIGNMENTS, ms, purch, _empty_events(), _empty_audit(), seed=42)
         assert result["results"] == {}
 
     def test_reproducible_same_seed(self):
-        purch1 = pd.DataFrame([_purch(_ALICE, "NINTH")])
-        purch2 = pd.DataFrame([_purch(_ALICE, "NINTH")])
+        purch1 = pd.DataFrame([_purch(_ALICE, "NinthTeam")])
+        purch2 = pd.DataFrame([_purch(_ALICE, "NinthTeam")])
         ms = _base_match_stats()
         r1 = run_ninth_team_draw(_ASSIGNMENTS, ms, purch1, _empty_events(), _empty_audit(), seed=123)
         r2 = run_ninth_team_draw(_ASSIGNMENTS, ms, purch2, _empty_events(), _empty_audit(), seed=123)
@@ -484,7 +484,7 @@ class TestNinthTeamDraw:
             assert r1["results"][_ALICE] == r2["results"][_ALICE]
 
     def test_broadcast_text_contains_player(self):
-        purch = pd.DataFrame([_purch(_ALICE, "NINTH")])
+        purch = pd.DataFrame([_purch(_ALICE, "NinthTeam")])
         ms = _make_stats(_stat("Germany", "QF"))
         result = run_ninth_team_draw(_ASSIGNMENTS, ms, purch, _empty_events(), _empty_audit(), seed=42)
         if _ALICE in result["results"]:
@@ -508,39 +508,39 @@ class TestResurrectionDraw:
 
     def test_valid_replacement_assigned(self):
         # Bob resurrects Qatar (T4,B); Iraq (T4,I) is the valid candidate
-        purch = pd.DataFrame([_purch(_BOB, "RESURRECTION", selection="Qatar")])
+        purch = pd.DataFrame([_purch(_BOB, "Resurrection", selection="Qatar")])
         ms = _make_stats(_stat("Qatar", "GroupStage"), _stat("Iraq", "R16"))
         result = run_resurrection_draw(_ASSIGNMENTS, ms, purch, _gs_closed_events(), _empty_audit(), seed=42)
         assert _BOB in result["results"]
         assert result["results"][_BOB]["replacement"] == "Iraq"
 
     def test_selection_format_elim_to_replacement(self):
-        purch = pd.DataFrame([_purch(_BOB, "RESURRECTION", selection="Qatar")])
+        purch = pd.DataFrame([_purch(_BOB, "Resurrection", selection="Qatar")])
         ms = _make_stats(_stat("Qatar", "GroupStage"), _stat("Iraq", "R16"))
         result = run_resurrection_draw(_ASSIGNMENTS, ms, purch, _gs_closed_events(), _empty_audit(), seed=42)
         upurch = result["updated_purchases"]
-        row = upurch[(upurch["Player"] == _BOB) & (upurch["PurchaseType"] == "RESURRECTION")]
+        row = upurch[(upurch["Player"] == _BOB) & (upurch["PurchaseType"] == "Resurrection")]
         assert "Qatar->Iraq" == row.iloc[0]["Selection"]
 
     def test_purchase_marked_processed(self):
-        purch = pd.DataFrame([_purch(_BOB, "RESURRECTION", selection="Qatar")])
+        purch = pd.DataFrame([_purch(_BOB, "Resurrection", selection="Qatar")])
         ms = _make_stats(_stat("Qatar", "GroupStage"), _stat("Iraq", "R16"))
         result = run_resurrection_draw(_ASSIGNMENTS, ms, purch, _gs_closed_events(), _empty_audit(), seed=42)
         row = result["updated_purchases"][
             (result["updated_purchases"]["Player"] == _BOB) &
-            (result["updated_purchases"]["PurchaseType"] == "RESURRECTION")
+            (result["updated_purchases"]["PurchaseType"] == "Resurrection")
         ]
         assert row.iloc[0]["Status"] == "PROCESSED"
 
     def test_error_when_no_selection_set(self):
-        purch = pd.DataFrame([_purch(_BOB, "RESURRECTION", selection="")])
+        purch = pd.DataFrame([_purch(_BOB, "Resurrection", selection="")])
         ms = _base_match_stats()
         result = run_resurrection_draw(_ASSIGNMENTS, ms, purch, _gs_closed_events(), _empty_audit(), seed=42)
         assert _BOB in result["errors"]
 
     def test_error_when_no_candidates(self):
         # No surviving T4 team available
-        purch = pd.DataFrame([_purch(_BOB, "RESURRECTION", selection="Qatar")])
+        purch = pd.DataFrame([_purch(_BOB, "Resurrection", selection="Qatar")])
         ms = _make_stats(_stat("Qatar", "GroupStage"))  # no valid candidates
         result = run_resurrection_draw(_ASSIGNMENTS, ms, purch, _gs_closed_events(), _empty_audit(), seed=42)
         assert _BOB in result["errors"]
@@ -553,7 +553,7 @@ class TestResurrectionDraw:
         assert executed.iloc[-1]["Status"] == "EXECUTED"
 
     def test_audit_log_updated_on_success(self):
-        purch = pd.DataFrame([_purch(_BOB, "RESURRECTION", selection="Qatar")])
+        purch = pd.DataFrame([_purch(_BOB, "Resurrection", selection="Qatar")])
         ms = _make_stats(_stat("Qatar", "GroupStage"), _stat("Iraq", "R16"))
         result = run_resurrection_draw(_ASSIGNMENTS, ms, purch, _gs_closed_events(), _empty_audit(), seed=42)
         if _BOB in result["results"]:
@@ -565,15 +565,15 @@ class TestResurrectionDraw:
             _stat("Iraq",  "R16"),
             _stat("South Africa", "GroupStage"),
         )
-        purch1 = pd.DataFrame([_purch(_BOB, "RESURRECTION", selection="Qatar")])
-        purch2 = pd.DataFrame([_purch(_BOB, "RESURRECTION", selection="Qatar")])
+        purch1 = pd.DataFrame([_purch(_BOB, "Resurrection", selection="Qatar")])
+        purch2 = pd.DataFrame([_purch(_BOB, "Resurrection", selection="Qatar")])
         r1 = run_resurrection_draw(_ASSIGNMENTS, ms, purch1, _gs_closed_events(), _empty_audit(), seed=55)
         r2 = run_resurrection_draw(_ASSIGNMENTS, ms, purch2, _gs_closed_events(), _empty_audit(), seed=55)
         if _BOB in r1["results"] and _BOB in r2["results"]:
             assert r1["results"][_BOB]["replacement"] == r2["results"][_BOB]["replacement"]
 
     def test_broadcast_contains_result(self):
-        purch = pd.DataFrame([_purch(_BOB, "RESURRECTION", selection="Qatar")])
+        purch = pd.DataFrame([_purch(_BOB, "Resurrection", selection="Qatar")])
         ms = _make_stats(_stat("Qatar", "GroupStage"), _stat("Iraq", "R16"))
         result = run_resurrection_draw(_ASSIGNMENTS, ms, purch, _gs_closed_events(), _empty_audit(), seed=42)
         if _BOB in result["results"]:
@@ -800,35 +800,35 @@ class TestDrawBroadcast:
 
 class TestPaymentLedger:
     def test_required_columns_present(self):
-        purch = pd.DataFrame([_purch(_ALICE, "BUYIN")])
+        purch = pd.DataFrame([_purch(_ALICE, "BuyIn")])
         df = generate_payment_ledger(purch)
         for col in ["Player", "Purchase", "Amount", "Reference", "Timestamp", "Status"]:
             assert col in df.columns
 
     def test_buyin_amount_correct(self):
-        purch = pd.DataFrame([_purch(_ALICE, "BUYIN")])
+        purch = pd.DataFrame([_purch(_ALICE, "BuyIn")])
         df = generate_payment_ledger(purch)
         assert df.iloc[0]["Amount"] == 5.0
 
     def test_ninth_amount_correct(self):
-        purch = pd.DataFrame([_purch(_ALICE, "NINTH")])
+        purch = pd.DataFrame([_purch(_ALICE, "NinthTeam")])
         df = generate_payment_ledger(purch)
         assert df.iloc[0]["Amount"] == 3.0
 
     def test_resurrection_amount_correct(self):
-        purch = pd.DataFrame([_purch(_ALICE, "RESURRECTION")])
+        purch = pd.DataFrame([_purch(_ALICE, "Resurrection")])
         df = generate_payment_ledger(purch)
         assert df.iloc[0]["Amount"] == 5.0
 
     def test_insurance_amount_correct(self):
-        purch = pd.DataFrame([_purch(_ALICE, "INSURANCE")])
+        purch = pd.DataFrame([_purch(_ALICE, "Insurance")])
         df = generate_payment_ledger(purch)
         assert df.iloc[0]["Amount"] == 2.0
 
     def test_status_preserved(self):
         purch = pd.DataFrame([
-            _purch(_ALICE, "BUYIN", status="PROCESSED"),
-            _purch(_BOB,   "PACK",  status="PENDING"),
+            _purch(_ALICE, "BuyIn", status="PROCESSED"),
+            _purch(_BOB,   "PredictionPack",  status="PENDING"),
         ])
         df = generate_payment_ledger(purch)
         assert "PROCESSED" in df["Status"].values
@@ -836,9 +836,9 @@ class TestPaymentLedger:
 
     def test_one_row_per_purchase(self):
         purch = pd.DataFrame([
-            _purch(_ALICE, "BUYIN"),
-            _purch(_ALICE, "PACK"),
-            _purch(_BOB,   "BUYIN"),
+            _purch(_ALICE, "BuyIn"),
+            _purch(_ALICE, "PredictionPack"),
+            _purch(_BOB,   "BuyIn"),
         ])
         df = generate_payment_ledger(purch)
         assert len(df) == 3

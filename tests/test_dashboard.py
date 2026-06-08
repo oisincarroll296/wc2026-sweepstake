@@ -158,9 +158,9 @@ class TestBackendIntegration:
     def test_prize_pool_with_buyins(self):
         from src.competition import calculate_prize_pool
         rows = [
-            {"Player": "Alice", "PurchaseType": "BUYIN", "Status": "PROCESSED",
+            {"Player": "Alice", "PurchaseType": "BuyIn", "Status": "PROCESSED",
              "Timestamp": "", "Reference": "", "Selection": ""},
-            {"Player": "Bob",   "PurchaseType": "BUYIN", "Status": "PROCESSED",
+            {"Player": "Bob",   "PurchaseType": "BuyIn", "Status": "PROCESSED",
              "Timestamp": "", "Reference": "", "Selection": ""},
         ]
         p = pd.DataFrame(rows)

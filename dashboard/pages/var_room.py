@@ -45,7 +45,7 @@ with tabs[0]:
     if not df.empty:
         # Show processed purchases only in a clean view
         show_cols = [c for c in ["Player", "PurchaseType", "Amount", "Reference", "Timestamp", "Status"] if c in df.columns]
-        searchable_table(df[show_cols], "Search player or purchase type…")
+        searchable_table(df[show_cols], "Search player or purchase type…", key="tbl_payment_ledger")
     else:
         empty_state("No payment data yet.")
 
@@ -86,7 +86,7 @@ with tabs[3]:
     if audit.empty:
         empty_state("No audit entries yet.")
     else:
-        searchable_table(audit.iloc[::-1].reset_index(drop=True), "Search events, players, actions…")
+        searchable_table(audit.iloc[::-1].reset_index(drop=True), "Search events, players, actions…", key="tbl_audit_log")
 
 # ── 5. Draw History ───────────────────────────────────────────────────────
 with tabs[4]:
@@ -112,7 +112,7 @@ with tabs[4]:
         # Also try exports file as fallback
         if df.empty:
             df = _load_csv("mulligan_results.csv") if (EXPORTS / "mulligan_results.csv").exists() else pd.DataFrame()
-        searchable_table(df) if not df.empty else empty_state("No mulligan draws recorded.")
+        searchable_table(df, key="tbl_mulligan") if not df.empty else empty_state("No mulligan draws recorded.")
     with sub[2]:
         if not audit.empty:
             df = audit[audit["Event"] == "NINTH_TEAM_DRAW"].reset_index(drop=True) if "Event" in audit.columns else pd.DataFrame()
@@ -120,7 +120,7 @@ with tabs[4]:
             df = pd.DataFrame()
         if df.empty:
             df = _load_csv("ninth_team_results.csv") if (EXPORTS / "ninth_team_results.csv").exists() else pd.DataFrame()
-        searchable_table(df) if not df.empty else empty_state("No ninth team draws recorded.")
+        searchable_table(df, key="tbl_ninth_team") if not df.empty else empty_state("No ninth team draws recorded.")
     with sub[3]:
         if not audit.empty:
             df = audit[audit["Event"] == "RESURRECTION_DRAW"].reset_index(drop=True) if "Event" in audit.columns else pd.DataFrame()
@@ -128,14 +128,14 @@ with tabs[4]:
             df = pd.DataFrame()
         if df.empty:
             df = _load_csv("resurrection_results.csv") if (EXPORTS / "resurrection_results.csv").exists() else pd.DataFrame()
-        searchable_table(df) if not df.empty else empty_state("No resurrection draws recorded.")
+        searchable_table(df, key="tbl_resurrection") if not df.empty else empty_state("No resurrection draws recorded.")
 
 # ── 6. Random Seeds ───────────────────────────────────────────────────────
 with tabs[5]:
     st.subheader("🎯 Random Seeds")
     st.caption("All random seeds used in draws are recorded here for full auditability.")
     df = _load_csv("random_seeds.csv") if (EXPORTS / "random_seeds.csv").exists() else pd.DataFrame()
-    searchable_table(df) if not df.empty else empty_state("No seeds recorded yet.")
+    searchable_table(df, key="tbl_seeds") if not df.empty else empty_state("No seeds recorded yet.")
 
 # ── 7. Transaction History ─────────────────────────────────────────────────
 with tabs[6]:
@@ -144,4 +144,4 @@ with tabs[6]:
     if p.empty:
         empty_state("No transactions recorded.")
     else:
-        searchable_table(p.iloc[::-1].reset_index(drop=True), "Search player, type, status…")
+        searchable_table(p.iloc[::-1].reset_index(drop=True), "Search player, type, status…", key="tbl_transactions")

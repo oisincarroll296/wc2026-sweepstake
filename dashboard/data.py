@@ -152,7 +152,7 @@ def get_pack_count() -> int:
     p = get_purchases()
     if p.empty:
         return 0
-    return int(((p["PurchaseType"] == "PACK") & (p["Status"] == "PROCESSED")).sum())
+    return int(((p["PurchaseType"] == "PredictionPack") & (p["Status"] == "PROCESSED")).sum())
 
 
 @st.cache_data(ttl=30)
@@ -541,7 +541,7 @@ def get_insurance_overview() -> dict:
     holders = []
     if not purchases.empty:
         ins_players = purchases[
-            (purchases["PurchaseType"] == "INSURANCE") &
+            (purchases["PurchaseType"] == "Insurance") &
             (purchases["Status"] == "PROCESSED")
         ]["Player"].unique()
         for player in ins_players:

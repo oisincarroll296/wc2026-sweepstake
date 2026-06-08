@@ -82,6 +82,11 @@ pred_total    = pred_info.get("total", 0.0)
 
 # ── Score strip ────────────────────────────────────────────────────────────
 paid_icon = "✅" if status_val == "PAID" else "⚠️"
+has_ins = not purchases.empty and not purchases[
+    (purchases["Player"] == player) &
+    (purchases["PurchaseType"] == "Insurance") &
+    (purchases["Status"] == "PROCESSED")
+].empty
 st.markdown(
     f'<div style="background:#1E2937;border:1px solid #2A3A4A;border-radius:10px;'
     f'padding:0.75rem 1rem;margin-bottom:0.75rem;display:flex;flex-wrap:wrap;gap:0.75rem;'
@@ -302,12 +307,6 @@ with col_extras:
         ]
         return rows.iloc[0].get("Selection", "—") if not rows.empty else "—"
 
-    has_ins = not purchases.empty and not purchases[
-        (purchases["Player"] == player) &
-        (purchases["PurchaseType"] == "INSURANCE") &
-        (purchases["Status"] == "PROCESSED")
-    ].empty
-
     # ── Captain Breakdown ──────────────────────────────────────────────────
     st.subheader("🎖️ Captain Bonus")
     pre_team = captain_info.get("pre_tournament_captain") or "—"
@@ -404,8 +403,8 @@ with col_extras:
         )
 
     # Ninth / Resurrection
-    ninth = _sel("NINTH")
-    resur = _sel("RESURRECTION")
+    ninth = _sel("NinthTeam")
+    resur = _sel("Resurrection")
     if ninth != "—" or resur != "—":
         st.divider()
         st.subheader("🎰 Extra Teams")

@@ -174,42 +174,42 @@ class TestPrizePool:
         assert pool["current_pot"] == 0.0
 
     def test_buyin_adds_5(self):
-        p = _purchases(("Alice", "BUYIN", "PROCESSED", "", "", ""))
+        p = _purchases(("Alice", "BuyIn", "PROCESSED", "", "", ""))
         assert calculate_prize_pool(p)["current_pot"] == 5.0
 
     def test_pack_adds_5(self):
-        p = _purchases(("Alice", "PACK", "PROCESSED", "", "", ""))
+        p = _purchases(("Alice", "PredictionPack", "PROCESSED", "", "", ""))
         assert calculate_prize_pool(p)["current_pot"] == 5.0
 
     def test_mulligan_adds_3(self):
-        p = _purchases(("Alice", "MULLIGAN", "PROCESSED", "", "", ""))
+        p = _purchases(("Alice", "Mulligan", "PROCESSED", "", "", ""))
         assert calculate_prize_pool(p)["current_pot"] == 3.0
 
     def test_ninth_adds_3(self):
-        p = _purchases(("Alice", "NINTH", "PROCESSED", "", "", ""))
+        p = _purchases(("Alice", "NinthTeam", "PROCESSED", "", "", ""))
         assert calculate_prize_pool(p)["current_pot"] == 3.0
 
     def test_resurrection_adds_5(self):
-        p = _purchases(("Alice", "RESURRECTION", "PROCESSED", "", "", ""))
+        p = _purchases(("Alice", "Resurrection", "PROCESSED", "", "", ""))
         assert calculate_prize_pool(p)["current_pot"] == 5.0
 
     def test_insurance_adds_2(self):
-        p = _purchases(("Alice", "INSURANCE", "PROCESSED", "", "", ""))
+        p = _purchases(("Alice", "Insurance", "PROCESSED", "", "", ""))
         assert calculate_prize_pool(p)["current_pot"] == 2.0
 
     def test_pending_purchase_not_counted(self):
-        p = _purchases(("Alice", "BUYIN", "PENDING", "", "", ""))
+        p = _purchases(("Alice", "BuyIn", "PENDING", "", "", ""))
         assert calculate_prize_pool(p)["current_pot"] == 0.0
 
     def test_cancelled_purchase_not_counted(self):
-        p = _purchases(("Alice", "BUYIN", "CANCELLED", "", "", ""))
+        p = _purchases(("Alice", "BuyIn", "CANCELLED", "", "", ""))
         assert calculate_prize_pool(p)["current_pot"] == 0.0
 
     def test_prize_split_50_30_20(self):
         # 2 buyins = €10
         p = _purchases(
-            ("Alice", "BUYIN", "PROCESSED", "", "", ""),
-            ("Bob",   "BUYIN", "PROCESSED", "", "", ""),
+            ("Alice", "BuyIn", "PROCESSED", "", "", ""),
+            ("Bob",   "BuyIn", "PROCESSED", "", "", ""),
         )
         pool = calculate_prize_pool(p)
         assert pool["current_pot"] == 10.0
@@ -219,15 +219,15 @@ class TestPrizePool:
 
     def test_prize_split_sums_to_pot(self):
         p = _purchases(
-            ("Alice", "BUYIN", "PROCESSED", "", "", ""),
-            ("Alice", "PACK", "PROCESSED", "", "", ""),
-            ("Bob",   "NINTH", "PROCESSED", "", "", ""),
+            ("Alice", "BuyIn", "PROCESSED", "", "", ""),
+            ("Alice", "PredictionPack", "PROCESSED", "", "", ""),
+            ("Bob",   "NinthTeam", "PROCESSED", "", "", ""),
         )
         pool = calculate_prize_pool(p)
         assert abs(pool["first_prize"] + pool["second_prize"] + pool["third_prize"] - pool["current_pot"]) < 0.01
 
     def test_export_prize_pool_creates_csv(self, tmp_path):
-        p = _purchases(("Alice", "BUYIN", "PROCESSED", "", "", ""))
+        p = _purchases(("Alice", "BuyIn", "PROCESSED", "", "", ""))
         out = tmp_path / "prize_pool.csv"
         df = export_prize_pool(p, out)
         assert out.exists()
@@ -239,78 +239,78 @@ class TestPrizePool:
 
 class TestPurchases:
     def test_add_purchase_pending_status(self):
-        p = add_purchase("Alice", "BUYIN", "ALICE - BUY IN", _empty_purchases())
+        p = add_purchase("Alice", "BuyIn", "ALICE - BUY IN", _empty_purchases())
         assert p.iloc[0]["Status"] == "PENDING"
 
     def test_add_purchase_stores_reference(self):
-        p = add_purchase("Alice", "BUYIN", "ALICE - BUY IN", _empty_purchases())
+        p = add_purchase("Alice", "BuyIn", "ALICE - BUY IN", _empty_purchases())
         assert p.iloc[0]["Reference"] == "ALICE - BUY IN"
 
     def test_process_purchase_changes_status(self):
-        p = add_purchase("Alice", "BUYIN", "ALICE - BUY IN", _empty_purchases())
-        p = process_purchase("Alice", "BUYIN", "ALICE - BUY IN", p)
+        p = add_purchase("Alice", "BuyIn", "ALICE - BUY IN", _empty_purchases())
+        p = process_purchase("Alice", "BuyIn", "ALICE - BUY IN", p)
         assert p.iloc[0]["Status"] == "PROCESSED"
 
     def test_cancel_purchase_changes_status(self):
-        p = add_purchase("Alice", "BUYIN", "ALICE - BUY IN", _empty_purchases())
-        p = cancel_purchase("Alice", "BUYIN", "ALICE - BUY IN", p)
+        p = add_purchase("Alice", "BuyIn", "ALICE - BUY IN", _empty_purchases())
+        p = cancel_purchase("Alice", "BuyIn", "ALICE - BUY IN", p)
         assert p.iloc[0]["Status"] == "CANCELLED"
 
     def test_process_only_targets_matching_row(self):
         p = _empty_purchases()
-        p = add_purchase("Alice", "BUYIN", "ALICE - BUY IN", p)
-        p = add_purchase("Bob",   "BUYIN", "BOB - BUY IN",   p)
-        p = process_purchase("Alice", "BUYIN", "ALICE - BUY IN", p)
+        p = add_purchase("Alice", "BuyIn", "ALICE - BUY IN", p)
+        p = add_purchase("Bob",   "BuyIn", "BOB - BUY IN",   p)
+        p = process_purchase("Alice", "BuyIn", "ALICE - BUY IN", p)
         assert p[p["Player"] == "Bob"]["Status"].iloc[0] == "PENDING"
 
     def test_process_with_selection(self):
-        p = add_purchase("Alice", "NINTH", "ALICE - NINTH TEAM", _empty_purchases())
-        p = process_purchase("Alice", "NINTH", "ALICE - NINTH TEAM", p, selection="Germany")
+        p = add_purchase("Alice", "NinthTeam", "ALICE - NINTH TEAM", _empty_purchases())
+        p = process_purchase("Alice", "NinthTeam", "ALICE - NINTH TEAM", p, selection="Germany")
         assert p.iloc[0]["Selection"] == "Germany"
 
     def test_get_player_purchases_filters_correctly(self):
         p = _purchases(
-            ("Alice", "BUYIN", "PROCESSED", "", "", ""),
-            ("Bob",   "BUYIN", "PROCESSED", "", "", ""),
+            ("Alice", "BuyIn", "PROCESSED", "", "", ""),
+            ("Bob",   "BuyIn", "PROCESSED", "", "", ""),
         )
         alice = get_player_purchases("Alice", p)
         assert len(alice) == 1
         assert alice.iloc[0]["Player"] == "Alice"
 
     def test_purchases_to_scoring_format_maps_ninth(self):
-        p = _purchases(("Alice", "NINTH", "PROCESSED", "", "", "Germany"))
+        p = _purchases(("Alice", "NinthTeam", "PROCESSED", "", "", "Germany"))
         sp = purchases_to_scoring_format(p)
         assert sp.iloc[0]["PurchaseType"] == "NinthTeam"
         assert sp.iloc[0]["Selection"] == "Germany"
 
     def test_purchases_to_scoring_format_maps_resurrection(self):
-        p = _purchases(("Alice", "RESURRECTION", "PROCESSED", "", "", "Qatar->Germany"))
+        p = _purchases(("Alice", "Resurrection", "PROCESSED", "", "", "Qatar->Germany"))
         sp = purchases_to_scoring_format(p)
         assert sp.iloc[0]["PurchaseType"] == "Resurrection"
         assert sp.iloc[0]["Selection"] == "Qatar->Germany"
 
     def test_purchases_to_scoring_format_maps_pack(self):
-        p = _purchases(("Alice", "PACK", "PROCESSED", "", "", ""))
+        p = _purchases(("Alice", "PredictionPack", "PROCESSED", "", "", ""))
         sp = purchases_to_scoring_format(p)
         assert sp.iloc[0]["PurchaseType"] == "PredictionPack"
 
     def test_purchases_to_scoring_format_maps_insurance(self):
-        p = _purchases(("Alice", "INSURANCE", "PROCESSED", "", "", ""))
+        p = _purchases(("Alice", "Insurance", "PROCESSED", "", "", ""))
         sp = purchases_to_scoring_format(p)
         assert sp.iloc[0]["PurchaseType"] == "Insurance"
 
     def test_purchases_to_scoring_format_excludes_buyin(self):
-        p = _purchases(("Alice", "BUYIN", "PROCESSED", "", "", ""))
+        p = _purchases(("Alice", "BuyIn", "PROCESSED", "", "", ""))
         sp = purchases_to_scoring_format(p)
         assert sp.empty
 
     def test_purchases_to_scoring_format_excludes_mulligan(self):
-        p = _purchases(("Alice", "MULLIGAN", "PROCESSED", "", "", ""))
+        p = _purchases(("Alice", "Mulligan", "PROCESSED", "", "", ""))
         sp = purchases_to_scoring_format(p)
         assert sp.empty
 
     def test_purchases_to_scoring_excludes_pending(self):
-        p = _purchases(("Alice", "NINTH", "PENDING", "", "", "Germany"))
+        p = _purchases(("Alice", "NinthTeam", "PENDING", "", "", "Germany"))
         sp = purchases_to_scoring_format(p)
         assert sp.empty
 
@@ -322,28 +322,28 @@ class TestPaymentReference:
     def test_buyin_only(self):
         r = parse_payment_reference("OISIN - BUY IN")
         assert r["player"] == "OISIN"
-        assert r["items"] == ["BUYIN"]
+        assert r["items"] == ["BuyIn"]
 
     def test_buyin_and_pack(self):
         r = parse_payment_reference("JOHN - BUY IN, PREDICTION PACK")
         assert r["player"] == "JOHN"
-        assert set(r["items"]) == {"BUYIN", "PACK"}
+        assert set(r["items"]) == {"BuyIn", "PredictionPack"}
 
     def test_mulligan_only(self):
         r = parse_payment_reference("SARAH - MULLIGAN")
-        assert r["items"] == ["MULLIGAN"]
+        assert r["items"] == ["Mulligan"]
 
     def test_ninth_and_resurrection(self):
         r = parse_payment_reference("MIKE - NINTH TEAM, RESURRECTION")
-        assert set(r["items"]) == {"NINTH", "RESURRECTION"}
+        assert set(r["items"]) == {"NinthTeam", "Resurrection"}
 
     def test_insurance_in_reference(self):
         r = parse_payment_reference("OISIN - BUY IN, PREDICTION PACK, INSURANCE")
-        assert "INSURANCE" in r["items"]
+        assert "Insurance" in r["items"]
 
     def test_unknown_items_ignored(self):
         r = parse_payment_reference("ALICE - BUY IN, UNICORN")
-        assert r["items"] == ["BUYIN"]
+        assert r["items"] == ["BuyIn"]
 
     def test_missing_dash_returns_empty(self):
         r = parse_payment_reference("OISIN BUY IN")
@@ -352,7 +352,7 @@ class TestPaymentReference:
 
     def test_case_insensitive_items(self):
         r = parse_payment_reference("ALICE - buy in")
-        assert "BUYIN" in r["items"]
+        assert "BuyIn" in r["items"]
 
 # ---------------------------------------------------------------------------
 # TestPredictionValidation  (dark horse)
@@ -416,7 +416,7 @@ class TestNinthTeamValidation:
         assert errors  # empty round treated as eliminated
 
     def test_team_already_ninth_invalid(self):
-        p = _purchases(("Alice", "NINTH", "PROCESSED", "", "", "Germany"))
+        p = _purchases(("Alice", "NinthTeam", "PROCESSED", "", "", "Germany"))
         ms = _ms({"Team": "Italy", "RoundReached": "R16"})
         # Italy is not in assignments but Germany was already added as ninth
         # Italy should still be fine
@@ -424,7 +424,7 @@ class TestNinthTeamValidation:
         assert errors == []
 
     def test_team_added_by_ninth_counts_as_owned(self):
-        p = _purchases(("Alice", "NINTH", "PROCESSED", "", "", "Germany"))
+        p = _purchases(("Alice", "NinthTeam", "PROCESSED", "", "", "Germany"))
         ms = _ms({"Team": "Germany", "RoundReached": "R16"})
         errors = validate_ninth_team("Alice", "Germany", _ASSIGNMENTS, ms, p)
         assert any("owned" in e for e in errors)
@@ -879,8 +879,8 @@ class TestPaymentLedger:
     def test_row_per_player(self, tmp_path):
         out = tmp_path / "ledger.csv"
         p = _purchases(
-            ("Alice", "BUYIN", "PROCESSED", "", "", ""),
-            ("Bob",   "BUYIN", "PROCESSED", "", "", ""),
+            ("Alice", "BuyIn", "PROCESSED", "", "", ""),
+            ("Bob",   "BuyIn", "PROCESSED", "", "", ""),
         )
         df = export_payment_ledger(p, _empty_statuses(), out)
         assert len(df) == 2
@@ -888,8 +888,8 @@ class TestPaymentLedger:
     def test_total_paid_correct(self, tmp_path):
         out = tmp_path / "ledger.csv"
         p = _purchases(
-            ("Alice", "BUYIN", "PROCESSED", "", "", ""),
-            ("Alice", "PACK",  "PROCESSED", "", "", ""),
+            ("Alice", "BuyIn", "PROCESSED", "", "", ""),
+            ("Alice", "PredictionPack",  "PROCESSED", "", "", ""),
         )
         df = export_payment_ledger(p, _empty_statuses(), out)
         alice = df[df["Player"] == "Alice"].iloc[0]
@@ -897,7 +897,7 @@ class TestPaymentLedger:
 
     def test_payment_status_from_statuses(self, tmp_path):
         out = tmp_path / "ledger.csv"
-        p = _purchases(("Alice", "BUYIN", "PROCESSED", "", "", ""))
+        p = _purchases(("Alice", "BuyIn", "PROCESSED", "", "", ""))
         st = _statuses(("Alice", "PAID", ""))
         df = export_payment_ledger(p, st, out)
         assert df[df["Player"] == "Alice"]["PaymentStatus"].iloc[0] == "PAID"
@@ -911,4 +911,4 @@ class TestInsuranceBonusValue:
         assert INSURANCE_BONUS == 25
 
     def test_insurance_price_is_2(self):
-        assert PRICES["INSURANCE"] == 2.0
+        assert PRICES["Insurance"] == 2.0

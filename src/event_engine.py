@@ -45,9 +45,9 @@ AUDIT_LOG_PATH = DATA_DIR / "audit_log.csv"
 STATUS_PATH    = DATA_DIR / "player_status.csv"
 
 # Purchase types processed immediately (no draw required)
-_IMMEDIATE_TYPES = frozenset({"BUYIN", "PACK", "INSURANCE"})
+_IMMEDIATE_TYPES = frozenset({"BuyIn", "PredictionPack", "Insurance"})
 # Purchase types held until a draw event
-_DRAW_TYPES = frozenset({"MULLIGAN", "NINTH", "RESURRECTION"})
+_DRAW_TYPES = frozenset({"Mulligan", "NinthTeam", "Resurrection"})
 
 # ---------------------------------------------------------------------------
 # Utilities
@@ -203,7 +203,7 @@ def process_pending_purchases(
         msgs.append(f"{player}: {ptype} → PROCESSED")
 
         # Mark PAID on confirmed BUYIN
-        if ptype == "BUYIN":
+        if ptype == "BuyIn":
             ust = mark_paid(player, ust)
 
     return upurch, ust, msgs
@@ -229,7 +229,7 @@ def run_mulligan_draw(
     rng = random.Random(seed)
 
     pending = (
-        purchases[(purchases["PurchaseType"] == "MULLIGAN") & (purchases["Status"] == "PENDING")]
+        purchases[(purchases["PurchaseType"] == "Mulligan") & (purchases["Status"] == "PENDING")]
         if not purchases.empty else pd.DataFrame()
     )
     mulligan_players = pending["Player"].unique().tolist() if not pending.empty else []
@@ -263,7 +263,7 @@ def run_mulligan_draw(
         # Mark purchase PROCESSED
         mask = (
             (upurch["Player"] == player)
-            & (upurch["PurchaseType"] == "MULLIGAN")
+            & (upurch["PurchaseType"] == "Mulligan")
             & (upurch["Status"] == "PENDING")
         )
         if mask.any():
@@ -306,7 +306,7 @@ def run_ninth_team_draw(
     rng = random.Random(seed)
 
     pending = (
-        purchases[(purchases["PurchaseType"] == "NINTH") & (purchases["Status"] == "PENDING")]
+        purchases[(purchases["PurchaseType"] == "NinthTeam") & (purchases["Status"] == "PENDING")]
         if not purchases.empty else pd.DataFrame()
     )
     players = pending["Player"].unique().tolist() if not pending.empty else []
@@ -330,7 +330,7 @@ def run_ninth_team_draw(
 
         mask = (
             (upurch["Player"] == player)
-            & (upurch["PurchaseType"] == "NINTH")
+            & (upurch["PurchaseType"] == "NinthTeam")
             & (upurch["Status"] == "PENDING")
         )
         if mask.any():
@@ -395,7 +395,7 @@ def run_resurrection_draw(
     tmap = _tier_map()
 
     pending = (
-        purchases[(purchases["PurchaseType"] == "RESURRECTION") & (purchases["Status"] == "PENDING")]
+        purchases[(purchases["PurchaseType"] == "Resurrection") & (purchases["Status"] == "PENDING")]
         if not purchases.empty else pd.DataFrame()
     )
 
@@ -426,7 +426,7 @@ def run_resurrection_draw(
 
         mask = (
             (upurch["Player"] == player)
-            & (upurch["PurchaseType"] == "RESURRECTION")
+            & (upurch["PurchaseType"] == "Resurrection")
             & (upurch["Status"] == "PENDING")
         )
         if mask.any():

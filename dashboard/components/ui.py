@@ -64,12 +64,12 @@ def empty_state(msg: str = "No data available yet.") -> None:
     )
 
 
-def searchable_table(df: pd.DataFrame, search_placeholder: str = "Search…") -> None:
+def searchable_table(df: pd.DataFrame, search_placeholder: str = "Search…", key: str | None = None) -> None:
     """Render a DataFrame with an inline search filter."""
     if df.empty:
         empty_state()
         return
-    query = st.text_input("", placeholder=search_placeholder, label_visibility="collapsed")
+    query = st.text_input("", placeholder=search_placeholder, label_visibility="collapsed", key=key)
     if query:
         mask = df.apply(lambda col: col.astype(str).str.contains(query, case=False, na=False)).any(axis=1)
         df = df[mask]
