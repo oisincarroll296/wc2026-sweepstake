@@ -1,5 +1,7 @@
 """Purchases — who has bought what at a glance."""
 import sys
+import json
+from datetime import datetime, timezone
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
@@ -8,6 +10,37 @@ import pandas as pd
 
 from dashboard.data import get_purchases, get_statuses, get_participants
 from dashboard.components.ui import page_header, empty_state
+
+_ROOT = Path(__file__).parent.parent.parent
+_now = datetime.now(tz=timezone.utc)
+_deadline_key: dict[str, str] = {
+    "BuyIn":         "buy_in_deadline",
+    "PredictionPack":"prediction_lock",
+    "Mulligan":      "mulligan_deadline",
+    "NinthTeam":     "ninth_team_draw",
+    "Resurrection":  "resurrection_window_close",
+    "Insurance":     "group_stage_closes",
+}
+_deadlines: dict[str, datetime] = {}
+_dl_path = _ROOT / "data" / "deadlines.json"
+if _dl_path.exists():
+    try:
+        _raw = json.loads(_dl_path.read_text())
+        for _k, _v in _raw.items():
+            try:
+                _deadlines[_k] = datetime.fromisoformat(_v)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+
+def _available(pt: str) -> bool:
+    key = _deadline_key.get(pt)
+    if not key:
+        return True
+    dl = _deadlines.get(key)
+    return dl is None or _now < dl
 
 page_header("Purchases", "Who has bought what — full purchase overview")
 
@@ -80,7 +113,12 @@ for player in sorted(participants, key=lambda p: (status_map.get(p, "UNPAID") !=
         "Status": status_map.get(player, "UNPAID"),
     }
     for pt, label, _ in PTYPES:
-        row[label] = "✓" if pt in has else "—"
+        if pt in has:
+            row[label] = "✓"
+        elif _available(pt):
+            row[label] = "💡"
+        else:
+            row[label] = "—"
     row["Spent"] = f"€{spent}"
     rows.append(row)
 
@@ -101,6 +139,8 @@ def _style(row: pd.Series):
             styles.append("color: #D4A017; font-weight: 700")
         elif row[col] == "✓":
             styles.append("color: #6EE7B7; font-weight: 700")
+        elif row[col] == "💡":
+            styles.append("color: #D4A017; font-weight: 700")
         else:
             styles.append("color: #4B5563")
     return styles
@@ -111,6 +151,7 @@ st.dataframe(
     use_container_width=True,
     hide_index=True,
 )
+st.caption("✓ Purchased  ·  💡 Still available — message Oisin to buy  ·  — Deadline passed")
 
 # ── Summary strip ───────────────────────────────────────────────────────────
 st.divider()

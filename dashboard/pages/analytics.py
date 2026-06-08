@@ -245,6 +245,45 @@ if _hist_path.exists():
         _fig_line.update_layout(**_line_layout)
         st.plotly_chart(_fig_line, use_container_width=True)
         st.caption("Chart shows cumulative points at each tournament milestone. Updated as results are entered.")
+
+        # ── Rank trajectory ───────────────────────────────────────────────
+        st.subheader("📉 Rank Over Time")
+        _rank_rows = []
+        for _d in sorted(_hist["Date"].unique()):
+            _snap = _hist[_hist["Date"] == _d].copy()
+            _snap = _snap.sort_values("Points", ascending=False).reset_index(drop=True)
+            for _r, _row in _snap.iterrows():
+                _rank_rows.append({
+                    "Date": _d,
+                    "Label": _MILESTONE_LABELS.get(_d, _d),
+                    "Player": _row["Player"],
+                    "Rank": _r + 1,
+                })
+        _rank_df = pd.DataFrame(_rank_rows)
+        _fig_rank = go.Figure()
+        for _idx, _pl in enumerate(sorted(_rank_df["Player"].unique())):
+            _pd2 = _rank_df[_rank_df["Player"] == _pl].sort_values("Date")
+            _fig_rank.add_trace(go.Scatter(
+                x=_pd2["Label"].tolist(),
+                y=_pd2["Rank"].tolist(),
+                mode="lines+markers",
+                name=_pl,
+                line=dict(color=_palette[_idx % len(_palette)], width=2),
+                marker=dict(size=6),
+                hovertemplate=f"<b>{_pl}</b><br>%{{x}}: rank %{{y}}<extra></extra>",
+            ))
+        _rank_layout = {**PLOTLY_LAYOUT}
+        _rank_layout.update(
+            title="Rank Position by Gameweek (lower = better)",
+            height=420,
+            xaxis_title="Tournament Stage",
+            yaxis_title="Position",
+            yaxis=dict(autorange="reversed", dtick=1, gridcolor="#2A3A4A"),
+            legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(size=11), x=1.01, y=1),
+        )
+        _fig_rank.update_layout(**_rank_layout)
+        st.plotly_chart(_fig_rank, use_container_width=True)
+        st.caption("Inverted axis — 1st place sits at the top. Shows who is climbing and who is falling.")
     except Exception as _e:
         st.info(f"Points history not available: {_e}")
 else:
