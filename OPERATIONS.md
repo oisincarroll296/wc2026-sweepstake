@@ -12,14 +12,14 @@ Step-by-step reference for running the sweepstake from draw to prize day.
 
 | Date | Deadline |
 |------|----------|
-| 10 Jun 20:00 UTC | Mulligan deadline |
-| 11 Jun 20:00 UTC | Prediction lock + pre-tournament captain deadline |
-| 19 Jun 20:00 UTC | Buy-in deadline (before last group game) |
-| 28 Jun 03:00 UTC | Group stage closes |
-| 28 Jun 19:00 UTC | Knockout captain deadline |
-| 28 Jun 20:00 UTC | Ninth Team draw |
-| 29 Jun 19:00 UTC | Resurrection window closes |
-| 19 Jul 22:00 UTC | Tournament ends |
+| 10 Jun 21:00 IST | Mulligan deadline |
+| 11 Jun 21:00 IST | Prediction lock + pre-tournament captain deadline |
+| 19 Jun 21:00 IST | Buy-in deadline (before last group game) |
+| 28 Jun 04:00 IST | Group stage closes |
+| 28 Jun 20:00 IST | Knockout captain deadline |
+| 28 Jun 21:00 IST | Ninth Team draw |
+| 29 Jun 20:00 IST | Resurrection window closes |
+| 19 Jul 23:00 IST | Tournament ends |
 
 Deadlines are editable via **Admin → Deadlines** without a code change.
 
@@ -82,7 +82,7 @@ When a player sends money to the **Shared Revolut Pocket**, go to **Admin → Pu
 
 ### 4. Mulligan Draw (if anyone bought one)
 
-Deadline: **10 Jun 20:00 UTC**
+Deadline: **10 Jun 21:00 IST**
 
 1. Make sure the `Mulligan` purchase is added in Admin → Purchases
 2. Go to **Admin → Draw Events**, select `MULLIGAN_DRAW`, click **Run**
@@ -94,7 +94,7 @@ The player gets a completely new set of 8 teams. Must still pass all allocation 
 
 ### 5. Collect Predictions (Prediction Pack buyers only)
 
-Deadline: **11 Jun 20:00 UTC** (same as prediction lock)
+Deadline: **11 Jun 21:00 IST** (same as prediction lock)
 
 Ask each Prediction Pack holder to send you three picks:
 
@@ -113,7 +113,7 @@ Alice,Brazil,Vinicius Jr,Tunisia
 
 ### 6. Collect Pre-Tournament Captains
 
-Deadline: **11 Jun 20:00 UTC**
+Deadline: **11 Jun 21:00 IST**
 
 Each player sends you their Pre-Tournament captain. Edit `data/captains.csv` directly:
 
@@ -130,7 +130,7 @@ Alice,PreTournament,Brazil
 
 ### 7. Lock Predictions and Buy-Ins
 
-**1 hour before the opening match (11 Jun ~20:00 UTC):**
+**1 hour before the opening match (11 Jun ~21:00 IST):**
 
 Go to **Admin → Locking**:
 
@@ -229,7 +229,7 @@ A random surviving team the player doesn't already own is assigned to their knoc
 
 ### 13. Collect Knockout Captains
 
-Deadline: **28 Jun 19:00 UTC**
+Deadline: **28 Jun 20:00 IST**
 
 Ask each player for their Knockout captain pick before the Round of 16 starts. Add to `data/captains.csv`:
 
@@ -267,7 +267,7 @@ If a player's team is eliminated and they want to buy a Resurrection (€5):
 
 The engine finds a surviving team of the same tier that the player doesn't already own and replaces the eliminated team in their knockout roster.
 
-**Resurrection window closes 29 Jun 19:00 UTC** — after that, no more Resurrections.
+**Resurrection window closes 29 Jun 20:00 IST** — after that, no more Resurrections.
 
 ---
 
