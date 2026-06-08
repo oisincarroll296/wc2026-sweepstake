@@ -581,12 +581,14 @@ with tabs[5]:
 # ─────────────────────────────────────────────
 with tabs[6]:
     import json
-    from datetime import datetime, timezone, date, time as dtime
+    from datetime import datetime, timezone, timedelta, date, time as dtime
     from dashboard.data import get_deadlines, save_deadlines, countdown, DEADLINE_LABELS
+
+    _IST = timezone(timedelta(hours=1))  # Irish Summer Time = UTC+1
 
     st.subheader("Tournament Deadlines")
     st.caption(
-        "Set the exact date and time for each deadline. Times are stored in UTC. "
+        "Set the exact date and time for each deadline. All times are Irish Summer Time (UTC+1). "
         "The countdown shown on the Home page and Predictions Centre is derived from these values."
     )
 
@@ -598,7 +600,7 @@ with tabs[6]:
         for key, label in DEADLINE_LABELS.items():
             iso = deadlines.get(key, "")
             try:
-                dt = datetime.fromisoformat(iso).astimezone(timezone.utc)
+                dt = datetime.fromisoformat(iso).astimezone(_IST)
                 cur_date = dt.date()
                 cur_time = dt.time().replace(second=0, microsecond=0)
             except Exception:
@@ -613,12 +615,12 @@ with tabs[6]:
             with col_d:
                 new_date = st.date_input(f"Date##{key}", value=cur_date, label_visibility="collapsed")
             with col_t:
-                new_time = st.time_input(f"Time (UTC)##{key}", value=cur_time, label_visibility="collapsed", step=300)
+                new_time = st.time_input(f"Time (IST)##{key}", value=cur_time, label_visibility="collapsed", step=300)
 
             combined = datetime(
                 new_date.year, new_date.month, new_date.day,
                 new_time.hour, new_time.minute, 0,
-                tzinfo=timezone.utc,
+                tzinfo=_IST,
             )
             updated[key] = combined.isoformat()
             st.markdown("")
