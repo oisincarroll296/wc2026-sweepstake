@@ -37,5 +37,29 @@ pages = [
     st.Page("pages/admin.py",               title="Admin",              icon="🔐"),
 ]
 
+# ── Global player identity ────────────────────────────────────────────────
+# Stored in session state so it persists across page navigations.
+try:
+    from dashboard.data import get_participants
+    _players = sorted(get_participants())
+except Exception:
+    _players = []
+
+if _players:
+    with st.sidebar:
+        st.markdown(
+            '<div style="color:#9CA3AF;font-size:0.75rem;margin-bottom:0.2rem">'
+            'Who are you?</div>',
+            unsafe_allow_html=True,
+        )
+        _options = ["— select —"] + _players
+        _current = st.session_state.get("viewer", "— select —")
+        _idx = _options.index(_current) if _current in _options else 0
+        _choice = st.selectbox(
+            "viewer_select", _options, index=_idx,
+            label_visibility="collapsed", key="viewer_select",
+        )
+        st.session_state["viewer"] = _choice if _choice != "— select —" else None
+
 pg = st.navigation(pages)
 pg.run()

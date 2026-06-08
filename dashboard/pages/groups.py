@@ -189,12 +189,23 @@ with tab_fixtures:
         if not results_df.empty and "match_number" in results_df.columns:
             entered_nums = set(results_df["match_number"].dropna().astype(int).tolist())
 
+        viewer = st.session_state.get("viewer")
+        viewer_teams: set = set(assignments.get(viewer, [])) if viewer else set()
+
         today = date.today()
         col1, col2 = st.columns([2, 1])
         with col1:
             days_ahead = st.slider("Show fixtures for next N days", 1, 21, 7)
         with col2:
-            owned_only = st.toggle("Only my teams' matches", value=False)
+            toggle_label = (
+                f"Only {viewer}'s matches" if viewer else "Only my teams' matches"
+            )
+            owned_only = st.toggle(
+                toggle_label, value=False,
+                disabled=(not viewer and not all_owned),
+            )
+        if owned_only and not viewer:
+            st.caption("Select your name in the sidebar to filter to your teams.")
 
         cutoff = today + timedelta(days=days_ahead)
         mask = (
@@ -207,9 +218,10 @@ with tab_fixtures:
         if upcoming.empty:
             st.info("No fixtures in the selected range.")
         else:
-            if owned_only and all_owned:
+            filter_teams = viewer_teams if viewer else all_owned
+            if owned_only and filter_teams:
                 relevant = upcoming[
-                    upcoming["home_team"].isin(all_owned) | upcoming["away_team"].isin(all_owned)
+                    upcoming["home_team"].isin(filter_teams) | upcoming["away_team"].isin(filter_teams)
                 ]
                 upcoming = relevant if not relevant.empty else upcoming
 
