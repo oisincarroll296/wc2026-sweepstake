@@ -241,24 +241,213 @@ with tabs[2]:
 # Tab 3: Results Entry
 # ─────────────────────────────────────────────
 with tabs[3]:
-    result_mode = st.radio("Entry method", ["Single Team", "Upload Excel"], horizontal=True)
+    from datetime import date as _date, timedelta as _td
+    from dashboard.data import (
+        get_fixtures, get_match_results, save_match_result_and_recalculate,
+        get_teams,
+    )
+    from src.scoring_engine import load_match_stats
 
-    if result_mode == "Single Team":
-        st.subheader("Enter results for one team")
+    result_mode = st.radio(
+        "Entry method",
+        ["By Match (recommended)", "Advanced / Special Stats"],
+        horizontal=True,
+    )
+
+    # ── By Match ──────────────────────────────────────────────────────────────
+    if result_mode == "By Match (recommended)":
         st.caption(
-            "Select a team and fill in their stats. Round Reached = the furthest round they reached. "
-            "Teams still in the tournament should be left at their current round."
+            "Select a date, pick a match, enter the score. "
+            "Goals and clean sheets are calculated automatically for both teams. "
+            "Use **Advanced** for comeback wins, group winners, round reached."
         )
 
-        from dashboard.data import get_teams
-        teams_df = get_teams()
+        fixtures_df = get_fixtures()
+        results_df  = get_match_results()
+
+        if fixtures_df.empty:
+            st.warning("No fixture data found. Ensure data/fixtures.csv exists.")
+        else:
+            # Build set of already-entered match numbers
+            entered_nums = set()
+            if not results_df.empty and "match_number" in results_df.columns:
+                entered_nums = set(results_df["match_number"].dropna().astype(int).tolist())
+
+            # Date selector — default to earliest unplayed date or today
+            all_dates = sorted(fixtures_df["match_date"].dropna().unique())
+            today = _date.today()
+            # Pick the first date with unplayed matches on or after today
+            default_date = today
+            for d in all_dates:
+                day_matches = fixtures_df[fixtures_df["match_date"] == d]
+                day_nums = set(pd.to_numeric(day_matches["match_number"], errors="coerce").dropna().astype(int))
+                if day_nums - entered_nums:
+                    default_date = d
+                    break
+
+            sel_date = st.date_input(
+                "Match date",
+                value=default_date,
+                min_value=min(all_dates) if all_dates else today,
+                max_value=max(all_dates) if all_dates else today + _td(days=60),
+            )
+
+            day_df = fixtures_df[fixtures_df["match_date"] == sel_date]
+
+            if day_df.empty:
+                st.info("No fixtures on that date.")
+            else:
+                # Show fixture status cards
+                st.markdown(
+                    f'<div style="font-size:0.78rem;color:#9CA3AF;margin-bottom:0.3rem">'
+                    f'{len(day_df)} matches · '
+                    f'<span style="color:#6EE7B7">●</span> entered &nbsp; '
+                    f'<span style="color:#6B7280">●</span> pending</div>',
+                    unsafe_allow_html=True,
+                )
+
+                match_options = []
+                for _, m in day_df.iterrows():
+                    mn = int(pd.to_numeric(m["match_number"], errors="coerce"))
+                    done = mn in entered_nums
+                    dot = "🟢" if done else "⚪"
+
+                    # Get existing result if entered
+                    res_row = {}
+                    if done and not results_df.empty:
+                        rr = results_df[results_df["match_number"] == mn]
+                        if not rr.empty:
+                            res_row = rr.iloc[0].to_dict()
+
+                    score_str = ""
+                    if res_row:
+                        hg = int(float(res_row.get("home_goals", 0) or 0))
+                        ag = int(float(res_row.get("away_goals", 0) or 0))
+                        et = int(float(res_row.get("extra_time", 0) or 0))
+                        pwin = str(res_row.get("penalty_winner", "") or "")
+                        score_str = f" **{hg}–{ag}**"
+                        if et:
+                            score_str += " (AET)"
+                        if pwin:
+                            pw_label = m["home_team"] if pwin == "home" else m["away_team"]
+                            score_str += f" · {pw_label} win on pens"
+
+                    label = f"{dot} M{mn}: {m['home_team']} v {m['away_team']}"
+                    match_options.append((label + score_str, mn, m))
+
+                sel_label = st.selectbox(
+                    "Select match to enter / edit",
+                    [opt[0] for opt in match_options],
+                )
+                sel_idx  = [opt[0] for opt in match_options].index(sel_label)
+                sel_mn   = match_options[sel_idx][1]
+                sel_fix  = match_options[sel_idx][2]
+
+                home_team = sel_fix["home_team"]
+                away_team = sel_fix["away_team"]
+                is_group  = bool(str(sel_fix.get("group", "")).strip())
+
+                # Pre-fill if already entered
+                prev = {}
+                if sel_mn in entered_nums and not results_df.empty:
+                    pr = results_df[results_df["match_number"] == sel_mn]
+                    if not pr.empty:
+                        prev = pr.iloc[0].to_dict()
+
+                def _pi(key, default=0):
+                    try: return int(float(prev.get(key, default) or default))
+                    except Exception: return default
+
+                st.divider()
+                st.markdown(
+                    f'<div style="font-size:1rem;font-weight:700;color:#F5F5F5;margin-bottom:0.5rem">'
+                    f'Match {sel_mn} · Group {sel_fix.get("group","")} · {sel_fix.get("venue","")}'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+
+                with st.form("match_result_form"):
+                    fc1, fc2 = st.columns(2)
+                    with fc1:
+                        st.markdown(f"**{home_team}** (Home)")
+                        h_goals = st.number_input("Goals", 0, 20, _pi("home_goals"), key="hg")
+                        cb_home = st.checkbox("Comeback win", value=bool(_pi("comeback_home")), key="cbh")
+                    with fc2:
+                        st.markdown(f"**{away_team}** (Away)")
+                        a_goals = st.number_input("Goals", 0, 20, _pi("away_goals"), key="ag")
+                        cb_away = st.checkbox("Comeback win", value=bool(_pi("comeback_away")), key="cba")
+
+                    et_played = st.checkbox(
+                        "Went to extra time / penalties",
+                        value=bool(_pi("extra_time")),
+                        disabled=is_group,
+                        help="Group stage matches cannot go to extra time",
+                    )
+                    prev_pwin = str(prev.get("penalty_winner", "") or "")
+                    pwin_opts = ["none", "home", "away"]
+                    pwin_idx  = pwin_opts.index(prev_pwin) if prev_pwin in pwin_opts else 0
+                    pen_winner = ""
+                    if et_played and not is_group:
+                        pen_winner_sel = st.radio(
+                            "Penalty winner (if applicable)",
+                            ["None", home_team, away_team],
+                            index=pwin_idx,
+                            horizontal=True,
+                        )
+                        pen_winner = ("home" if pen_winner_sel == home_team
+                                      else "away" if pen_winner_sel == away_team
+                                      else "")
+
+                    submitted_m = st.form_submit_button("Save Result", type="primary")
+                    if submitted_m:
+                        try:
+                            save_match_result_and_recalculate(
+                                match_number  = sel_mn,
+                                home_goals    = h_goals,
+                                away_goals    = a_goals,
+                                extra_time    = et_played and not is_group,
+                                penalty_winner= pen_winner,
+                                comeback_home = cb_home,
+                                comeback_away = cb_away,
+                            )
+                            st.success(
+                                f"Saved: {home_team} {h_goals}–{a_goals} {away_team}. "
+                                "Stats recalculated."
+                            )
+                            # Who Benefits panel
+                            from dashboard.data import get_match_impact
+                            _impact = get_match_impact(sel_mn)
+                            if _impact:
+                                st.markdown("**⚡ Who Benefits from this result:**")
+                                _imp_rows = []
+                                for _r in _impact:
+                                    _imp_rows.append({
+                                        "Player": _r["Player"],
+                                        "Team":   _r["Team"],
+                                        "Goals":  _r["Goals"],
+                                        "CS":     "✓" if _r["CS"] else "",
+                                        "Pts":    f"+{_r['Pts']:.0f}",
+                                    })
+                                import pandas as _pd2
+                                st.dataframe(_pd2.DataFrame(_imp_rows), use_container_width=True, hide_index=True)
+                            _refresh()
+                            st.rerun()
+                        except Exception as exc:
+                            st.error(f"Failed: {exc}")
+
+    # ── Advanced / Special Stats ───────────────────────────────────────────────
+    else:
+        st.caption(
+            "Use this for: Group Winners, Round Reached, and any manual corrections. "
+            "Goals and clean sheets are normally auto-calculated from match results above."
+        )
+
+        teams_df  = get_teams()
         team_list = sorted(teams_df["Team"].tolist()) if not teams_df.empty else []
 
-        with st.form("results_form"):
+        with st.form("results_form_advanced"):
             res_team = st.selectbox("Team", team_list)
 
-            # Pre-load existing values
-            from src.scoring_engine import load_match_stats
             ms = load_match_stats()
             existing = {}
             if not ms.empty and res_team:
@@ -268,39 +457,35 @@ with tabs[3]:
 
             def _ev(col, default=0):
                 v = existing.get(col, default)
-                try:
-                    return int(float(v)) if v != "" else default
-                except Exception:
-                    return default
+                try: return int(float(v)) if v != "" else default
+                except Exception: return default
 
             def _es(col):
                 v = existing.get(col, "")
                 return str(v) if v and str(v) != "nan" else ""
 
-            r1, r2 = st.columns(2)
-            with r1:
-                st.markdown("**Group Stage**")
-                g_goals  = st.number_input("Goals",         0, 50, _ev("GroupGoals"))
-                g_cs     = st.number_input("Clean Sheets",  0, 10, _ev("GroupCleanSheets"))
-                g_pw     = st.number_input("Penalty Wins",  0,  5, _ev("GroupPenaltyWins"))
-                g_cw     = st.number_input("Comeback Wins", 0,  5, _ev("GroupComebackWins"))
-                g_winner = st.checkbox("Group Winner", value=bool(_ev("GroupWinner")))
-            with r2:
-                st.markdown("**Knockout**")
-                ko_goals = st.number_input("Goals",         0, 50, _ev("KnockoutGoals"))
-                ko_cs    = st.number_input("Clean Sheets",  0, 10, _ev("KnockoutCleanSheets"))
-                ko_pw    = st.number_input("Penalty Wins",  0,  5, _ev("KnockoutPenaltyWins"))
-                ko_cw    = st.number_input("Comeback Wins", 0,  5, _ev("KnockoutComebackWins"))
-                rounds   = ["", "GroupStage", "R16", "QF", "SF", "Final", "Winner"]
-                cur_rnd  = _es("RoundReached")
-                rnd_idx  = rounds.index(cur_rnd) if cur_rnd in rounds else 0
-                rnd      = st.selectbox("Round Reached", rounds, index=rnd_idx)
+            st.markdown("**Group Stage**")
+            ca1, ca2, ca3, ca4, ca5 = st.columns(5)
+            with ca1: g_goals  = st.number_input("Goals",      0, 50, _ev("GroupGoals"))
+            with ca2: g_cs     = st.number_input("Cl. Sheets", 0, 10, _ev("GroupCleanSheets"))
+            with ca3: g_pw     = st.number_input("Pen. Wins",  0,  5, _ev("GroupPenaltyWins"))
+            with ca4: g_cw     = st.number_input("CB Wins",    0,  5, _ev("GroupComebackWins"))
+            with ca5: g_winner = st.checkbox("Group Winner", value=bool(_ev("GroupWinner")))
 
-            submitted_r = st.form_submit_button("Save Results", type="primary")
-            if submitted_r and res_team:
+            st.markdown("**Knockout**")
+            cb1, cb2, cb3, cb4 = st.columns(4)
+            with cb1: ko_goals = st.number_input("Goals",      0, 50, _ev("KnockoutGoals"))
+            with cb2: ko_cs    = st.number_input("Cl. Sheets", 0, 10, _ev("KnockoutCleanSheets"))
+            with cb3: ko_pw    = st.number_input("Pen. Wins",  0,  5, _ev("KnockoutPenaltyWins"))
+            with cb4: ko_cw    = st.number_input("CB Wins",    0,  5, _ev("KnockoutComebackWins"))
+            rounds  = ["", "GroupStage", "R16", "QF", "SF", "Final", "Winner"]
+            cur_rnd = _es("RoundReached")
+            rnd     = st.selectbox("Round Reached", rounds,
+                                   index=rounds.index(cur_rnd) if cur_rnd in rounds else 0)
+
+            if st.form_submit_button("Save", type="primary") and res_team:
                 try:
                     from src.event_engine import update_results
-                    ms = load_match_stats()
                     ms = update_results(res_team, {
                         "GroupGoals": g_goals, "GroupCleanSheets": g_cs,
                         "GroupPenaltyWins": g_pw, "GroupComebackWins": g_cw,
@@ -310,71 +495,10 @@ with tabs[3]:
                         "RoundReached": rnd,
                     }, ms)
                     ms.to_csv(DATA / "match_stats.csv", index=False)
-                    st.success(f"Results saved for {res_team}.")
+                    st.success(f"Saved {res_team}.")
                     _refresh()
                 except Exception as exc:
                     st.error(f"{exc}")
-
-    else:
-        st.subheader("Upload Results Excel")
-        st.caption(
-            "Upload the results_template.xlsx file. "
-            "Generate a blank template first using: "
-            "`.venv\\Scripts\\python.exe scripts/generate_results_excel.py`"
-        )
-
-        uploaded = st.file_uploader("Choose results_template.xlsx", type=["xlsx"])
-        if uploaded:
-            try:
-                import openpyxl
-                wb = openpyxl.load_workbook(uploaded, data_only=True)
-
-                from src.scoring_engine import load_match_stats
-                ms = load_match_stats()
-
-                gs_ws = wb["Group Stage"]
-                ko_ws = wb["Knockout Rounds"]
-
-                gs_headers = [c.value for c in next(gs_ws.iter_rows(min_row=1, max_row=1))]
-                ko_headers = [c.value for c in next(ko_ws.iter_rows(min_row=1, max_row=1))]
-
-                updated = 0
-                for row in gs_ws.iter_rows(min_row=2, values_only=True):
-                    if not row[0]:
-                        continue
-                    team = str(row[0]).strip()
-                    vals = dict(zip(gs_headers, row))
-                    team_mask = ms["Team"] == team
-                    if not team_mask.any():
-                        continue
-                    ms.loc[team_mask, "GroupGoals"]        = int(vals.get("Goals", 0) or 0)
-                    ms.loc[team_mask, "GroupCleanSheets"]  = int(vals.get("Clean Sheets", 0) or 0)
-                    ms.loc[team_mask, "GroupPenaltyWins"]  = int(vals.get("Penalty Wins", 0) or 0)
-                    ms.loc[team_mask, "GroupComebackWins"] = int(vals.get("Comeback Wins", 0) or 0)
-                    ms.loc[team_mask, "GroupWinner"]       = int(vals.get("Group Winner (1=Yes)", 0) or 0)
-                    updated += 1
-
-                for row in ko_ws.iter_rows(min_row=2, values_only=True):
-                    if not row[0]:
-                        continue
-                    team = str(row[0]).strip()
-                    vals = dict(zip(ko_headers, row))
-                    team_mask = ms["Team"] == team
-                    if not team_mask.any():
-                        continue
-                    ms.loc[team_mask, "KnockoutGoals"]        = int(vals.get("KO Goals", 0) or 0)
-                    ms.loc[team_mask, "KnockoutCleanSheets"]  = int(vals.get("KO Clean Sheets", 0) or 0)
-                    ms.loc[team_mask, "KnockoutPenaltyWins"]  = int(vals.get("KO Penalty Wins", 0) or 0)
-                    ms.loc[team_mask, "KnockoutComebackWins"] = int(vals.get("KO Comeback Wins", 0) or 0)
-                    rnd = str(vals.get("Round Reached", "") or "").strip()
-                    if rnd:
-                        ms.loc[team_mask, "RoundReached"] = rnd
-
-                ms.to_csv(DATA / "match_stats.csv", index=False)
-                st.success(f"Imported results for {updated} teams.")
-                _refresh()
-            except Exception as exc:
-                st.error(f"Import failed: {exc}")
 
 # ─────────────────────────────────────────────
 # Tab 4: WhatsApp Update

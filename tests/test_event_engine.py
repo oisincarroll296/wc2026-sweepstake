@@ -122,6 +122,16 @@ def _empty_events() -> pd.DataFrame:
     return pd.DataFrame(columns=["EventID", "EventType", "ScheduledTime", "ExecutedTime", "Status", "RandomSeed"])
 
 
+def _gs_closed_events() -> pd.DataFrame:
+    """Events DataFrame with GROUP_STAGE_CLOSE already executed — required by resurrection draw."""
+    return pd.DataFrame([{
+        "EventID": "evt-gs-close", "EventType": "GROUP_STAGE_CLOSE",
+        "ScheduledTime": "2026-06-26T00:00:00+00:00",
+        "ExecutedTime":  "2026-06-26T00:01:00+00:00",
+        "Status": "EXECUTED", "RandomSeed": "",
+    }])
+
+
 def _empty_audit() -> pd.DataFrame:
     return pd.DataFrame(columns=["Timestamp", "Event", "Player", "Action", "Result"])
 
@@ -493,21 +503,21 @@ class TestResurrectionDraw:
 
     def test_no_pending_resurrection_no_changes(self):
         ms = _base_match_stats()
-        result = run_resurrection_draw(_ASSIGNMENTS, ms, _empty_purchases(), _empty_events(), _empty_audit(), seed=42)
+        result = run_resurrection_draw(_ASSIGNMENTS, ms, _empty_purchases(), _gs_closed_events(), _empty_audit(), seed=42)
         assert result["results"] == {}
 
     def test_valid_replacement_assigned(self):
         # Bob resurrects Qatar (T4,B); Iraq (T4,I) is the valid candidate
         purch = pd.DataFrame([_purch(_BOB, "RESURRECTION", selection="Qatar")])
         ms = _make_stats(_stat("Qatar", "GroupStage"), _stat("Iraq", "R16"))
-        result = run_resurrection_draw(_ASSIGNMENTS, ms, purch, _empty_events(), _empty_audit(), seed=42)
+        result = run_resurrection_draw(_ASSIGNMENTS, ms, purch, _gs_closed_events(), _empty_audit(), seed=42)
         assert _BOB in result["results"]
         assert result["results"][_BOB]["replacement"] == "Iraq"
 
     def test_selection_format_elim_to_replacement(self):
         purch = pd.DataFrame([_purch(_BOB, "RESURRECTION", selection="Qatar")])
         ms = _make_stats(_stat("Qatar", "GroupStage"), _stat("Iraq", "R16"))
-        result = run_resurrection_draw(_ASSIGNMENTS, ms, purch, _empty_events(), _empty_audit(), seed=42)
+        result = run_resurrection_draw(_ASSIGNMENTS, ms, purch, _gs_closed_events(), _empty_audit(), seed=42)
         upurch = result["updated_purchases"]
         row = upurch[(upurch["Player"] == _BOB) & (upurch["PurchaseType"] == "RESURRECTION")]
         assert "Qatar->Iraq" == row.iloc[0]["Selection"]
@@ -515,7 +525,7 @@ class TestResurrectionDraw:
     def test_purchase_marked_processed(self):
         purch = pd.DataFrame([_purch(_BOB, "RESURRECTION", selection="Qatar")])
         ms = _make_stats(_stat("Qatar", "GroupStage"), _stat("Iraq", "R16"))
-        result = run_resurrection_draw(_ASSIGNMENTS, ms, purch, _empty_events(), _empty_audit(), seed=42)
+        result = run_resurrection_draw(_ASSIGNMENTS, ms, purch, _gs_closed_events(), _empty_audit(), seed=42)
         row = result["updated_purchases"][
             (result["updated_purchases"]["Player"] == _BOB) &
             (result["updated_purchases"]["PurchaseType"] == "RESURRECTION")
@@ -525,19 +535,19 @@ class TestResurrectionDraw:
     def test_error_when_no_selection_set(self):
         purch = pd.DataFrame([_purch(_BOB, "RESURRECTION", selection="")])
         ms = _base_match_stats()
-        result = run_resurrection_draw(_ASSIGNMENTS, ms, purch, _empty_events(), _empty_audit(), seed=42)
+        result = run_resurrection_draw(_ASSIGNMENTS, ms, purch, _gs_closed_events(), _empty_audit(), seed=42)
         assert _BOB in result["errors"]
 
     def test_error_when_no_candidates(self):
         # No surviving T4 team available
         purch = pd.DataFrame([_purch(_BOB, "RESURRECTION", selection="Qatar")])
         ms = _make_stats(_stat("Qatar", "GroupStage"))  # no valid candidates
-        result = run_resurrection_draw(_ASSIGNMENTS, ms, purch, _empty_events(), _empty_audit(), seed=42)
+        result = run_resurrection_draw(_ASSIGNMENTS, ms, purch, _gs_closed_events(), _empty_audit(), seed=42)
         assert _BOB in result["errors"]
 
     def test_event_created_and_executed(self):
         ms = _base_match_stats()
-        result = run_resurrection_draw(_ASSIGNMENTS, ms, _empty_purchases(), _empty_events(), _empty_audit(), seed=42)
+        result = run_resurrection_draw(_ASSIGNMENTS, ms, _empty_purchases(), _gs_closed_events(), _empty_audit(), seed=42)
         assert any(result["updated_events"]["EventType"] == "RESURRECTION_DRAW")
         executed = result["updated_events"][result["updated_events"]["EventType"] == "RESURRECTION_DRAW"]
         assert executed.iloc[-1]["Status"] == "EXECUTED"
@@ -545,7 +555,7 @@ class TestResurrectionDraw:
     def test_audit_log_updated_on_success(self):
         purch = pd.DataFrame([_purch(_BOB, "RESURRECTION", selection="Qatar")])
         ms = _make_stats(_stat("Qatar", "GroupStage"), _stat("Iraq", "R16"))
-        result = run_resurrection_draw(_ASSIGNMENTS, ms, purch, _empty_events(), _empty_audit(), seed=42)
+        result = run_resurrection_draw(_ASSIGNMENTS, ms, purch, _gs_closed_events(), _empty_audit(), seed=42)
         if _BOB in result["results"]:
             assert any(result["updated_audit_log"]["Action"] == "RESURRECTION_ASSIGNED")
 
@@ -557,15 +567,15 @@ class TestResurrectionDraw:
         )
         purch1 = pd.DataFrame([_purch(_BOB, "RESURRECTION", selection="Qatar")])
         purch2 = pd.DataFrame([_purch(_BOB, "RESURRECTION", selection="Qatar")])
-        r1 = run_resurrection_draw(_ASSIGNMENTS, ms, purch1, _empty_events(), _empty_audit(), seed=55)
-        r2 = run_resurrection_draw(_ASSIGNMENTS, ms, purch2, _empty_events(), _empty_audit(), seed=55)
+        r1 = run_resurrection_draw(_ASSIGNMENTS, ms, purch1, _gs_closed_events(), _empty_audit(), seed=55)
+        r2 = run_resurrection_draw(_ASSIGNMENTS, ms, purch2, _gs_closed_events(), _empty_audit(), seed=55)
         if _BOB in r1["results"] and _BOB in r2["results"]:
             assert r1["results"][_BOB]["replacement"] == r2["results"][_BOB]["replacement"]
 
     def test_broadcast_contains_result(self):
         purch = pd.DataFrame([_purch(_BOB, "RESURRECTION", selection="Qatar")])
         ms = _make_stats(_stat("Qatar", "GroupStage"), _stat("Iraq", "R16"))
-        result = run_resurrection_draw(_ASSIGNMENTS, ms, purch, _empty_events(), _empty_audit(), seed=42)
+        result = run_resurrection_draw(_ASSIGNMENTS, ms, purch, _gs_closed_events(), _empty_audit(), seed=42)
         if _BOB in result["results"]:
             assert _BOB in result["broadcast"]
 

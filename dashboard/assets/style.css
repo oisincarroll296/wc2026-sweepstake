@@ -69,9 +69,12 @@ hr { border-color: #2A3A4A !important; }
 
 /* ── Mobile ── */
 @media (max-width: 768px) {
-    /* Tighter container */
+    /* Tighter container — top must clear the fixed Streamlit toolbar (~3.5rem) */
     .block-container {
-        padding: 0.75rem 0.4rem 2rem !important;
+        padding-top: 4rem !important;
+        padding-left: 0.4rem !important;
+        padding-right: 0.4rem !important;
+        padding-bottom: 2rem !important;
         max-width: 100% !important;
     }
 
@@ -134,7 +137,12 @@ hr { border-color: #2A3A4A !important; }
 
 /* Extra-small screens: iPhone SE, Galaxy A series, etc. */
 @media (max-width: 400px) {
-    .block-container { padding: 0.5rem 0.25rem 1.5rem !important; }
+    .block-container {
+        padding-top: 4rem !important;
+        padding-left: 0.25rem !important;
+        padding-right: 0.25rem !important;
+        padding-bottom: 1.5rem !important;
+    }
     h1 { font-size: 1.1rem !important; }
     [data-testid="stMetricValue"] { font-size: 1rem !important; }
     [data-testid="metric-container"] label { font-size: 0.65rem !important; }

@@ -97,7 +97,7 @@ Data rows: 8-20
 | Rule | Decision |
 |------|----------|
 | Insurance cost | €2 |
-| Insurance bonus | +15 pts if either Tier 1 team eliminated in groups; once only |
+| Insurance bonus | +25 pts per Tier 1 team eliminated before R16 (max +50 if both out) |
 | Mulligan | Full redraw of all 8 teams; must pass all allocation rules |
 | Payment references | Full names: "PLAYER - BUY IN, PREDICTION PACK" |
 | Prize Leaderboard | PAID players only (eligible for prizes) |

@@ -287,8 +287,12 @@ def calculate_insurance_bonus(
     purchases: pd.DataFrame,
     tier_map: dict[str, int],
 ) -> float:
-    """Return INSURANCE_BONUS if the player holds Insurance and either base
-    Tier 1 team was eliminated in the group stage.  Awarded at most once.
+    """Return INSURANCE_BONUS per base Tier 1 team eliminated in the group stage.
+
+    +25 if one T1 team goes out before the Round of 16.
+    +50 if both T1 teams go out before the Round of 16.
+    Only applies to the player's original 8-team allocation (not Ninth/Resurrection).
+    Requires a processed Insurance purchase.
     """
     if purchases.empty:
         return 0.0
@@ -298,15 +302,16 @@ def calculate_insurance_bonus(
         return 0.0
 
     t1_teams = [t for t in assignments.get(player, []) if tier_map.get(t, 0) == 1]
+    count = 0
     for team in t1_teams:
         row = match_stats[match_stats["Team"] == team]
         if row.empty:
             continue
         round_reached = str(row.iloc[0].get("RoundReached", "") or "").strip()
         if round_reached == "GroupStage":
-            return float(INSURANCE_BONUS)
+            count += 1
 
-    return 0.0
+    return float(count * INSURANCE_BONUS)
 
 
 def calculate_prediction_points(

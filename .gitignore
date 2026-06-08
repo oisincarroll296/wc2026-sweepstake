@@ -15,23 +15,33 @@ env/
 # ── Streamlit secrets ────────────────────────────────────────────────────────
 .streamlit/secrets.toml
 
-# ── Personal data (real names, payments, draws, predictions) ─────────────────
-# These are regenerated per-competition and must never be public
+# ── Personal data ─────────────────────────────────────────────────────────────
+# These lines keep personal data OUT of a PUBLIC repo.
+# If you are deploying from a PRIVATE repo (recommended for Streamlit Cloud),
+# delete or comment out this entire block so the data files are committed
+# and the live dashboard has real scores.
 data/purchases.csv
 data/player_status.csv
 data/predictions.csv
 data/captains.csv
 data/audit_log.csv
 data/events.csv
-
-# Lock files (contain timestamps and lock state)
+data/allocation.csv
+data/payment_ledger.csv
 data/*_lock.txt
+
+# ── Claude Code local settings ───────────────────────────────────────────────
+.claude/
 
 # ── Generated exports ────────────────────────────────────────────────────────
 exports/
 
 # ── Simulation results (generated, can be large) ────────────────────────────
 simulations/results/
+
+# ── Streamlit run logs ───────────────────────────────────────────────────────
+streamlit_out.txt
+streamlit_err.txt
 
 # ── OS files ─────────────────────────────────────────────────────────────────
 .DS_Store

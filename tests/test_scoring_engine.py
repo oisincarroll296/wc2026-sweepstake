@@ -364,14 +364,14 @@ class TestCalculateInsuranceBonus:
             "Alice", _ASSIGNMENTS, ms, _EMPTY_PURCHASES, _TIER_MAP
         ) == 0.0
 
-    def test_has_insurance_t1_eliminated_gives_20(self):
+    def test_has_insurance_t1_eliminated_gives_25(self):
         purchases = _purchases(("Alice", "Insurance", "", ""))
-        # France (T1) eliminated in group stage
+        # France (T1) eliminated in group stage → +25
         ms = _ms({"Team": "France", "RoundReached": "GroupStage"})
         result = calculate_insurance_bonus(
             "Alice", _ASSIGNMENTS, ms, purchases, _TIER_MAP
         )
-        assert result == float(INSURANCE_BONUS)
+        assert result == float(INSURANCE_BONUS)  # 25
 
     def test_has_insurance_t1_advances_no_bonus(self):
         purchases = _purchases(("Alice", "Insurance", "", ""))
@@ -380,9 +380,9 @@ class TestCalculateInsuranceBonus:
             "Alice", _ASSIGNMENTS, ms, purchases, _TIER_MAP
         ) == 0.0
 
-    def test_bonus_awarded_once_even_if_both_t1_eliminated(self):
+    def test_both_t1_eliminated_gives_double_bonus(self):
         purchases = _purchases(("Alice", "Insurance", "", ""))
-        # Alice's T1 teams: France and Spain — both eliminated
+        # Alice's T1 teams: France and Spain — both eliminated → +50
         ms = _ms(
             {"Team": "France", "RoundReached": "GroupStage"},
             {"Team": "Spain",  "RoundReached": "GroupStage"},
@@ -390,7 +390,7 @@ class TestCalculateInsuranceBonus:
         result = calculate_insurance_bonus(
             "Alice", _ASSIGNMENTS, ms, purchases, _TIER_MAP
         )
-        assert result == float(INSURANCE_BONUS)  # not 40
+        assert result == float(INSURANCE_BONUS * 2)  # 50
 
     def test_no_insurance_t1_eliminated_still_zero(self):
         # different player — no insurance purchase

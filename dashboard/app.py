@@ -27,10 +27,12 @@ pages = [
     st.Page("pages/overall_leaderboard.py", title="Overall Leaderboard",icon="🌍"),
     st.Page("pages/player_portfolios.py",   title="Player Portfolios",  icon="👤"),
     st.Page("pages/purchases.py",           title="Purchases",          icon="🛒"),
+    st.Page("pages/groups.py",              title="Groups",             icon="🗂️"),
     st.Page("pages/team_ownership.py",      title="Team Ownership",     icon="⚽"),
     st.Page("pages/predictions_centre.py",  title="Predictions Centre", icon="🔮"),
     st.Page("pages/var_room.py",            title="The VAR Room",       icon="🔍"),
     st.Page("pages/analytics.py",           title="Analytics",          icon="📊"),
+    st.Page("pages/bracket.py",             title="Bracket",            icon="🏟️"),
     st.Page("pages/rules.py",               title="Rules",              icon="📋"),
     st.Page("pages/admin.py",               title="Admin",              icon="🔐"),
 ]

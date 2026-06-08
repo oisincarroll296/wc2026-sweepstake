@@ -41,8 +41,13 @@ tabs = st.tabs([
 # ── 1. Payment Ledger ──────────────────────────────────────────────────────
 with tabs[0]:
     st.subheader("💳 Payment Ledger")
-    df = _load_csv("payment_ledger.csv")
-    searchable_table(df, "Search player or purchase type…") if not df.empty else empty_state("No payment data yet.")
+    df = get_purchases()
+    if not df.empty:
+        # Show processed purchases only in a clean view
+        show_cols = [c for c in ["Player", "PurchaseType", "Amount", "Reference", "Timestamp", "Status"] if c in df.columns]
+        searchable_table(df[show_cols], "Search player or purchase type…")
+    else:
+        empty_state("No payment data yet.")
 
 # ── 2. Prize Pool Breakdown ────────────────────────────────────────────────
 with tabs[1]:
@@ -86,15 +91,43 @@ with tabs[3]:
 # ── 5. Draw History ───────────────────────────────────────────────────────
 with tabs[4]:
     st.subheader("🎲 Draw History")
-    sub = st.tabs(["Mulligan Draws", "Ninth Team Draws", "Resurrection Draws"])
+    audit = get_audit_log()
+    sub = st.tabs(["Initial Draw", "Mulligan Draws", "Ninth Team Draws", "Resurrection Draws"])
     with sub[0]:
-        df = _load_csv("mulligan_results.csv") if (EXPORTS / "mulligan_results.csv").exists() else pd.DataFrame()
-        searchable_table(df) if not df.empty else empty_state("No mulligan draws recorded.")
+        st.caption("The original team allocation draw.")
+        from dashboard.data import get_assignments
+        alloc = get_assignments()
+        if alloc:
+            draw_rows = []
+            for player, teams in sorted(alloc.items()):
+                draw_rows.append({"Player": player, "Teams": ", ".join(teams)})
+            st.dataframe(pd.DataFrame(draw_rows), use_container_width=True, hide_index=True)
+        else:
+            empty_state("Draw not yet completed.")
     with sub[1]:
-        df = _load_csv("ninth_team_results.csv") if (EXPORTS / "ninth_team_results.csv").exists() else pd.DataFrame()
-        searchable_table(df) if not df.empty else empty_state("No ninth team draws recorded.")
+        if not audit.empty:
+            df = audit[audit["Event"] == "MULLIGAN_DRAW"].reset_index(drop=True) if "Event" in audit.columns else pd.DataFrame()
+        else:
+            df = pd.DataFrame()
+        # Also try exports file as fallback
+        if df.empty:
+            df = _load_csv("mulligan_results.csv") if (EXPORTS / "mulligan_results.csv").exists() else pd.DataFrame()
+        searchable_table(df) if not df.empty else empty_state("No mulligan draws recorded.")
     with sub[2]:
-        df = _load_csv("resurrection_results.csv") if (EXPORTS / "resurrection_results.csv").exists() else pd.DataFrame()
+        if not audit.empty:
+            df = audit[audit["Event"] == "NINTH_TEAM_DRAW"].reset_index(drop=True) if "Event" in audit.columns else pd.DataFrame()
+        else:
+            df = pd.DataFrame()
+        if df.empty:
+            df = _load_csv("ninth_team_results.csv") if (EXPORTS / "ninth_team_results.csv").exists() else pd.DataFrame()
+        searchable_table(df) if not df.empty else empty_state("No ninth team draws recorded.")
+    with sub[3]:
+        if not audit.empty:
+            df = audit[audit["Event"] == "RESURRECTION_DRAW"].reset_index(drop=True) if "Event" in audit.columns else pd.DataFrame()
+        else:
+            df = pd.DataFrame()
+        if df.empty:
+            df = _load_csv("resurrection_results.csv") if (EXPORTS / "resurrection_results.csv").exists() else pd.DataFrame()
         searchable_table(df) if not df.empty else empty_state("No resurrection draws recorded.")
 
 # ── 6. Random Seeds ───────────────────────────────────────────────────────

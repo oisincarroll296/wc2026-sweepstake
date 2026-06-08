@@ -6,7 +6,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 import streamlit as st
 import pandas as pd
 
-from dashboard.data import get_overall_leaderboard
+from dashboard.data import get_overall_leaderboard, get_remaining_potential
 from dashboard.components.ui import page_header, empty_state
 
 
@@ -20,6 +20,7 @@ if lb.empty:
 
 st.info("Players marked **UNPAID** are not eligible for prizes even if ranked highly.", icon="⚠️")
 
+_potential = get_remaining_potential()
 rows = []
 leader_pts = float(lb.iloc[0]["TotalPoints"]) if "TotalPoints" in lb.columns else 0.0
 
@@ -28,12 +29,15 @@ for _, row in lb.iterrows():
     pts    = float(row.get("TotalPoints", 0))
     status = row.get("PaymentStatus", "UNPAID")
     medal  = {1: "🥇", 2: "🥈", 3: "🥉"}.get(rank, f"#{rank}")
+    player = row.get("Player", "")
+    pot    = _potential.get(player, 0)
     rows.append({
-        "":       medal,
-        "Player": row.get("Player", ""),
-        "Points": f"{pts:.0f}",
-        "Gap":    f"{pts - leader_pts:+.0f}" if rank > 1 else "—",
-        "Status": status,
+        "":          medal,
+        "Player":    player,
+        "Points":    f"{pts:.0f}",
+        "Potential": f"+{pot:.0f}",
+        "Gap":       f"{pts - leader_pts:+.0f}" if rank > 1 else "—",
+        "Status":    status,
     })
 
 display = pd.DataFrame(rows)

@@ -218,9 +218,353 @@ def countdown(iso: str) -> str:
         return "—"
 
 
+_NAME_FIX: dict[str, str] = {
+    "CÃ´te d'Ivoire": "Cote d Ivoire", "Côte d'Ivoire": "Cote d Ivoire",
+    "Cote d'Ivoire": "Cote d Ivoire", "CuraÃ§ao": "Curacao", "Curaçao": "Curacao",
+    "TÃ¼rkiye": "Tuerkiye", "Türkiye": "Tuerkiye", "Turkiye": "Tuerkiye",
+    "DR Congo": "Congo DR", "Cape Verde": "Cabo Verde",
+}
+
+
+@st.cache_data(ttl=60)
+def get_fixtures() -> pd.DataFrame:
+    """Load fixtures.csv — clean, normalized group stage schedule."""
+    p = _ROOT / "data" / "fixtures.csv"
+    if not p.exists():
+        return pd.DataFrame()
+    try:
+        df = pd.read_csv(p, dtype=str).fillna("")
+        df["match_number"] = pd.to_numeric(df["match_number"], errors="coerce").astype("Int64")
+        df["match_date"]   = pd.to_datetime(df["match_date"], errors="coerce").dt.date
+        return df
+    except Exception:
+        return pd.DataFrame()
+
+
+@st.cache_data(ttl=10)
+def get_match_results() -> pd.DataFrame:
+    """Load match_results.csv — entered match scores."""
+    p = _ROOT / "data" / "match_results.csv"
+    if not p.exists():
+        return pd.DataFrame()
+    try:
+        df = pd.read_csv(p, dtype=str).fillna("")
+        if df.empty:
+            return df
+        df["match_number"] = pd.to_numeric(df["match_number"], errors="coerce").astype("Int64")
+        for col in ["home_goals", "away_goals"]:
+            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype(int)
+        for col in ["extra_time", "comeback_home", "comeback_away"]:
+            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype(int)
+        return df
+    except Exception:
+        return pd.DataFrame()
+
+
+def save_match_result_and_recalculate(
+    match_number: int,
+    home_goals: int,
+    away_goals: int,
+    extra_time: bool,
+    penalty_winner: str,
+    comeback_home: bool,
+    comeback_away: bool,
+) -> None:
+    """Upsert a match result then fully recalculate team stats from scratch."""
+    results_path = _ROOT / "data" / "match_results.csv"
+
+    # Load / upsert
+    cols = ["match_number", "home_goals", "away_goals", "extra_time",
+            "penalty_winner", "comeback_home", "comeback_away"]
+    if results_path.exists() and results_path.stat().st_size > len(",".join(cols)):
+        df = pd.read_csv(results_path, dtype=str).fillna("")
+        df["match_number"] = pd.to_numeric(df["match_number"], errors="coerce").astype("Int64")
+        mask = df["match_number"] == match_number
+        df = df[~mask]  # drop old entry for this match
+    else:
+        df = pd.DataFrame(columns=cols)
+
+    new_row = pd.DataFrame([{
+        "match_number":  match_number,
+        "home_goals":    home_goals,
+        "away_goals":    away_goals,
+        "extra_time":    int(extra_time),
+        "penalty_winner": penalty_winner,
+        "comeback_home": int(comeback_home),
+        "comeback_away": int(comeback_away),
+    }])
+    df = pd.concat([df, new_row], ignore_index=True)
+    df.to_csv(results_path, index=False)
+
+    # Recalculate match_stats from all entered results
+    _recalculate_match_stats()
+    st.cache_data.clear()
+
+
+def _recalculate_match_stats() -> None:
+    """Rebuild Goals + CleanSheets + PenaltyWins + ComebackWins from match_results.csv."""
+    from src.scoring_engine import load_match_stats
+
+    fixtures  = pd.read_csv(_ROOT / "data" / "fixtures.csv", dtype=str).fillna("")
+    results_p = _ROOT / "data" / "match_results.csv"
+    if not results_p.exists():
+        return
+    results = pd.read_csv(results_p, dtype=str).fillna("")
+    if results.empty:
+        return
+
+    ms = load_match_stats()
+    if ms.empty:
+        return
+
+    # Zero out all derived stat columns
+    for col in ["GroupGoals", "GroupCleanSheets", "GroupPenaltyWins", "GroupComebackWins",
+                "KnockoutGoals", "KnockoutCleanSheets", "KnockoutPenaltyWins", "KnockoutComebackWins"]:
+        if col in ms.columns:
+            ms[col] = 0
+
+    def _int(val, default=0):
+        try: return int(float(val or default))
+        except Exception: return default
+
+    for _, res in results.iterrows():
+        mn = _int(res.get("match_number", 0))
+        fix_rows = fixtures[
+            pd.to_numeric(fixtures["match_number"], errors="coerce") == mn
+        ]
+        if fix_rows.empty:
+            continue
+        fix = fix_rows.iloc[0]
+        home = str(fix["home_team"])
+        away = str(fix["away_team"])
+        grp  = str(fix.get("group", "")).strip()
+        is_group = bool(grp)
+
+        h_goals = _int(res.get("home_goals", 0))
+        a_goals = _int(res.get("away_goals", 0))
+        pfx = "Group" if is_group else "Knockout"
+
+        for team, goals_for, goals_against in [(home, h_goals, a_goals), (away, a_goals, h_goals)]:
+            mask = ms["Team"] == team
+            if not mask.any():
+                continue
+            ms.loc[mask, f"{pfx}Goals"] = ms.loc[mask, f"{pfx}Goals"].astype(int) + goals_for
+            if goals_against == 0:
+                ms.loc[mask, f"{pfx}CleanSheets"] = ms.loc[mask, f"{pfx}CleanSheets"].astype(int) + 1
+
+        # Penalty win (KO only)
+        pwin = str(res.get("penalty_winner", "")).strip()
+        if pwin == "home" and not is_group:
+            ms.loc[ms["Team"] == home, "KnockoutPenaltyWins"] = (
+                ms.loc[ms["Team"] == home, "KnockoutPenaltyWins"].astype(int) + 1
+            )
+        elif pwin == "away" and not is_group:
+            ms.loc[ms["Team"] == away, "KnockoutPenaltyWins"] = (
+                ms.loc[ms["Team"] == away, "KnockoutPenaltyWins"].astype(int) + 1
+            )
+
+        # Comeback wins
+        if _int(res.get("comeback_home", 0)):
+            ms.loc[ms["Team"] == home, f"{pfx}ComebackWins"] = (
+                ms.loc[ms["Team"] == home, f"{pfx}ComebackWins"].astype(int) + 1
+            )
+        if _int(res.get("comeback_away", 0)):
+            ms.loc[ms["Team"] == away, f"{pfx}ComebackWins"] = (
+                ms.loc[ms["Team"] == away, f"{pfx}ComebackWins"].astype(int) + 1
+            )
+
+    ms.to_csv(_ROOT / "data" / "match_stats.csv", index=False)
+
+
+@st.cache_data(ttl=30)
+def get_goals_conceded_map() -> dict[str, int]:
+    """Goals conceded per team, derived from entered match results + fixtures."""
+    fixtures = get_fixtures()
+    results  = get_match_results()
+    if fixtures.empty or results.empty:
+        return {}
+    conceded: dict[str, int] = {}
+    for _, res in results.iterrows():
+        mn = int(pd.to_numeric(res.get("match_number", 0), errors="coerce") or 0)
+        fx_row = fixtures[pd.to_numeric(fixtures["match_number"], errors="coerce") == mn]
+        if fx_row.empty:
+            continue
+        fx = fx_row.iloc[0]
+        home = str(fx.get("home_team", ""))
+        away = str(fx.get("away_team", ""))
+        hg = int(float(res.get("home_goals", 0) or 0))
+        ag = int(float(res.get("away_goals", 0) or 0))
+        conceded[home] = conceded.get(home, 0) + ag
+        conceded[away] = conceded.get(away, 0) + hg
+    return conceded
+
+
+@st.cache_data(ttl=30)
+def get_remaining_potential() -> dict[str, float]:
+    """Max additional progression points each player could earn from still-surviving teams.
+
+    A team is considered 'still alive' if its RoundReached is not GroupStage or R16
+    (i.e., it is currently at QF or beyond but hasn't been marked as Winner yet).
+    This is an estimate — it assumes all QF+ teams can still progress further.
+    """
+    from src.scoring_engine import PROGRESSION_BONUSES, ROUND_ORDER, KNOCKOUT_ROUNDS
+    assignments = get_assignments()
+    match_stats = get_match_stats()
+    tier_map    = get_tier_map()
+
+    ELIMINATED_ROUNDS = {"GroupStage", "R16"}
+
+    result: dict[str, float] = {}
+    for player, teams in assignments.items():
+        potential = 0.0
+        for team in teams:
+            if match_stats.empty:
+                continue
+            row = match_stats[match_stats["Team"] == team]
+            if row.empty:
+                continue
+            rnd  = str(row.iloc[0].get("RoundReached", "") or "").strip()
+            if rnd in ELIMINATED_ROUNDS or rnd == "Winner":
+                continue
+            tier = tier_map.get(team, 1)
+            bonuses = PROGRESSION_BONUSES.get(tier, {})
+            current_idx = ROUND_ORDER.index(rnd) if rnd in ROUND_ORDER else 0
+            for ko_rnd in KNOCKOUT_ROUNDS:
+                if ROUND_ORDER.index(ko_rnd) > current_idx:
+                    potential += float(bonuses.get(ko_rnd, 0))
+        result[player] = potential
+    return result
+
+
+@st.cache_data(ttl=60)
+def get_score_history() -> pd.DataFrame:
+    """Load score_history.csv for the points-over-time chart."""
+    p = _ROOT / "data" / "score_history.csv"
+    if not p.exists():
+        return pd.DataFrame()
+    try:
+        df = pd.read_csv(p)
+        df["Date"] = df["Date"].astype(str)
+        return df
+    except Exception:
+        return pd.DataFrame()
+
+
+def get_match_impact(match_number: int) -> list[dict]:
+    """Return per-player points impact from a single match result.
+
+    Used by admin to show 'who benefits' after entering a result.
+    Returns list of {player, team, goals_for, clean_sheet, pts_gained}.
+    """
+    fixtures = get_fixtures()
+    results  = get_match_results()
+    tier_map = get_tier_map()
+    assignments = get_assignments()
+
+    if fixtures.empty or results.empty:
+        return []
+
+    fx_row = fixtures[pd.to_numeric(fixtures["match_number"], errors="coerce") == match_number]
+    if fx_row.empty:
+        return []
+    fx = fx_row.iloc[0]
+    home = str(fx.get("home_team", ""))
+    away = str(fx.get("away_team", ""))
+
+    res_row = results[results["match_number"] == match_number]
+    if res_row.empty:
+        return []
+    res = res_row.iloc[0]
+    hg = int(float(res.get("home_goals", 0) or 0))
+    ag = int(float(res.get("away_goals", 0) or 0))
+
+    impact = []
+    for player, teams in assignments.items():
+        for team in teams:
+            if team == home:
+                gf, ga = hg, ag
+            elif team == away:
+                gf, ga = ag, hg
+            else:
+                continue
+            cs = 1 if ga == 0 else 0
+            pts = float(gf * 1 + cs * 2)
+            impact.append({
+                "Player": player, "Team": team,
+                "Goals": gf, "CS": cs, "Pts": pts,
+            })
+
+    return sorted(impact, key=lambda x: -x["Pts"])
+
+
+@st.cache_data(ttl=30)
+def get_insurance_overview() -> dict:
+    """Return a structured summary for the Insurance analytics panel.
+
+    Returns:
+        t1_status:     list[dict] — each T1 team with {team, tier, round_reached,
+                                    eliminated, owners (list of players who own it)}
+        holders:       list[dict] — players with insurance: {player, t1_teams,
+                                    eliminated_count, bonus_earned, max_bonus}
+    """
+    from src.scoring_engine import INSURANCE_BONUS, ROUND_ORDER
+    assignments  = get_assignments()
+    match_stats  = get_match_stats()
+    tier_map     = get_tier_map()
+    purchases    = get_purchases()
+
+    # All T1 teams (any player's allocation)
+    all_t1: set[str] = set()
+    for teams in assignments.values():
+        for t in teams:
+            if tier_map.get(t, 0) == 1:
+                all_t1.add(t)
+
+    # Build status per T1 team
+    t1_status = []
+    for team in sorted(all_t1):
+        rnd = ""
+        if not match_stats.empty:
+            row = match_stats[match_stats["Team"] == team]
+            if not row.empty:
+                rnd = str(row.iloc[0].get("RoundReached", "") or "").strip()
+        eliminated = rnd == "GroupStage"
+        owners = [p for p, ts in assignments.items() if team in ts]
+        t1_status.append({
+            "team":         team,
+            "round_reached": rnd,
+            "eliminated":   eliminated,
+            "owners":       owners,
+        })
+
+    # Insurance holders
+    holders = []
+    if not purchases.empty:
+        ins_players = purchases[
+            (purchases["PurchaseType"] == "INSURANCE") &
+            (purchases["Status"] == "PROCESSED")
+        ]["Player"].unique()
+        for player in ins_players:
+            t1_teams = [t for t in assignments.get(player, []) if tier_map.get(t, 0) == 1]
+            elim_count = 0
+            for t in t1_teams:
+                entry = next((x for x in t1_status if x["team"] == t), None)
+                if entry and entry["eliminated"]:
+                    elim_count += 1
+            holders.append({
+                "player":          player,
+                "t1_teams":        t1_teams,
+                "eliminated_count": elim_count,
+                "bonus_earned":    float(elim_count * INSURANCE_BONUS),
+                "max_bonus":       float(len(t1_teams) * INSURANCE_BONUS),
+            })
+
+    return {"t1_status": t1_status, "holders": holders}
+
+
 DEADLINE_LABELS: dict[str, str] = {
     "prediction_lock":           "Prediction Lock",
-    "buy_in_deadline":           "Buy-In Deadline",
+    "buy_in_deadline":           "Buy-In Deadline (before last group game)",
     "pre_tournament_captain":    "Pre-Tournament Captain",
     "mulligan_deadline":         "Mulligan Deadline",
     "group_stage_closes":        "Group Stage Closes",

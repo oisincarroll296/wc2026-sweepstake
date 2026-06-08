@@ -12,7 +12,7 @@ from datetime import datetime
 from dashboard.data import (
     get_prize_pool, get_overall_leaderboard, get_top_team,
     get_paid_count, get_pack_count, get_audit_log, get_events,
-    get_deadlines, countdown, DEADLINE_LABELS,
+    get_assignments, get_participants, get_deadlines, countdown, DEADLINE_LABELS,
 )
 from dashboard.components.ui import page_header, empty_state
 
@@ -49,7 +49,7 @@ def _last_updated() -> str:
     if diff.total_seconds() < 86400:
         hrs = int(diff.total_seconds() / 3600)
         return f"{hrs}h ago"
-    return ts.strftime("%-d %b")
+    return f"{ts.day} {ts.strftime('%b')}"
 
 
 page_header("WC 2026 Sweepstake", "Live tournament tracker")
@@ -126,7 +126,8 @@ if deadlines:
             colour = "#6B7280" if passed else "#F5F5F5"
             cd_colour = "#6B7280" if passed else "#D4A017"
             try:
-                display_time = datetime.fromisoformat(iso).strftime("%-d %b %Y %H:%M UTC")
+                _dt = datetime.fromisoformat(iso)
+                display_time = f"{_dt.day} {_dt.strftime('%b %Y %H:%M')} UTC"
             except Exception:
                 display_time = iso
             st.markdown(
@@ -223,6 +224,52 @@ with col_right:
             f'</span></div>',
             unsafe_allow_html=True,
         )
+
+    # Today's Fixtures
+    st.subheader("Today's Fixtures")
+    try:
+        from datetime import date as _date
+        from dashboard.data import get_fixtures, get_match_results
+        _fix_df = get_fixtures()
+        _res_df = get_match_results()
+        _owned  = {t for ts in get_assignments().values() for t in ts}
+        _today  = _date.today()
+        _today_matches = _fix_df[_fix_df["match_date"] == _today] if not _fix_df.empty else pd.DataFrame()
+
+        _entered_nums: set = set()
+        if not _res_df.empty and "match_number" in _res_df.columns:
+            _entered_nums = set(_res_df["match_number"].dropna().astype(int).tolist())
+
+        if _today_matches.empty:
+            st.markdown(
+                '<div class="card"><span style="color:#9CA3AF">No matches today.</span></div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            for _, _m in _today_matches.iterrows():
+                _h, _a = _m["home_team"], _m["away_team"]
+                _hc = "#D4A017" if _h in _owned else "#F5F5F5"
+                _ac = "#D4A017" if _a in _owned else "#F5F5F5"
+                _grp = _m.get("group", "")
+                _mn  = int(pd.to_numeric(_m["match_number"], errors="coerce") or 0)
+                _score_html = ""
+                if _mn in _entered_nums and not _res_df.empty:
+                    _rr = _res_df[_res_df["match_number"] == _mn]
+                    if not _rr.empty:
+                        _hg = int(float(_rr.iloc[0].get("home_goals", 0) or 0))
+                        _ag = int(float(_rr.iloc[0].get("away_goals", 0) or 0))
+                        _score_html = f' <strong style="color:#6EE7B7">{_hg}–{_ag}</strong>'
+                st.markdown(
+                    f'<div class="card" style="padding:0.4rem 0.7rem;margin-bottom:0.3rem">'
+                    f'<span style="color:#6B7280;font-size:0.7rem">Grp {_grp}&nbsp;&nbsp;</span>'
+                    f'<span style="color:{_hc};font-weight:600;font-size:0.82rem">{_h}</span>'
+                    f'<span style="color:#6B7280;font-size:0.78rem">{_score_html} v </span>'
+                    f'<span style="color:{_ac};font-weight:600;font-size:0.82rem">{_a}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+    except Exception:
+        pass
 
     # Next Event
     st.subheader("Next Event")
