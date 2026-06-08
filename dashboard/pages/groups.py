@@ -304,7 +304,7 @@ with tab_fixtures:
                     away_name_col = "#D4A017" if away_owned else "#F1F5F9"
 
                     round_label = f"Group {grp}" if grp else "Knockout"
-                    venue_short = venue.replace(" Stadium", "").replace(" Estadio", "") if venue else ""
+                    venue_short = venue.replace(" Stadium", "").replace("Estadio ", "") if venue else ""
 
                     home_owner_html = (
                         f'<div style="color:#6EE7B7;font-size:0.65rem;margin-top:2px">{home_owners}</div>'
