@@ -191,7 +191,7 @@ A Resurrection replacement does not inherit captain status from a team it replac
 
 ## MULLIGAN (€3)
 
-Available before the tournament begins.
+Available before the Mulligan deadline.
 
 Provides a complete redraw of all 8 teams.
 
@@ -202,9 +202,11 @@ The redraw must satisfy all competition allocation rules, including:
 * Ownership limits
 * Group restrictions
 
-Maximum one Mulligan per participant.
+A participant may purchase multiple Mulligans.
 
-All Mulligans are processed simultaneously.
+Each Mulligan triggers a separate draw. The result of the most recent draw becomes that participant's allocation.
+
+All Mulligans purchased before the deadline are processed together in a single draw session.
 
 ---
 
@@ -380,13 +382,12 @@ Conducted using a logged and reproducible random seed.
 
 # KEY DEADLINES
 
-| Deadline                    | Locks                                       |
-| --------------------------- | ------------------------------------------- |
-| 1 Hour Before Opening Match | Predictions                                 |
-| Before Opening Match        | Pre-Tournament Captain, Mulligan, Insurance |
-| Before Round of 16          | Knockout Captain                            |
-| After Group Stage           | Ninth Team                                  |
-| After Knockout Elimination  | Resurrection                                |
+| Deadline              | Locks                                              |
+| --------------------- | -------------------------------------------------- |
+| 19 Jun 12:00 UTC+1    | Mulligan                                           |
+| 19 Jun 20:00 UTC+1    | Predictions, Pre-Tournament Captain, Buy In        |
+| 28 Jun 20:00 UTC+1    | Knockout Captain, Ninth Team draw                  |
+| 29 Jun 19:00 UTC+1    | Resurrection window                                |
 
 ---
 

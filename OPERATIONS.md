@@ -12,12 +12,10 @@ Step-by-step reference for running the sweepstake from draw to prize day.
 
 | Date | Deadline |
 |------|----------|
-| 10 Jun 20:00 UTC+1 | Mulligan deadline |
-| 11 Jun 20:00 UTC+1 | Prediction lock + pre-tournament captain deadline |
-| 19 Jun 20:00 UTC+1 | Buy-in deadline (before last group game) |
+| 19 Jun 12:00 UTC+1 | Mulligan deadline |
+| 19 Jun 20:00 UTC+1 | Prediction lock + pre-tournament captain + buy-in deadline |
 | 28 Jun 03:00 UTC+1 | Group stage closes |
-| 28 Jun 19:00 UTC+1 | Knockout captain deadline |
-| 28 Jun 20:00 UTC+1 | Ninth Team draw |
+| 28 Jun 20:00 UTC+1 | Knockout captain deadline + Ninth Team draw |
 | 29 Jun 19:00 UTC+1 | Resurrection window closes |
 | 19 Jul 22:00 UTC+1 | Tournament ends |
 
@@ -82,7 +80,7 @@ When a player sends money to the **Shared Revolut Pocket**, go to **Admin → Pu
 
 ### 4. Mulligan Draw (if anyone bought one)
 
-Deadline: **10 Jun 20:00 UTC+1**
+Deadline: **19 Jun 12:00 UTC+1**
 
 1. Make sure the `Mulligan` purchase is added in Admin → Purchases
 2. Go to **Admin → Draw Events**, select `MULLIGAN_DRAW`, click **Run**
@@ -94,7 +92,7 @@ The player gets a completely new set of 8 teams. Must still pass all allocation 
 
 ### 5. Collect Predictions (Prediction Pack buyers only)
 
-Deadline: **11 Jun 20:00 UTC+1** (same as prediction lock)
+Deadline: **19 Jun 20:00 UTC+1** (same as prediction lock)
 
 Ask each Prediction Pack holder to send you three picks:
 
@@ -113,7 +111,7 @@ Alice,Brazil,Vinicius Jr,Tunisia
 
 ### 6. Collect Pre-Tournament Captains
 
-Deadline: **11 Jun 20:00 UTC+1**
+Deadline: **19 Jun 20:00 UTC+1**
 
 Each player sends you their Pre-Tournament captain. Edit `data/captains.csv` directly:
 
@@ -130,7 +128,7 @@ Alice,PreTournament,Brazil
 
 ### 7. Lock Predictions and Buy-Ins
 
-**1 hour before the opening match (11 Jun ~20:00 UTC+1):**
+**19 Jun 20:00 UTC+1:**
 
 Go to **Admin → Locking**:
 
@@ -229,7 +227,7 @@ A random surviving team the player doesn't already own is assigned to their knoc
 
 ### 13. Collect Knockout Captains
 
-Deadline: **28 Jun 20:00 UTC+1**
+Deadline: **28 Jun 20:00 UTC+1** (same as Ninth Team draw)
 
 Ask each player for their Knockout captain pick before the Round of 16 starts. Add to `data/captains.csv`:
 

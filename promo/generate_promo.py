@@ -83,7 +83,7 @@ t(W/2 - 0.3, 16.82, 'SWEEPSTAKE', sz=22, c=BG, bold=True, ha='center', z=6)
 
 # Tagline on dark strip below header
 box(0, 15.5, W, 0.48, fc=DIM, ec='none', z=2)
-t(W/2, 15.75, '13 Players  ·  48 Teams  ·  4 Tiers  ·  All the Glory',
+t(W/2, 15.75, '13 Players  ·  48 Teams  ·  4 Tiers  ·  1st 50%  ·  2nd 30%  ·  3rd 20%',
   sz=10.5, c=MUTED, ha='center', z=3)
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -94,12 +94,12 @@ box(LX, LY, LW, LH)
 section_bar(LX, LY + LH - 0.65, LW, 'WHAT TO BUY', fc=BLUE)
 
 packages = [
-    ('Buy In',          '€5', GOLD,   'Your entry  ·  8 teams across 4 tiers',  True),
-    ('Prediction Pack', '€5', GREEN,  'WC Winner  ·  Golden Boot  ·  Dark Horse', False),
-    ('Mulligan',        '€3', AMBER,  'Full redraw of all 8 teams',              False),
-    ('9th Team',        '€3', PURPLE, 'Extra team for the knockout stage',        False),
-    ('Resurrection',    '€5', RED,    'Replace one eliminated team',              False),
-    ('Insurance',       '€2', TEAL,   '+25 pts per Tier 1 team out before R16',  False),
+    ('Buy In',          '€5', GOLD,   'Your entry  ·  8 teams across 4 tiers',       True),
+    ('Prediction Pack', '€5', GREEN,  'WC Winner  ·  Golden Boot  ·  Dark Horse',     False),
+    ('Mulligan',        '€3', AMBER,  'Full redraw of all 8 teams  ·  buy multiple',  False),
+    ('9th Team',        '€3', PURPLE, 'Extra team for the knockout stage',             False),
+    ('Resurrection',    '€5', RED,    'Replace one eliminated team',                   False),
+    ('Insurance',       '€2', TEAL,   '+25 pts per Tier 1 team out before R16',       False),
 ]
 
 ROW = 1.02
@@ -163,12 +163,12 @@ box(TX, TY, TW, TH)
 section_bar(TX, TY + TH - 0.65, TW, 'KEY DATES & TIMELINE', fc=PURPLE)
 
 events = [
-    ('NOW',       'Sign up & pay your Buy In',                              GOLD),
-    ('11 Jun',    'Opening match  —  Predictions locked 1 hr before',      BLUE),
-    ('26 Jun',    'Buy-in deadline  —  before last group game',            AMBER),
-    ('29 Jun',    'Knockouts begin  —  Resurrection & KO captains open',  GREEN),
-    ('Late Jun',  'Ninth Team draw for eligible players',                  PURPLE),
-    ('19 Jul',    'THE FINAL!',                   GOLD),
+    ('NOW',      'Sign up  ·  Pay your Buy In',                            GOLD),
+    ('11 Jun',   'Tournament begins  —  48 teams, 6 weeks',               BLUE),
+    ('19 Jun',   'All deadlines  —  Buy In, Mulligan, Predictions',       AMBER),
+    ('28 Jun',   'Knockouts begin  —  Ninth Team & KO captain draws',    GREEN),
+    ('29 Jun',   'Resurrection window closes',                            PURPLE),
+    ('19 Jul',   'THE FINAL!',                                            GOLD),
 ]
 
 DX   = TX + 2.1
