@@ -11,10 +11,9 @@ from src.team_database import load_teams
 # Paths
 # ---------------------------------------------------------------------------
 _ROOT = Path(__file__).parent.parent
-MATCH_STATS_PATH = _ROOT / "data" / "match_stats.csv"
-PURCHASES_PATH = _ROOT / "data" / "purchases.csv"
-PREDICTIONS_PATH = _ROOT / "data" / "predictions.csv"
-CAPTAINS_PATH = _ROOT / "data" / "captains.csv"
+MATCH_STATS_PATH  = _ROOT / "data" / "match_stats.csv"
+PURCHASES_PATH    = _ROOT / "data" / "purchases.csv"
+PLAYER_PICKS_PATH = _ROOT / "data" / "player_picks.csv"
 PLAYER_SUMMARY_PATH = _ROOT / "exports" / "player_summary.csv"
 
 # ---------------------------------------------------------------------------
@@ -71,17 +70,26 @@ def load_purchases(path: Optional[Path | str] = None) -> pd.DataFrame:
 
 
 def load_predictions(path: Optional[Path | str] = None) -> pd.DataFrame:
-    p = Path(path) if path else PREDICTIONS_PATH
+    p = Path(path) if path else PLAYER_PICKS_PATH
     if not p.exists():
         return pd.DataFrame(columns=["Player", "WorldCupWinner", "GoldenBoot", "DarkHorse"])
-    return pd.read_csv(p, dtype=str).fillna("")
+    df = pd.read_csv(p, dtype=str).fillna("")
+    cols = ["Player", "WorldCupWinner", "GoldenBoot", "DarkHorse"]
+    return df[[c for c in cols if c in df.columns]].copy()
 
 
 def load_captains(path: Optional[Path | str] = None) -> pd.DataFrame:
-    p = Path(path) if path else CAPTAINS_PATH
+    p = Path(path) if path else PLAYER_PICKS_PATH
     if not p.exists():
         return pd.DataFrame(columns=["Player", "CaptainType", "Team"])
-    return pd.read_csv(p, dtype=str).fillna("")
+    df = pd.read_csv(p, dtype=str).fillna("")
+    rows = []
+    for _, row in df.iterrows():
+        if row.get("PreTournamentCaptain", "").strip():
+            rows.append({"Player": row["Player"], "CaptainType": "PreTournament", "Team": row["PreTournamentCaptain"].strip()})
+        if row.get("KnockoutCaptain", "").strip():
+            rows.append({"Player": row["Player"], "CaptainType": "Knockout", "Team": row["KnockoutCaptain"].strip()})
+    return pd.DataFrame(rows, columns=["Player", "CaptainType", "Team"]) if rows else pd.DataFrame(columns=["Player", "CaptainType", "Team"])
 
 
 def _empty_match_stats() -> pd.DataFrame:

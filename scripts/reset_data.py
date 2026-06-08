@@ -69,17 +69,26 @@ def reset():
 
     # ── Clear CSV files ──────────────────────────────────────────────────────
     empties = {
-        "purchases.csv":    ["Player", "PurchaseType", "Status", "Timestamp", "Reference", "Selection"],
-        "events.csv":       ["EventID", "EventType", "Status", "Timestamp", "ExecutedTime", "Seed"],
+        "purchases.csv":    ["Player", "PurchaseType", "Amount", "Selection", "Reference", "Timestamp", "Status"],
+        "events.csv":       ["EventID", "EventType", "Status", "Seed", "ScheduledTime", "ExecutedTime"],
         "audit_log.csv":    ["Timestamp", "Event", "Player", "Action", "Result"],
         "allocation.csv":   ["Player", "Team"],
-        "predictions.csv":  ["Player", "WorldCupWinner", "GoldenBoot", "DarkHorse"],
-        "captains.csv":     ["Player", "CaptainType", "Team"],
+        "match_results.csv": ["match_number", "home_goals", "away_goals", "extra_time", "penalty_winner", "comeback_home", "comeback_away"],
+        "score_history.csv": ["Date", "Player", "Points"],
     }
     for filename, cols in empties.items():
         path = DATA / filename
         pd.DataFrame(columns=cols).to_csv(path, index=False)
         print(f"  [OK] {filename} cleared")
+
+    # ── Clear KnockoutCaptain from player_picks.csv ──────────────────────────
+    picks_path = DATA / "player_picks.csv"
+    if picks_path.exists():
+        df = pd.read_csv(picks_path, dtype=str).fillna("")
+        if "KnockoutCaptain" in df.columns:
+            df["KnockoutCaptain"] = ""
+        df.to_csv(picks_path, index=False)
+        print(f"  [OK] player_picks.csv — KnockoutCaptain cleared")
 
     # ── Remove lock files ────────────────────────────────────────────────────
     for lock_file in ["predictions_lock.txt", "buyin_lock.txt"]:

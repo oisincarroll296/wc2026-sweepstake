@@ -49,8 +49,7 @@ This is a **Python + Streamlit** application. The Excel/VBA approach was replace
 | `data/fixtures.csv` | Full fixture list with match numbers |
 | `data/purchases.csv` | Purchase ledger — see types below |
 | `data/player_status.csv` | PAID / UNPAID per participant |
-| `data/predictions.csv` | WorldCupWinner, GoldenBoot, DarkHorse per player |
-| `data/captains.csv` | PreTournament and Knockout captain selections |
+| `data/player_picks.csv` | One row per player: PreTournamentCaptain, KnockoutCaptain, WorldCupWinner, GoldenBoot, DarkHorse |
 | `data/events.csv` | Draw events (INITIAL_DRAW, GROUP_STAGE_CLOSE, etc.) |
 | `data/audit_log.csv` | Full action audit trail |
 | `data/score_history.csv` | Historical score snapshots (`Date,Player,Points`) |

@@ -100,11 +100,11 @@ Ask each Prediction Pack holder to send you three picks:
 - **Golden Boot** — player name (free text)
 - **Dark Horse** — must be Tier 3 or 4, and a team they do NOT own
 
-Edit `data/predictions.csv` directly:
+Edit `data/player_picks.csv` directly — fill in the `WorldCupWinner`, `GoldenBoot`, and `DarkHorse` columns for each player:
 
 ```csv
-Player,WorldCupWinner,GoldenBoot,DarkHorse
-Alice,Brazil,Vinicius Jr,Tunisia
+Player,PreTournamentCaptain,KnockoutCaptain,WorldCupWinner,GoldenBoot,DarkHorse
+Alice,Brazil,,Brazil,Vinicius Jr,Tunisia
 ```
 
 ---
@@ -113,11 +113,11 @@ Alice,Brazil,Vinicius Jr,Tunisia
 
 Deadline: **19 Jun 20:00 UTC+1**
 
-Each player sends you their Pre-Tournament captain. Edit `data/captains.csv` directly:
+Each player sends you their Pre-Tournament captain. Edit `data/player_picks.csv` directly — fill in the `PreTournamentCaptain` column:
 
 ```csv
-Player,CaptainType,Team
-Alice,PreTournament,Brazil
+Player,PreTournamentCaptain,KnockoutCaptain,WorldCupWinner,GoldenBoot,DarkHorse
+Alice,Brazil,,,Brazil,Vinicius Jr
 ```
 
 - Each player gets one Pre-Tournament captain
@@ -229,10 +229,11 @@ A random surviving team the player doesn't already own is assigned to their knoc
 
 Deadline: **28 Jun 20:00 UTC+1** (same as Ninth Team draw)
 
-Ask each player for their Knockout captain pick before the Round of 16 starts. Add to `data/captains.csv`:
+Ask each player for their Knockout captain pick before the Round of 16 starts. Edit `data/player_picks.csv` — fill in the `KnockoutCaptain` column for each player:
 
 ```csv
-Alice,Knockout,France
+Player,PreTournamentCaptain,KnockoutCaptain,...
+Alice,Brazil,France,...
 ```
 
 - Knockout captain earns ×1.5 on that team's knockout points only
@@ -330,8 +331,8 @@ All data is stored in plain CSV files in `data/`. You can edit any of them direc
 | Problem | Fix |
 |---------|-----|
 | Wrong purchase entered | Open `data/purchases.csv`, delete or correct the row, push to git |
-| Wrong captain entered | Edit `data/captains.csv` directly |
-| Wrong prediction entered | Edit `data/predictions.csv` directly (before prediction lock only) |
+| Wrong captain entered | Edit `data/player_picks.csv` directly |
+| Wrong prediction entered | Edit `data/player_picks.csv` directly (before prediction lock only) |
 | Predictions locked too early | Admin → Locking → Unlock Predictions |
 | Buy-ins locked too early | Admin → Locking → Unlock Buy-Ins |
 | Wrong match result | Re-enter via Admin → Results Entry → By Match (overwrites) |
@@ -352,8 +353,7 @@ All data is stored in plain CSV files in `data/`. You can edit any of them direc
 | `data/allocation.csv` | Which 8 teams each player owns | Admin → Draw Events (INITIAL_DRAW) |
 | `data/match_results.csv` | Raw match-by-match results | Admin → Results Entry |
 | `data/match_stats.csv` | Cumulative per-team stats | Auto-calculated from match_results |
-| `data/predictions.csv` | Player predictions | Edit directly |
-| `data/captains.csv` | Captain selections | Edit directly |
+| `data/player_picks.csv` | Captain selections + predictions (one row per player) | Edit directly |
 | `data/events.csv` | Event log (with seeds) | Automatic |
 | `data/audit_log.csv` | Full action audit trail | Automatic |
 | `data/score_history.csv` | Historical score snapshots | Automatic |
