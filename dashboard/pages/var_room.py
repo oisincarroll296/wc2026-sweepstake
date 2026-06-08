@@ -43,9 +43,11 @@ with tabs[0]:
     st.subheader("💳 Payment Ledger")
     df = get_purchases()
     if not df.empty:
-        # Show processed purchases only in a clean view
-        show_cols = [c for c in ["Player", "PurchaseType", "Amount", "Reference", "Timestamp", "Status"] if c in df.columns]
-        searchable_table(df[show_cols], "Search player or purchase type…", key="tbl_payment_ledger")
+        from src.competition import PRICES as _PRICES
+        disp = df.copy()
+        disp.insert(2, "Amount", disp["PurchaseType"].map(_PRICES).fillna(0.0).apply(lambda x: f"€{x:.0f}"))
+        show_cols = [c for c in ["Player", "PurchaseType", "Amount", "Selection", "Reference", "Timestamp"] if c in disp.columns]
+        searchable_table(disp[show_cols], "Search player or purchase type…", key="tbl_payment_ledger")
     else:
         empty_state("No payment data yet.")
 
@@ -61,14 +63,12 @@ with tabs[1]:
     st.divider()
     # Per-type breakdown
     p = get_purchases()
-    if not p.empty:
-        from src.competition import PRICES
-        processed = p[p["Status"] == "PROCESSED"]
-        rows = []
-        for ptype, price in PRICES.items():
-            cnt = int((processed["PurchaseType"] == ptype).sum())
-            rows.append({"Type": ptype, "Count": cnt, "Amount": f"€{cnt * price:.2f}"})
-        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+    from src.competition import PRICES
+    rows = []
+    for ptype, price in PRICES.items():
+        cnt = int((p["PurchaseType"] == ptype).sum()) if not p.empty else 0
+        rows.append({"Type": ptype, "Count": cnt, "Total": f"€{cnt * price:.0f}"})
+    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
 # ── 3. Event Timeline ──────────────────────────────────────────────────────
 with tabs[2]:
@@ -77,7 +77,11 @@ with tabs[2]:
     if ev.empty:
         empty_state("No events recorded.")
     else:
-        st.dataframe(ev, use_container_width=True, hide_index=True)
+        from dashboard.components.ui import _fmt_iso, _TS_COLS
+        disp_ev = ev.copy()
+        for _c in _TS_COLS & set(disp_ev.columns):
+            disp_ev[_c] = disp_ev[_c].apply(lambda v: _fmt_iso(str(v)) if v else v)
+        st.dataframe(disp_ev, use_container_width=True, hide_index=True)
 
 # ── 4. Audit Log ──────────────────────────────────────────────────────────
 with tabs[3]:
@@ -132,10 +136,24 @@ with tabs[4]:
 
 # ── 6. Random Seeds ───────────────────────────────────────────────────────
 with tabs[5]:
-    st.subheader("🎯 Random Seeds")
-    st.caption("All random seeds used in draws are recorded here for full auditability.")
-    df = _load_csv("random_seeds.csv") if (EXPORTS / "random_seeds.csv").exists() else pd.DataFrame()
-    searchable_table(df, key="tbl_seeds") if not df.empty else empty_state("No seeds recorded yet.")
+    st.subheader("🎯 Draw Seeds")
+    st.caption(
+        "Every random draw uses a seed so results can be verified and reproduced. "
+        "The seed is recorded in the Event Timeline above."
+    )
+    ev = get_events()
+    if not ev.empty:
+        draw_ev = ev[ev["EventType"].isin(["INITIAL_DRAW","MULLIGAN_DRAW","NINTH_TEAM_DRAW","RESURRECTION_DRAW"])] if "EventType" in ev.columns else pd.DataFrame()
+        if not draw_ev.empty:
+            from dashboard.components.ui import _fmt_iso
+            show = draw_ev[["EventType", "ExecutedTime", "RandomSeed"]].copy() if all(c in draw_ev.columns for c in ["EventType","ExecutedTime","RandomSeed"]) else draw_ev.copy()
+            if "ExecutedTime" in show.columns:
+                show["ExecutedTime"] = show["ExecutedTime"].apply(lambda v: _fmt_iso(str(v)) if v else v)
+            st.dataframe(show, use_container_width=True, hide_index=True)
+        else:
+            empty_state("No draw events recorded yet.")
+    else:
+        empty_state("No events recorded yet.")
 
 # ── 7. Transaction History ─────────────────────────────────────────────────
 with tabs[6]:
@@ -144,4 +162,4 @@ with tabs[6]:
     if p.empty:
         empty_state("No transactions recorded.")
     else:
-        searchable_table(p.iloc[::-1].reset_index(drop=True), "Search player, type, status…", key="tbl_transactions")
+        searchable_table(p.iloc[::-1].reset_index(drop=True), "Search player or purchase type…", key="tbl_transactions")

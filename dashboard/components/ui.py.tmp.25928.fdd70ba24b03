@@ -81,9 +81,6 @@ def searchable_table(df: pd.DataFrame, search_placeholder: str = "Search…", ke
     if df.empty:
         empty_state()
         return
-    df = df.copy()
-    for col in _TS_COLS & set(df.columns):
-        df[col] = df[col].apply(lambda v: _fmt_iso(str(v)) if v else v)
     query = st.text_input("", placeholder=search_placeholder, label_visibility="collapsed", key=key)
     if query:
         mask = df.apply(lambda col: col.astype(str).str.contains(query, case=False, na=False)).any(axis=1)

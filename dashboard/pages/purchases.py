@@ -100,8 +100,7 @@ COSTS = {pt: cost for pt, _, cost in PTYPES}
 
 processed: dict[str, set] = {}
 if not purchases.empty:
-    proc = purchases[purchases["Status"] == "PROCESSED"]
-    for _, r in proc.iterrows():
+    for _, r in purchases.iterrows():
         p  = r["Player"]
         pt = r["PurchaseType"]
         processed.setdefault(p, set()).add(pt)
@@ -119,9 +118,9 @@ for player in sorted(participants, key=lambda p: (status_map.get(p, "UNPAID") !=
         if pt in has:
             row[label] = "✓"
         elif _available(pt):
-            row[label] = "💡"
+            row[label] = "Available"
         else:
-            row[label] = "—"
+            row[label] = "Deadline passed"
     row["Spent"] = f"€{spent}"
     rows.append(row)
 
@@ -142,8 +141,10 @@ def _style(row: pd.Series):
             styles.append("color: #D4A017; font-weight: 700")
         elif row[col] == "✓":
             styles.append("color: #6EE7B7; font-weight: 700")
-        elif row[col] == "💡":
-            styles.append("color: #D4A017; font-weight: 700")
+        elif row[col] == "Available":
+            styles.append("color: #D4A017; font-weight: 600")
+        elif row[col] == "Deadline passed":
+            styles.append("color: #4B5563; font-style: italic")
         else:
             styles.append("color: #4B5563")
     return styles
@@ -154,7 +155,7 @@ st.dataframe(
     use_container_width=True,
     hide_index=True,
 )
-st.caption("✓ Purchased  ·  💡 Still available — message Oisin to buy  ·  — Deadline passed")
+st.caption("✓ Purchased  ·  Available — message Oisin to buy  ·  Deadline passed — window closed")
 
 # ── Summary strip ───────────────────────────────────────────────────────────
 st.divider()
@@ -171,7 +172,6 @@ with r2c1:
     has_insurance = sum(1 for p in participants if "Insurance" in processed.get(p, set()))
     st.metric("Insurance (€2)", f"{has_insurance} / {n}")
 with r2c2:
-    total_collected = sum(
-        COSTS.get(pt, 0) for player_set in processed.values() for pt in player_set
-    )
-    st.metric("Total Collected", f"€{total_collected}")
+    from src.competition import calculate_prize_pool
+    pool = calculate_prize_pool(purchases)
+    st.metric("Total Collected", f"€{pool['current_pot']:.0f}")

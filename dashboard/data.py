@@ -166,7 +166,7 @@ def get_pack_count() -> int:
     p = get_purchases()
     if p.empty:
         return 0
-    return int(((p["PurchaseType"] == "PredictionPack") & (p["Status"] == "PROCESSED")).sum())
+    return int((p["PurchaseType"] == "PredictionPack").sum())
 
 
 @st.cache_data(ttl=30)
@@ -598,10 +598,7 @@ def get_insurance_overview() -> dict:
     # Insurance holders
     holders = []
     if not purchases.empty:
-        ins_players = purchases[
-            (purchases["PurchaseType"] == "Insurance") &
-            (purchases["Status"] == "PROCESSED")
-        ]["Player"].unique()
+        ins_players = purchases[purchases["PurchaseType"] == "Insurance"]["Player"].unique()
         for player in ins_players:
             t1_teams = [t for t in assignments.get(player, []) if tier_map.get(t, 0) == 1]
             elim_count = 0

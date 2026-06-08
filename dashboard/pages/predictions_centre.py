@@ -39,7 +39,7 @@ else:
         '<span style="font-size:1.4rem">🔒</span><br>'
         '<strong style="color:#C4B5FD;font-size:1.05rem">Predictions Hidden</strong><br>'
         '<span style="color:#9CA3AF;font-size:0.85rem">'
-        'All picks are sealed until 1 hour before the opening match.'
+        'All picks are sealed until 19 June.'
         '</span>'
         f'{cd_line}'
         '</div>',

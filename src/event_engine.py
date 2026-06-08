@@ -16,7 +16,7 @@ from src.competition import (
     load_events, load_audit_log,
     purchases_to_scoring_format, calculate_prize_pool,
     log_action, create_event, update_event_status,
-    mark_paid, get_paid_players, PRICES,
+    mark_paid, get_paid_players, get_player_status, PRICES,
     prize_leaderboard, overall_leaderboard,
 )
 from src.scoring_engine import load_match_stats, calculate_team_points, get_effective_teams
@@ -178,33 +178,23 @@ def process_pending_purchases(
     purchases: pd.DataFrame,
     statuses: pd.DataFrame,
 ) -> tuple[pd.DataFrame, pd.DataFrame, list[str]]:
-    """Mark all PENDING immediate purchases (BUYIN/PACK/INSURANCE) as PROCESSED.
+    """Mark players with a BuyIn purchase as PAID.
 
-    MULLIGAN/NINTH/RESURRECTION stay PENDING until their draw events.
-    Marks players with a PROCESSED BUYIN as PAID.
-
-    Returns (updated_purchases, updated_statuses, messages).
+    Returns (purchases, updated_statuses, messages).
     """
     msgs: list[str] = []
     upurch = purchases.copy() if not purchases.empty else purchases
     ust = statuses.copy() if not statuses.empty else statuses
 
     if upurch.empty:
-        return upurch, ust, ["No purchases found"]
+        return upurch, ust, []
 
-    pending = upurch[(upurch["Status"] == "PENDING") & (upurch["PurchaseType"].isin(_IMMEDIATE_TYPES))]
-    if pending.empty:
-        return upurch, ust, ["No pending immediate purchases"]
-
-    for idx in pending.index:
-        ptype  = upurch.loc[idx, "PurchaseType"]
-        player = upurch.loc[idx, "Player"]
-        upurch.loc[idx, "Status"] = "PROCESSED"
-        msgs.append(f"{player}: {ptype} → PROCESSED")
-
-        # Mark PAID on confirmed BUYIN
-        if ptype == "BuyIn":
+    buyins = upurch[upurch["PurchaseType"] == "BuyIn"]
+    for _, row in buyins.iterrows():
+        player = str(row["Player"])
+        if get_player_status(player, ust) != "PAID":
             ust = mark_paid(player, ust)
+            msgs.append(f"{player}: marked PAID")
 
     return upurch, ust, msgs
 
@@ -228,11 +218,17 @@ def run_mulligan_draw(
         seed = random.randint(0, 2**31)
     rng = random.Random(seed)
 
-    pending = (
-        purchases[(purchases["PurchaseType"] == "Mulligan") & (purchases["Status"] == "PENDING")]
-        if not purchases.empty else pd.DataFrame()
-    )
-    mulligan_players = pending["Player"].unique().tolist() if not pending.empty else []
+    # Find players with unprocessed Mulligans: purchases > audit log executions
+    mulligan_players: list[str] = []
+    if not purchases.empty:
+        mul_counts = purchases[purchases["PurchaseType"] == "Mulligan"].groupby("Player").size()
+        done_counts: dict[str, int] = {}
+        if not audit_log.empty and "Action" in audit_log.columns:
+            done_series = audit_log[audit_log["Action"] == "MULLIGAN_EXECUTED"].groupby("Player").size()
+            done_counts = done_series.to_dict()
+        for player, count in mul_counts.items():
+            for _ in range(count - done_counts.get(player, 0)):
+                mulligan_players.append(player)
 
     updated_alloc = allocation
     upurch = purchases.copy()
@@ -259,16 +255,6 @@ def run_mulligan_draw(
         updated_alloc = new_alloc
         new_teams = list(new_alloc.assignments.get(player, []))
         results[player] = {"previous": prev, "new": new_teams, "seed": player_seed}
-
-        # Mark purchase PROCESSED
-        mask = (
-            (upurch["Player"] == player)
-            & (upurch["PurchaseType"] == "Mulligan")
-            & (upurch["Status"] == "PENDING")
-        )
-        if mask.any():
-            idx = upurch[mask].index[0]
-            upurch.loc[idx, "Status"] = "PROCESSED"
 
         ulog = log_action("MULLIGAN_DRAW", player, "MULLIGAN_EXECUTED", str(player_seed), ulog)
 
@@ -306,7 +292,7 @@ def run_ninth_team_draw(
     rng = random.Random(seed)
 
     pending = (
-        purchases[(purchases["PurchaseType"] == "NinthTeam") & (purchases["Status"] == "PENDING")]
+        purchases[(purchases["PurchaseType"] == "NinthTeam") & (purchases["Selection"].str.strip() == "")]
         if not purchases.empty else pd.DataFrame()
     )
     players = pending["Player"].unique().tolist() if not pending.empty else []
@@ -331,12 +317,10 @@ def run_ninth_team_draw(
         mask = (
             (upurch["Player"] == player)
             & (upurch["PurchaseType"] == "NinthTeam")
-            & (upurch["Status"] == "PENDING")
+            & (upurch["Selection"].str.strip() == "")
         )
         if mask.any():
-            idx = upurch[mask].index[0]
-            upurch.loc[idx, "Status"]    = "PROCESSED"
-            upurch.loc[idx, "Selection"] = team
+            upurch.loc[upurch[mask].index[0], "Selection"] = team
 
         ulog = log_action("NINTH_TEAM_DRAW", player, "NINTH_ASSIGNED", team, ulog)
 
@@ -395,7 +379,10 @@ def run_resurrection_draw(
     tmap = _tier_map()
 
     pending = (
-        purchases[(purchases["PurchaseType"] == "Resurrection") & (purchases["Status"] == "PENDING")]
+        purchases[
+            (purchases["PurchaseType"] == "Resurrection")
+            & (~purchases["Selection"].str.contains("->", na=False))
+        ]
         if not purchases.empty else pd.DataFrame()
     )
 
@@ -427,12 +414,10 @@ def run_resurrection_draw(
         mask = (
             (upurch["Player"] == player)
             & (upurch["PurchaseType"] == "Resurrection")
-            & (upurch["Status"] == "PENDING")
+            & (upurch["Selection"].str.strip() == eliminated)
         )
         if mask.any():
-            idx = upurch[mask].index[0]
-            upurch.loc[idx, "Status"]    = "PROCESSED"
-            upurch.loc[idx, "Selection"] = final_selection
+            upurch.loc[upurch[mask].index[0], "Selection"] = final_selection
 
         ulog = log_action("RESURRECTION_DRAW", player, "RESURRECTION_ASSIGNED", final_selection, ulog)
 
@@ -750,9 +735,7 @@ def generate_payment_ledger(
     out.parent.mkdir(parents=True, exist_ok=True)
 
     if purchases.empty:
-        df = pd.DataFrame(columns=[
-            "Player", "Purchase", "Amount", "Reference", "Timestamp", "Status",
-        ])
+        df = pd.DataFrame(columns=["Player", "Purchase", "Amount", "Reference", "Timestamp"])
     else:
         rows = []
         for _, row in purchases.iterrows():
@@ -763,7 +746,6 @@ def generate_payment_ledger(
                 "Amount":    PRICES.get(ptype, 0.0),
                 "Reference": row.get("Reference", ""),
                 "Timestamp": row.get("Timestamp", ""),
-                "Status":    row.get("Status", ""),
             })
         df = pd.DataFrame(rows)
 

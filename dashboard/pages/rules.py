@@ -44,6 +44,22 @@ with tab_scoring:
 
 # ── PURCHASES ─────────────────────────────────────────────────────────────────
 with tab_purchases:
+    st.markdown(
+        '<div style="background:#1A2535;border:1px solid #2A3A4A;border-radius:8px;'
+        'padding:0.85rem 1.1rem;margin-bottom:1.1rem">'
+        '<div style="color:#D4A017;font-weight:700;font-size:0.92rem;margin-bottom:0.45rem">'
+        '💳 How to Buy an Add-On</div>'
+        '<div style="color:#E5E7EB;font-size:0.84rem;line-height:1.65">'
+        '1. Send the money to the <strong style="color:#D4A017">Shared Revolut Pocket</strong> '
+        'and include what you\'re buying in the transaction message<br>'
+        '2. <strong>Ninth Team</strong> &amp; <strong>Resurrection</strong> — teams are randomly drawn, '
+        'no selection needed<br>'
+        '3. <strong>Prediction Pack</strong> — send your picks (World Cup winner, Golden Boot, Dark Horse) '
+        'in a separate message<br>'
+        '4. <strong>Captains</strong> — send your Pre-Tournament and Knockout captain picks separately'
+        '</div></div>',
+        unsafe_allow_html=True,
+    )
     col1, col2 = st.columns(2)
 
     with col1:
@@ -66,8 +82,8 @@ with tab_purchases:
             '<div class="card"><h4 style="color:#D4A017;margin:0">Mulligan — €3</h4>'
             '<p style="color:#9CA3AF;font-size:0.88rem;margin:0.4rem 0 0">'
             'Complete redraw of all 8 teams before the tournament starts. '
-            'Must satisfy all allocation rules. Maximum one per player. '
-            'All mulligans processed simultaneously.</p></div>',
+            'Must satisfy all allocation rules. Multiple allowed per player. '
+            'All mulligans processed in batches depending on how many are bought.</p></div>',
             unsafe_allow_html=True,
         )
 
@@ -76,7 +92,7 @@ with tab_purchases:
             '<div class="card"><h4 style="color:#D4A017;margin:0">Insurance — €2</h4>'
             '<p style="color:#9CA3AF;font-size:0.88rem;margin:0.4rem 0 0">'
             'If either of your original Tier 1 teams is eliminated in the Group Stage, '
-            'you receive <strong>+25 points</strong>. Triggers once only. '
+            'you receive <strong>+25 points</strong>. Triggers for each team knocked out. '
             'Round of 16 elimination does not qualify.</p></div>',
             unsafe_allow_html=True,
         )

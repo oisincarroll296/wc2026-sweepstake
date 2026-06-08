@@ -128,7 +128,63 @@ with col_gc:
 
 st.divider()
 
-# ── 4. Team Ownership Distribution ────────────────────────────────────────
+# ── 4. Team Ownership — per-player tier grid ──────────────────────────────
+st.subheader("🗂️ Team Ownership by Tier")
+_assignments = get_assignments()
+if _assignments:
+    _TIER_LABELS = {1: "Tier 1", 2: "Tier 2", 3: "Tier 3", 4: "Tier 4"}
+    _TIER_BG     = {1: "#10307a", 2: "#1a6940", 3: "#7a5a10", 4: "#8b1c1c"}
+    _TIER_FG     = {1: "#c8d9ff", 2: "#bbf7d0", 3: "#fef08a", 4: "#fecaca"}
+
+    def _team_chip(team: str, tier: int) -> str:
+        bg = _TIER_BG.get(tier, "#1e293b")
+        fg = _TIER_FG.get(tier, "#f1f5f9")
+        return (
+            f'<span style="background:{bg};color:{fg};border-radius:5px;'
+            f'padding:2px 8px;font-size:0.78rem;white-space:nowrap;'
+            f'display:inline-block;margin:2px 3px 2px 0">{team}</span>'
+        )
+
+    html_rows = ['<table style="width:100%;border-collapse:separate;border-spacing:0 4px">']
+    for player in sorted(_assignments.keys()):
+        teams = _assignments[player]
+        by_tier: dict[int, list[str]] = {1: [], 2: [], 3: [], 4: []}
+        for t in teams:
+            by_tier[tier_map.get(t, 1)].append(t)
+        chips = "".join(
+            _team_chip(t, tier)
+            for tier in [1, 2, 3, 4]
+            for t in sorted(by_tier[tier])
+        )
+        html_rows.append(
+            f'<tr>'
+            f'<td style="color:#D4A017;font-weight:700;font-size:0.88rem;'
+            f'white-space:nowrap;padding:4px 12px 4px 0;vertical-align:middle;width:90px">{player}</td>'
+            f'<td style="padding:2px 0">{chips}</td>'
+            f'</tr>'
+        )
+    html_rows.append("</table>")
+
+    # Legend
+    legend = "".join(
+        f'<span style="background:{_TIER_BG[t]};color:{_TIER_FG[t]};border-radius:4px;'
+        f'padding:2px 8px;font-size:0.75rem;margin-right:6px">{_TIER_LABELS[t]}</span>'
+        for t in [1, 2, 3, 4]
+    )
+    st.markdown(
+        f'<div style="background:#0d1b2a;border:1px solid #2a3a4a;border-radius:10px;'
+        f'padding:14px 16px">'
+        f'<div style="margin-bottom:8px">{legend}</div>'
+        f'{"".join(html_rows)}'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+else:
+    empty_state("Draw not completed yet.")
+
+st.divider()
+
+# ── 4b. Ownership count + dark horse ─────────────────────────────────────
 col_own, col_pop = st.columns(2)
 with col_own:
     st.subheader("👥 Ownership Count")
@@ -175,10 +231,9 @@ st.subheader("💰 Prize Pool Contribution by Type")
 from src.competition import PRICES, load_purchases as _load_purchases
 p = _load_purchases()  # read directly — avoids cold-start cache miss
 if not p.empty:
-    proc = p[p["Status"] == "PROCESSED"]
     breakdown = {}
     for ptype, price in PRICES.items():
-        cnt = int((proc["PurchaseType"] == ptype).sum())
+        cnt = int((p["PurchaseType"] == ptype).sum())
         if cnt:
             breakdown[ptype] = cnt * price
 

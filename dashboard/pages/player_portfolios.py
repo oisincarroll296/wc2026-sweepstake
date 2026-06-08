@@ -84,8 +84,7 @@ pred_total    = pred_info.get("total", 0.0)
 paid_icon = "✅" if status_val == "PAID" else "⚠️"
 has_ins = not purchases.empty and not purchases[
     (purchases["Player"] == player) &
-    (purchases["PurchaseType"] == "Insurance") &
-    (purchases["Status"] == "PROCESSED")
+    (purchases["PurchaseType"] == "Insurance")
 ].empty
 st.markdown(
     f'<div style="background:#1E2937;border:1px solid #2A3A4A;border-radius:10px;'
@@ -302,8 +301,7 @@ with col_extras:
             return "—"
         rows = purchases[
             (purchases["Player"] == player) &
-            (purchases["PurchaseType"] == ptype) &
-            (purchases["Status"] == "PROCESSED")
+            (purchases["PurchaseType"] == ptype)
         ]
         return rows.iloc[0].get("Selection", "—") if not rows.empty else "—"
 

@@ -102,9 +102,7 @@ def load_player_status(path: Optional[Path | str] = None) -> pd.DataFrame:
 def load_purchases(path: Optional[Path | str] = None) -> pd.DataFrame:
     p = Path(path) if path else PURCHASES_PATH
     if not p.exists():
-        return pd.DataFrame(columns=[
-            "Player", "PurchaseType", "Status", "Timestamp", "Reference", "Selection",
-        ])
+        return pd.DataFrame(columns=["Player", "PurchaseType", "Selection", "Reference", "Timestamp"])
     return pd.read_csv(p, dtype=str).fillna("")
 
 
@@ -197,9 +195,9 @@ def add_purchase(
     timestamp: Optional[str] = None,
     selection: str = "",
 ) -> pd.DataFrame:
-    """Return updated purchases with a new PENDING row."""
+    """Return updated purchases with a new row."""
     new_row = {
-        "Player": player, "PurchaseType": ptype, "Status": "PENDING",
+        "Player": player, "PurchaseType": ptype,
         "Timestamp": timestamp or _now_iso(), "Reference": reference, "Selection": selection,
     }
     return pd.concat([purchases, pd.DataFrame([new_row])], ignore_index=True)
@@ -249,14 +247,12 @@ def cancel_purchase(
 
 def get_player_purchases(player: str, purchases: pd.DataFrame) -> pd.DataFrame:
     if purchases.empty:
-        return pd.DataFrame(columns=[
-            "Player", "PurchaseType", "Status", "Timestamp", "Reference", "Selection",
-        ])
+        return pd.DataFrame(columns=["Player", "PurchaseType", "Selection", "Reference", "Timestamp"])
     return purchases[purchases["Player"] == player].copy()
 
 
 def purchases_to_scoring_format(purchases: pd.DataFrame) -> pd.DataFrame:
-    """Translate PROCESSED competition purchases to scoring engine format.
+    """Translate competition purchases to scoring engine format.
 
     Only NINTH, RESURRECTION, PACK, and INSURANCE are meaningful to the scorer.
     BUYIN and MULLIGAN are financial-only and have no scoring effect.
@@ -265,14 +261,12 @@ def purchases_to_scoring_format(purchases: pd.DataFrame) -> pd.DataFrame:
     if purchases.empty:
         return pd.DataFrame(columns=cols)
 
-    processed = purchases[purchases["Status"] == "PROCESSED"]
-    relevant = processed[processed["PurchaseType"].isin(_SCORING_TYPE_MAP)].copy()
+    relevant = purchases[purchases["PurchaseType"].isin(_SCORING_TYPE_MAP)].copy()
     if relevant.empty:
         return pd.DataFrame(columns=cols)
 
     relevant["PurchaseType"] = relevant["PurchaseType"].map(_SCORING_TYPE_MAP)
     if "Selection" not in relevant.columns:
-        relevant = relevant.copy()
         relevant["Selection"] = ""
     relevant["Selection"] = relevant["Selection"].fillna("")
     return relevant[cols].reset_index(drop=True)
@@ -303,15 +297,14 @@ def parse_payment_reference(reference: str) -> dict:
 # ---------------------------------------------------------------------------
 
 def calculate_prize_pool(purchases: pd.DataFrame) -> dict:
-    """Sum all PROCESSED purchase fees and return prize distribution.
+    """Sum all purchase fees and return prize distribution.
 
     Returns {current_pot, first_prize, second_prize, third_prize}.
     """
     if purchases.empty:
         total = 0.0
     else:
-        processed = purchases[purchases["Status"] == "PROCESSED"]
-        total = sum(PRICES.get(str(r["PurchaseType"]), 0.0) for _, r in processed.iterrows())
+        total = float(purchases["PurchaseType"].map(PRICES).fillna(0.0).sum())
 
     return {
         "current_pot":  total,
@@ -840,11 +833,10 @@ def export_payment_ledger(
     rows = []
     for player in sorted(players):
         p = purchases[purchases["Player"] == player] if not purchases.empty else pd.DataFrame()
-        proc = p[p["Status"] == "PROCESSED"] if not p.empty else p
         row: dict = {"Player": player}
         total = 0.0
         for ptype, price in PRICES.items():
-            count = int((proc["PurchaseType"] == ptype).sum()) if not proc.empty else 0
+            count = int((p["PurchaseType"] == ptype).sum()) if not p.empty else 0
             row[ptype] = count
             total += count * price
         row["TotalPaid"] = total

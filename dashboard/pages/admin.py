@@ -94,18 +94,18 @@ with tabs[0]:
 # ─────────────────────────────────────────────
 with tabs[1]:
     st.subheader("Add Purchase")
-    st.caption(
-        "Buy In, Prediction Pack, and Insurance are processed immediately. "
-        "Mulligan, Ninth Team, and Resurrection stay pending until their draw event runs."
-    )
+    st.caption("Record a payment received via the Shared Revolut Pocket.")
+
+    from src.competition import PRICES as _PRICES
+    _price_labels = {k: f"{k}  (€{int(v)})" for k, v in _PRICES.items()}
 
     with st.form("add_purchase"):
         from dashboard.data import get_participants
         players = get_participants() or []
         add_player = st.selectbox("Player", players or ["—"])
-        add_type   = st.selectbox("Type", ["BuyIn", "PredictionPack", "Insurance", "Mulligan", "NinthTeam", "Resurrection"])
-        add_ref    = st.text_input("Payment Reference", placeholder="e.g. ALICE - BUY IN")
-        add_sel    = st.text_input("Selection (Resurrection only)", placeholder="e.g. Spain->Germany")
+        add_type   = st.selectbox("Type", list(_price_labels.keys()), format_func=lambda k: _price_labels[k])
+        add_ref    = st.text_input("Payment Reference (optional)", placeholder="e.g. Oisin - BUY IN")
+        add_sel    = st.text_input("Eliminated team (Resurrection only)", placeholder="e.g. Spain")
         submitted  = st.form_submit_button("Add Purchase", type="primary")
 
         if submitted and add_player and add_player != "—":
@@ -117,14 +117,13 @@ with tabs[1]:
                 s = load_player_status()
                 p = add_purchase(add_player, add_type, add_ref, p, selection=add_sel)
 
-                # Auto-process BUYIN / PACK / INSURANCE immediately
-                up, us, msgs = process_pending_purchases(p, s)
+                # Mark PAID for BuyIn
+                up, us, _msgs = process_pending_purchases(p, s)
                 _save_purchases(up)
                 _save_statuses(us)
 
-                for m in msgs:
-                    st.write(f"• {m}")
-                st.success(f"{add_type} added for {add_player}.")
+                cost = _PRICES.get(add_type, 0)
+                st.success(f"✓ {add_type} added for {add_player}  (€{int(cost)})")
                 _refresh()
             except Exception as exc:
                 st.error(f"Error: {exc}")
@@ -138,13 +137,9 @@ with tabs[1]:
     if p.empty:
         st.caption("No purchases recorded yet.")
     else:
-        draw_pending = p[p["Status"] == "PENDING"]
-        if not draw_pending.empty:
-            st.info(
-                f"{len(draw_pending)} draw-based purchase(s) pending — run their draw event to process them.",
-                icon="⏳",
-            )
-        show = p[["Player", "PurchaseType", "Status", "Reference", "Timestamp"]].copy()
+        disp = p.copy()
+        disp.insert(2, "€", disp["PurchaseType"].map(_PRICES).fillna(0.0).astype(int))
+        show = disp[["Player", "PurchaseType", "€", "Selection", "Reference", "Timestamp"]].copy()
         show = show.sort_values("Timestamp", ascending=False)
         st.dataframe(show, use_container_width=True, hide_index=True)
 
@@ -588,7 +583,7 @@ with tabs[6]:
 
     st.subheader("Tournament Deadlines")
     st.caption(
-        "Set the exact date and time for each deadline. All times are Irish Summer Time (UTC+1). "
+        "Set the exact date and time for each deadline. All times are Irish Summer Time. "
         "The countdown shown on the Home page and Predictions Centre is derived from these values."
     )
 

@@ -122,8 +122,10 @@ if deadlines:
             colour = "#6B7280" if passed else "#F5F5F5"
             cd_colour = "#6B7280" if passed else "#D4A017"
             try:
-                _dt = datetime.fromisoformat(iso)
-                display_time = f"{_dt.day} {_dt.strftime('%b %Y %H:%M')} UTC"
+                from datetime import timedelta, timezone as _tz
+                _IST = _tz(timedelta(hours=1))
+                _dt = datetime.fromisoformat(iso).astimezone(_IST)
+                display_time = f"{_dt.day} {_dt.strftime('%b %Y %H:%M')}"
             except Exception:
                 display_time = iso
             st.markdown(
