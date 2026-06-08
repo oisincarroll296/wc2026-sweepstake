@@ -34,12 +34,19 @@ else:
         if cd not in ("—", "PASSED") else ""
     )
 
+    try:
+        from datetime import datetime, timezone, timedelta
+        _IST = timezone(timedelta(hours=1))
+        _lock_dt = datetime.fromisoformat(lock_iso).astimezone(_IST)
+        _lock_label = f"{_lock_dt.day} {_lock_dt.strftime('%b %H:%M')}"
+    except Exception:
+        _lock_label = "the prediction lock deadline"
     st.markdown(
         '<div class="lock-banner">'
         '<span style="font-size:1.4rem">🔒</span><br>'
         '<strong style="color:#C4B5FD;font-size:1.05rem">Predictions Hidden</strong><br>'
         '<span style="color:#9CA3AF;font-size:0.85rem">'
-        'All picks are sealed until 19 June.'
+        f'All picks are sealed until {_lock_label}.'
         '</span>'
         f'{cd_line}'
         '</div>',

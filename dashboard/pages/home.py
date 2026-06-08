@@ -276,12 +276,19 @@ with col_right:
         scheduled = events[events["Status"].isin(["SCHEDULED", "OPEN"])]
         if not scheduled.empty:
             nxt = scheduled.iloc[0]
+            try:
+                from datetime import timedelta as _td, timezone as _tz2
+                _IST2 = _tz2(_td(hours=1))
+                _sched_iso = str(nxt.get("ScheduledTime", "") or "")
+                _sched_label = datetime.fromisoformat(_sched_iso).astimezone(_IST2).strftime("%d %b %H:%M") if _sched_iso else ""
+            except Exception:
+                _sched_label = ""
             st.markdown(
                 f'<div class="card-gold">'
                 f'<p style="color:#D4A017;font-weight:700;margin:0">'
                 f'{str(nxt["EventType"]).replace("_", " ")}</p>'
                 f'<p style="color:#9CA3AF;font-size:0.8rem;margin:0.25rem 0 0">'
-                f'Status: {nxt["Status"]}</p>'
+                f'{_sched_label}</p>'
                 f'</div>',
                 unsafe_allow_html=True,
             )

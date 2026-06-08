@@ -546,20 +546,27 @@ with tabs[5]:
                         "then come back here to generate the broadcast."
                     )
                     st.stop()
-            else:
-                p = load_purchases()
-                ptype_map = {
-                    "Mulligan Draw":     "Mulligan",
-                    "Ninth Team Draw":   "NinthTeam",
-                    "Resurrection Draw": "Resurrection",
-                }
-                key = ptype_map[bc_type]
-                done = p[(p["PurchaseType"] == key) & (p["Status"] == "PROCESSED")]
-                if done.empty:
-                    st.warning(f"No processed {bc_type} purchases found. Run the draw event first.")
+            elif bc_type == "Mulligan Draw":
+                alloc = load_allocation()
+                if alloc.assignments:
+                    results = {pl: " | ".join(t) for pl, t in alloc.assignments.items()}
+                else:
+                    st.warning("No allocation found. Run the Mulligan Draw event first.")
                     st.stop()
-                for _, row in done.iterrows():
-                    results[str(row["Player"])] = str(row.get("Selection", "—"))
+            elif bc_type == "Ninth Team Draw":
+                p = load_purchases()
+                done = p[(p["PurchaseType"] == "NinthTeam") & (p["Selection"].str.strip() != "")] if not p.empty else p
+                if done.empty:
+                    st.warning("No Ninth Team draws recorded yet. Run the draw event first.")
+                    st.stop()
+                results = {str(r["Player"]): str(r["Selection"]) for _, r in done.iterrows()}
+            elif bc_type == "Resurrection Draw":
+                p = load_purchases()
+                done = p[(p["PurchaseType"] == "Resurrection") & p["Selection"].str.contains("->", na=False)] if not p.empty else p
+                if done.empty:
+                    st.warning("No Resurrection draws recorded yet. Run the draw event first.")
+                    st.stop()
+                results = {str(r["Player"]): str(r["Selection"]) for _, r in done.iterrows()}
 
             text = generate_draw_broadcast(bc_type, results)
             copyable_text("Draw Broadcast", text)

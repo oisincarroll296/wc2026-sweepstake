@@ -554,10 +554,9 @@ def execute_mulligan(
     """
     errors: list[str] = []
 
-    # Must have a processed mulligan
     p = purchases[purchases["Player"] == player] if not purchases.empty else pd.DataFrame()
-    if p.empty or p[p["PurchaseType"] == "Mulligan"][p["Status"] == "PROCESSED"].empty:
-        errors.append(f"{player} has no PROCESSED MULLIGAN purchase")
+    if p.empty or p[p["PurchaseType"] == "Mulligan"].empty:
+        errors.append(f"{player} has no Mulligan purchase")
         return allocation, errors
 
     rng_state = random.getstate()
