@@ -94,9 +94,9 @@ with tab_groups:
 with tab_standings:
     _ROUND_RANK = {"": -1, "GroupStage": 0, "R16": 1, "QF": 2, "SF": 3, "Final": 4, "Winner": 5}
     _ROUND_LABEL = {
-        "": "Group stage", "GroupStage": "Eliminated (Groups)",
-        "R16": "Elim. R16", "QF": "Elim. QF",
-        "SF": "Semi-final", "Final": "Runner-up", "Winner": "Champion",
+        "": "—", "GroupStage": "Group Stage",
+        "R16": "Reached R16", "QF": "Reached QF",
+        "SF": "Semi-Final", "Final": "Runner-Up", "Winner": "Champion",
     }
 
     grp_map = {
@@ -150,9 +150,8 @@ with tab_standings:
                     'border-radius:3px;padding:1px 4px;margin-left:0.3rem">Group Winner</span>'
                     if r["GW"] else ""
                 )
-                eliminated = rnd == "GroupStage"
                 pos_col = "#D4A017" if pos == 1 else ("#6EE7B7" if pos == 2 else "#9CA3AF")
-                rnd_col = "#EF4444" if eliminated else ("#6EE7B7" if rnd else "#9CA3AF")
+                rnd_col = "#6EE7B7" if rnd and rnd != "GroupStage" else "#6B7280"
                 owners = ownership.get(team, [])
                 owner_html = (
                     f'<span style="color:#6EE7B7;font-size:0.65rem"> · {", ".join(owners)}</span>'
