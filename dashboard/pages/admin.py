@@ -45,7 +45,7 @@ def _save_statuses(df: pd.DataFrame):
 
 # ── Tabs ──────────────────────────────────────────────────────────────────
 tabs = st.tabs([
-    "Draw Events", "Purchases",
+    "Draw Events", "Purchases", "Picks",
     "Locking", "Results Entry",
     "WhatsApp", "Draw Broadcast", "Deadlines", "Snapshots",
 ])
@@ -144,9 +144,122 @@ with tabs[1]:
         st.dataframe(show, use_container_width=True, hide_index=True)
 
 # ─────────────────────────────────────────────
-# Tab 2: Locking
+# Tab 2: Picks (captains + predictions)
 # ─────────────────────────────────────────────
 with tabs[2]:
+    st.subheader("Captain & Prediction Picks")
+    st.caption(
+        "Enter each player's Pre-Tournament captain, Knockout captain, "
+        "World Cup Winner, Golden Boot, and Dark Horse picks. "
+        "Changes are saved immediately to players.csv."
+    )
+
+    from src.event_engine import load_allocation
+    from src.team_database import load_teams as _load_teams
+
+    _players_path = DATA / "players.csv"
+    _picks_df = pd.read_csv(_players_path, dtype=str).fillna("") if _players_path.exists() else pd.DataFrame()
+    _alloc    = load_allocation()
+    _teams_df = _load_teams()
+
+    _tier_map = {str(r["Team"]): int(r.get("Tier", 4)) for _, r in _teams_df.iterrows()} if not _teams_df.empty else {}
+
+    if _picks_df.empty:
+        st.warning("players.csv not found or empty.")
+    else:
+        _pick_cols = ["PreTournamentCaptain", "KnockoutCaptain", "WorldCupWinner", "GoldenBoot", "DarkHorse"]
+        for col in _pick_cols:
+            if col not in _picks_df.columns:
+                _picks_df[col] = ""
+
+        _player_sel = st.selectbox(
+            "Player",
+            _picks_df["Player"].tolist(),
+            key="picks_player_sel",
+        )
+
+        _row_mask = _picks_df["Player"] == _player_sel
+        _row = _picks_df[_row_mask].iloc[0] if _row_mask.any() else {}
+
+        def _v(col):
+            v = _row.get(col, "") if isinstance(_row, pd.Series) else ""
+            return str(v) if pd.notna(v) else ""
+
+        # Build team options for this player
+        _owned = sorted(_alloc.assignments.get(_player_sel, []))
+        _all_teams = sorted(_teams_df["Team"].tolist()) if not _teams_df.empty else []
+        _low_tier = sorted([t for t, ti in _tier_map.items() if ti in (3, 4) and t not in _owned])
+
+        # captain options: their owned teams + blank
+        _cap_opts = [""] + _owned
+
+        with st.form(f"picks_form_{_player_sel}"):
+            st.markdown(f"**{_player_sel}** · owned teams: {', '.join(_owned) if _owned else '—'}")
+            st.markdown("")
+
+            pc1, pc2 = st.columns(2)
+            with pc1:
+                st.markdown("**Pre-Tournament Captain**")
+                cur_ptc = _v("PreTournamentCaptain")
+                ptc_idx = _cap_opts.index(cur_ptc) if cur_ptc in _cap_opts else 0
+                new_ptc = st.selectbox("Must be one of their original 8 teams",
+                                       _cap_opts, index=ptc_idx, key="ptc",
+                                       label_visibility="collapsed")
+            with pc2:
+                st.markdown("**Knockout Captain**")
+                cur_kc = _v("KnockoutCaptain")
+                # Knockout captain can be any team (incl. 9th/resurrection — free text safer)
+                new_kc = st.text_input("Surviving team they own (can include 9th/resurrection)",
+                                       value=cur_kc, key="kc", label_visibility="collapsed",
+                                       placeholder="e.g. France")
+
+            st.markdown("---")
+            pd1, pd2, pd3 = st.columns(3)
+            with pd1:
+                st.markdown("**World Cup Winner**")
+                cur_wcw = _v("WorldCupWinner")
+                wcw_idx = ([""] + _all_teams).index(cur_wcw) if cur_wcw in ([""] + _all_teams) else 0
+                new_wcw = st.selectbox("Any team", [""] + _all_teams, index=wcw_idx,
+                                       key="wcw", label_visibility="collapsed")
+            with pd2:
+                st.markdown("**Golden Boot**")
+                new_gb = st.text_input("Player name (free text)",
+                                       value=_v("GoldenBoot"), key="gb",
+                                       label_visibility="collapsed",
+                                       placeholder="e.g. Mbappé")
+            with pd3:
+                st.markdown("**Dark Horse**")
+                st.caption("Tier 3/4 team they don't own")
+                cur_dh = _v("DarkHorse")
+                dh_idx = ([""] + _low_tier).index(cur_dh) if cur_dh in ([""] + _low_tier) else 0
+                new_dh = st.selectbox("Tier 3 or 4, not already owned",
+                                      [""] + _low_tier, index=dh_idx,
+                                      key="dh", label_visibility="collapsed")
+
+            if st.form_submit_button("Save picks", type="primary"):
+                # Validate same-captain rule
+                if new_ptc and new_kc and new_ptc == new_kc:
+                    st.error("Pre-Tournament and Knockout captains cannot be the same team.")
+                else:
+                    _picks_df.loc[_row_mask, "PreTournamentCaptain"] = new_ptc
+                    _picks_df.loc[_row_mask, "KnockoutCaptain"]      = new_kc
+                    _picks_df.loc[_row_mask, "WorldCupWinner"]       = new_wcw
+                    _picks_df.loc[_row_mask, "GoldenBoot"]           = new_gb
+                    _picks_df.loc[_row_mask, "DarkHorse"]            = new_dh
+                    _picks_df.to_csv(_players_path, index=False)
+                    st.success(f"Picks saved for {_player_sel}.")
+                    _refresh()
+
+        st.divider()
+        st.markdown("**All current picks**")
+        _show_picks = _picks_df[["Player"] + _pick_cols].copy()
+        st.dataframe(_show_picks, use_container_width=True, hide_index=True)
+
+
+# ─────────────────────────────────────────────
+# Tab 3: Locking
+# ─────────────────────────────────────────────
+with tabs[3]:
     st.subheader("Lock Controls")
     st.caption("Locks are time-based — they trigger automatically when the deadline passes. Use the Deadlines tab to adjust timing. The buttons below force an immediate lock.")
 
@@ -222,9 +335,9 @@ with tabs[2]:
             st.info("Buy-ins are locked. To unlock, update the buy_in_deadline in the Deadlines tab.")
 
 # ─────────────────────────────────────────────
-# Tab 3: Results Entry
+# Tab 4: Results Entry
 # ─────────────────────────────────────────────
-with tabs[3]:
+with tabs[4]:
     from datetime import date as _date, timedelta as _td
     from dashboard.data import (
         get_fixtures, get_match_results, save_match_result_and_recalculate,
@@ -485,9 +598,9 @@ with tabs[3]:
                     st.error(f"{exc}")
 
 # ─────────────────────────────────────────────
-# Tab 4: WhatsApp Update
+# Tab 5: WhatsApp Update
 # ─────────────────────────────────────────────
-with tabs[4]:
+with tabs[5]:
     st.subheader("Generate WhatsApp Update")
     st.caption("Generates a formatted standings update to paste into your WhatsApp group.")
 
@@ -508,9 +621,9 @@ with tabs[4]:
                 st.error(f"{exc}")
 
 # ─────────────────────────────────────────────
-# Tab 5: Draw Broadcast
+# Tab 6: Draw Broadcast
 # ─────────────────────────────────────────────
-with tabs[5]:
+with tabs[6]:
     st.subheader("Generate Draw Broadcast")
     st.caption("Generates a formatted draw announcement to paste into your WhatsApp group.")
 
@@ -568,9 +681,9 @@ with tabs[5]:
         st.success("Cache cleared — scores will reload on next page view.")
 
 # ─────────────────────────────────────────────
-# Tab 6: Deadlines
+# Tab 7: Deadlines
 # ─────────────────────────────────────────────
-with tabs[6]:
+with tabs[7]:
     import json
     from datetime import datetime, timezone, timedelta, date, time as dtime
     from dashboard.data import get_deadlines, save_deadlines, countdown, DEADLINE_LABELS
@@ -623,9 +736,9 @@ with tabs[6]:
             st.rerun()
 
 # ─────────────────────────────────────────────
-# Tab 7: Snapshots
+# Tab 8: Snapshots
 # ─────────────────────────────────────────────
-with tabs[7]:
+with tabs[8]:
     import shutil
     from datetime import datetime as _dt
 

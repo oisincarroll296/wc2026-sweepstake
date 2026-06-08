@@ -344,19 +344,100 @@ All data is stored in plain CSV files in `data/`. You can edit any of them direc
 
 ---
 
-## Key Files Reference
+## Key Files Reference — All CSV Columns
 
-| File | What it contains | Updated by |
-|------|-----------------|------------|
-| `data/players.csv` | PAID/UNPAID status, captains, predictions (one row per player) | Admin → Purchases (status); edit directly (picks) |
-| `data/purchases.csv` | All purchases — `Player, PurchaseType, Selection, Reference, Timestamp` | Admin → Purchases |
-| `data/allocation.csv` | Which 8 teams each player owns | Admin → Draw Events (INITIAL_DRAW) |
-| `data/match_results.csv` | Raw match-by-match results | Admin → Results Entry |
-| `data/match_stats.csv` | Cumulative per-team stats | Auto-calculated from match_results |
-| `data/events.csv` | Event log (with seeds) | Automatic |
-| `data/audit_log.csv` | Full action audit trail | Automatic |
-| `data/score_history.csv` | Historical score snapshots | Automatic |
-| `data/deadlines.json` | Deadline timestamps | Admin → Deadlines |
+### `data/players.csv` — one row per player
+| Column | Essential? | Notes |
+|--------|-----------|-------|
+| `Player` | **Yes** | Name exactly as used everywhere |
+| `Status` | **Yes** | `PAID` or `UNPAID` — set automatically when BuyIn purchase is added |
+| `PaidTimestamp` | No | Set automatically |
+| `PreTournamentCaptain` | **Yes** | Enter via Admin → Picks before prediction lock |
+| `KnockoutCaptain` | **Yes** | Enter via Admin → Picks before R16 |
+| `WorldCupWinner` | **Yes** | Enter via Admin → Picks (Prediction Pack holders only) |
+| `GoldenBoot` | **Yes** | Player name, free text |
+| `DarkHorse` | **Yes** | Tier 3/4 team they don't own |
+
+### `data/purchases.csv` — one row per purchase
+| Column | Essential? | Notes |
+|--------|-----------|-------|
+| `Player` | **Yes** | Must match a player in players.csv |
+| `PurchaseType` | **Yes** | Exact casing: `BuyIn`, `PredictionPack`, `Insurance`, `Mulligan`, `NinthTeam`, `Resurrection` |
+| `Selection` | Conditional | `NinthTeam`: team name after draw. `Resurrection`: `"EliminatedTeam->Replacement"`. Others: blank |
+| `Reference` | No | Payment reference e.g. `"Oisin - BUY IN"` |
+| `Timestamp` | No | ISO datetime — set automatically |
+
+### `data/allocation.csv` — one row per player-team pair
+| Column | Essential? | Notes |
+|--------|-----------|-------|
+| `Player` | **Yes** | Populated by INITIAL_DRAW — do not edit manually |
+| `Team` | **Yes** | Populated by INITIAL_DRAW — do not edit manually |
+
+### `data/match_results.csv` — one row per entered match
+| Column | Essential? | Notes |
+|--------|-----------|-------|
+| `match_number` | **Yes** | Must match a number in fixtures.csv |
+| `home_goals` | **Yes** | Integer |
+| `away_goals` | **Yes** | Integer |
+| `extra_time` | Conditional | `1` if knockout match went to AET/pens, else `0` |
+| `penalty_winner` | Conditional | `"home"` or `"away"` if pens, else blank |
+| `comeback_home` | Conditional | `1` if home team came from behind and won, else `0` |
+| `comeback_away` | Conditional | `1` if away team came from behind and won, else `0` |
+
+### `data/match_stats.csv` — one row per team (48 rows)
+| Column | Essential? | Notes |
+|--------|-----------|-------|
+| `Team` | **Yes** | All 48 teams — do not add/remove rows |
+| `GroupGoals` … `KnockoutComebackWins` | Auto | Recalculated from match_results — do not edit manually |
+| `GroupWinner` | **Yes** | Set to `1` for each group winner via Admin → Results Entry → Advanced |
+| `RoundReached` | **Yes** | Set for every eliminated team: `GroupStage`, `R16`, `QF`, `SF`, `Final`, `Winner` |
+
+### `data/fixtures.csv` — read-only schedule
+| Column | Notes |
+|--------|-------|
+| `match_number` | Referenced by match_results |
+| `match_date` | DD/MM/YYYY format |
+| `group` | Letter A–L; blank for knockout matches |
+| `home_team`, `away_team` | Team names (must match teams.csv) |
+| `venue` | Stadium name |
+
+### `data/events.csv` — automatic
+| Column | Notes |
+|--------|-------|
+| `EventID`, `EventType`, `Status`, `RandomSeed`, `ScheduledTime`, `ExecutedTime` | Managed by Admin → Draw Events — do not edit manually |
+
+### `data/deadlines.json` — key–value deadline timestamps
+| Key | What it controls |
+|-----|-----------------|
+| `prediction_lock` | When predictions + pre-tournament captain lock |
+| `buy_in_deadline` | When buy-ins close (last group game) |
+| `pre_tournament_captain` | Reminder only — actual lock uses `prediction_lock` |
+| `mulligan_deadline` | When mulligans close |
+| `group_stage_closes` | Reference date for group stage end |
+| `ninth_team_draw` | When ninth team draw runs |
+| `knockout_captain_deadline` | When knockout captain picks close |
+| `resurrection_window_close` | When resurrection window ends |
+| `tournament_end` | Final deadline |
+
+---
+
+## What You Must Fill In Manually
+
+| What | Where | When |
+|------|-------|------|
+| BuyIn for each player who has paid | Admin → Purchases | As money arrives |
+| PreTournamentCaptain for each player | Admin → Picks | Before prediction lock |
+| WorldCupWinner, GoldenBoot, DarkHorse | Admin → Picks | As picks are submitted to you |
+| KnockoutCaptain for each player | Admin → Picks | Before R16 kicks off |
+| Match results (score, ET, pens, comeback) | Admin → Results Entry → By Match | After each match |
+| GroupWinner flag for each group winner | Admin → Results Entry → Advanced | After each group completes |
+| RoundReached for every eliminated team | Admin → Results Entry → Advanced | As teams go out |
+
+### What is automatic (you don't touch)
+- Goals, clean sheets tallied from match results
+- Payment status (set when BuyIn purchase added)
+- NinthTeam/Resurrection team drawn by the draw event
+- All of events.csv, audit_log.csv, score_history.csv
 
 ---
 
