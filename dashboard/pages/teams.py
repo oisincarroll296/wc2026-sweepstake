@@ -193,7 +193,7 @@ with tab_standings:
                 f'<th style="color:#6B7280;font-size:0.62rem;font-weight:600;padding:0.2rem 0.4rem;text-align:center">W</th>'
                 f'<th style="color:#6B7280;font-size:0.62rem;font-weight:600;padding:0.2rem 0.4rem;text-align:center">GF</th>'
                 f'<th style="color:#6B7280;font-size:0.62rem;font-weight:600;padding:0.2rem 0.4rem;text-align:center">CS</th>'
-                f'<th style="color:#6B7280;font-size:0.62rem;font-weight:600;padding:0.2rem 0.4rem;text-align:center">Swp Pts</th>'
+                f'<th style="color:#6B7280;font-size:0.62rem;font-weight:600;padding:0.2rem 0.4rem;text-align:center">Sweepstake Pts</th>'
                 f'<th style="color:#6B7280;font-size:0.62rem;font-weight:600;padding:0.2rem 0.5rem;text-align:left">Status</th>'
                 f'</tr></thead>'
                 f'<tbody style="background:#1E2937">{rows_html}</tbody>'
