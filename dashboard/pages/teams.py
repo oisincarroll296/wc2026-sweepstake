@@ -98,7 +98,7 @@ with tab_standings:
         "QF": 3, "SF": 4, "Final": 5, "Winner": 6,
     }
     _ROUND_LABEL = {
-        "": "Eliminated", "GroupStage": "Group Stage",
+        "": "—", "GroupStage": "Eliminated",
         "R32": "R32", "R16": "R16",
         "QF": "Quarter-Final", "SF": "Semi-Final",
         "Final": "Runner-Up", "Winner": "Champion",
@@ -152,7 +152,7 @@ with tab_standings:
                 elif rnd == "GroupStage":
                     status_col = "#6B7280"
                 else:
-                    status_col = "#4B5563"
+                    status_col = "#6B7280"
 
                 rnd_label = _ROUND_LABEL.get(rnd, "—")
                 gw_badge = (
