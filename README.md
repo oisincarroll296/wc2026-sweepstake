@@ -1,6 +1,6 @@
 # World Cup 2026 Sweepstake
 
-13-participant sweepstake for FIFA World Cup 2026. Each participant draws 8 teams (2 per tier), balanced by FIFA strength score.
+14-participant sweepstake for FIFA World Cup 2026. Each participant draws 8 teams (2 per tier), balanced by FIFA strength score.
 
 ## Quick Start
 
@@ -16,13 +16,15 @@ App opens at `http://localhost:8501`. See [deployment.md](deployment.md) for ful
 | Page | Description |
 |------|-------------|
 | Home | Prize pool, standings, next event, activity feed |
-| Prize Leaderboard | Paid players only — gold/silver/bronze highlights |
-| Overall Leaderboard | All players, unpaid greyed out |
-| Player Portfolios | Per-player teams, captain, picks, and charts |
-| Team Ownership | Every team's owners, captains, dark horse pickers |
-| Predictions Centre | Hidden until prediction lock, then revealed |
-| The VAR Room | Full transparency — payments, draws, audit log |
+| Leaderboard | Prize standings + all players with stacked score breakdown |
+| My Portfolio | Per-player teams, score breakdown, captain, picks |
+| Teams | Groups, standings, fixtures, and ownership |
+| Bracket | Knockout bracket coloured by tier |
+| Predictions | Prediction picks overview |
 | Analytics | Interactive Plotly charts |
+| Purchases | Purchase ledger and prize pool |
+| VAR Room | Full transparency — payments, draws, audit log |
+| Rules | Official rules and scoring reference |
 | Admin | Password-protected event engine and controls |
 
 ## Project Structure
@@ -42,7 +44,7 @@ dashboard/      Streamlit application
   pages/        — one file per page
   components/   — shared UI helpers
   assets/       — CSS
-tests/          589 tests (pytest)
+tests/          598 tests (pytest)
 exports/        Draw results, VAR Room exports
 ```
 

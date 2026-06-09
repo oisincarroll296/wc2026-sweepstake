@@ -2,7 +2,7 @@
 
 ## THE SETUP
 
-The competition consists of 13 participants.
+The competition consists of 14 participants.
 
 Each participant is allocated 8 teams:
 
@@ -52,6 +52,7 @@ Qatar, Saudi Arabia, South Africa, DR Congo, Jordan, Iraq, Cape Verde, Ghana, Bo
 | Buy In          | €5   |
 | Prediction Pack | €5   |
 | Mulligan        | €3   |
+| Complete Redraw | €6   |
 | Insurance       | €2   |
 | Ninth Team      | €3   |
 | Resurrection    | €5   |
@@ -81,10 +82,12 @@ Players who have not purchased a Buy In continue to appear on the Overall Leader
 Points are earned from:
 
 1. Match Statistics
-2. Tournament Progression
-3. Captain Bonuses
-4. Prediction Bonuses
-5. Optional Purchase Bonuses
+2. Upset Win Bonuses
+3. Special Event Bonuses
+4. Tournament Progression
+5. Captain Bonuses
+6. Prediction Bonuses
+7. Optional Purchase Bonuses
 
 ---
 
@@ -96,11 +99,18 @@ The following points are awarded whenever one of your teams achieves the relevan
 | -------------------- | ------ |
 | Goal Scored          | 1      |
 | Clean Sheet          | 2      |
+| Win                  | 3      |
 | Penalty Shootout Win | 3      |
 | Comeback Win         | 3      |
+| Hat Trick            | 10     |
 | Group Winner         | 3      |
 
+Win, Comeback Win, and Penalty Shootout Win bonuses all stack. A team that wins a penalty shootout after coming from behind earns +3 (win) +3 (penalty win) +3 (comeback) = +9 for that match, in addition to goals and clean sheets.
+
 ### Definitions
+
+**Win**
+Awarded for any match win — normal time, extra time, or penalties.
 
 **Clean Sheet**
 A team concedes zero goals in normal time and extra time.
@@ -113,16 +123,47 @@ Awarded when a team wins in normal time or extra time after previously trailing 
 
 Penalty shootout victories do not qualify as comeback wins.
 
+**Hat Trick**
+Any player from the team scores 3 or more goals in a single match. Manually entered — applies in both group stage and knockout rounds.
+
 ---
 
-# 2. TOURNAMENT PROGRESSION
+# 2. UPSET WIN BONUSES
 
-Progression bonuses are cumulative.
+Awarded whenever one of your teams beats a team in a higher tier. Applies in both group stage and knockout rounds.
 
-Whenever a team advances to the next stage, the relevant bonus is awarded.
+| Upset                         | Bonus |
+| ----------------------------- | ----- |
+| Beat a team 1 tier above      | +15   |
+| Beat a team 2 tiers above     | +30   |
+| Beat a team 3 tiers above     | +50   |
+
+**Example:** A Tier 4 team beating a Tier 1 team earns +50. A Tier 3 team beating a Tier 1 team earns +30.
+
+---
+
+# 3. SPECIAL EVENT BONUSES
+
+Manually awarded by the admin. Proof is required for shirt removals.
+
+| Event                                         | Points |
+| --------------------------------------------- | ------ |
+| Player removes shirt to celebrate *(proof required)* | +25    |
+| Goalkeeper scores a goal                      | +75    |
+| Red card received                             | −15    |
+| First team knocked out of the tournament      | +35    |
+
+Special event bonuses count towards the Pre-Tournament Captain bonus but not the Knockout Captain bonus.
+
+---
+
+# 4. TOURNAMENT PROGRESSION
+
+Progression bonuses are awarded **for reaching** each round. Bonuses are cumulative — a team that wins the tournament earns the bonus for every round it cleared.
 
 | Round Reached     | T1 | T2 | T3 | T4 |
 | ----------------- | -- | -- | -- | -- |
+| Round of 32       | 1  | 2  | 5  | 8  |
 | Round of 16       | 2  | 4  | 8  | 12 |
 | Quarter Final     | 4  | 8  | 15 | 25 |
 | Semi Final        | 8  | 12 | 20 | 30 |
@@ -133,13 +174,13 @@ Whenever a team advances to the next stage, the relevant bonus is awarded.
 
 A Tier 3 team that wins the World Cup earns:
 
-8 + 15 + 20 + 32 + 46 = 121 progression points
+5 + 8 + 15 + 20 + 32 + 46 = **126 progression points**
 
 in addition to all match statistic points.
 
 ---
 
-# 3. CAPTAINS
+# 5. CAPTAINS
 
 Each participant may select two captains.
 
@@ -152,21 +193,21 @@ All captain selections remain hidden until the relevant deadline has passed.
 ## PRE-TOURNAMENT CAPTAIN
 
 * Free
-* Chosen before the opening match
+* Chosen before the opening match (deadline: 19 June)
 * Must be one of your original 8 teams
 
 The selected team receives:
 
 **1.5× all points earned throughout the tournament**
 
-This awards an additional 50% of that team's total points.
+This awards an additional 50% of that team's total points, including special event bonuses.
 
 ---
 
 ## KNOCKOUT CAPTAIN
 
 * Free
-* Chosen before the Round of 16 begins
+* Chosen before the Round of 32 begins
 * Must be a surviving team you own at that time
 * May be:
 
@@ -177,9 +218,9 @@ This awards an additional 50% of that team's total points.
 
 The selected team receives:
 
-**1.5× all knockout-stage points earned from the Round of 16 onward**
+**1.5× all knockout-stage points earned from the Round of 32 onward**
 
-This awards an additional 50% of that team's knockout-stage points.
+This awards an additional 50% of that team's knockout-stage points. Special event bonuses are excluded from the Knockout Captain calculation.
 
 Captain status remains attached to the selected team only.
 
@@ -187,13 +228,13 @@ A Resurrection replacement does not inherit captain status from a team it replac
 
 ---
 
-# 4. OPTIONAL PURCHASES
+# 6. OPTIONAL PURCHASES
 
 ## MULLIGAN (€3)
 
-Available before the Mulligan deadline.
+Available before the Mulligan deadline (19 June 12:00 UTC+1).
 
-Provides a complete redraw of all 8 teams.
+Provides a complete redraw of **your own 8 teams only**. Other participants' allocations are unaffected.
 
 The redraw must satisfy all competition allocation rules, including:
 
@@ -210,19 +251,31 @@ All Mulligans purchased before the deadline are processed together in a single d
 
 ---
 
+## COMPLETE REDRAW (€6)
+
+Must be completed **before the first game kicks off**.
+
+Triggers a full redraw of **all 8 teams for every participant**. This is a competition-wide event — all allocations are wiped and redrawn from scratch.
+
+The redraw must satisfy all competition allocation rules.
+
+---
+
 ## INSURANCE (€2)
 
 Available before the opening match.
 
-If one of your original Tier 1 teams is eliminated during the Group Stage, you receive:
+If one of your original Tier 1 teams is eliminated during the **Group Stage or Round of 32**, you receive:
 
 **+25 points**
 
-If both of your original Tier 1 teams are eliminated during the Group Stage, you receive:
+If both of your original Tier 1 teams are eliminated during the Group Stage or Round of 32, you receive:
 
 **+50 points**
 
-Round of 16 elimination does not qualify.
+Round of 16 elimination or later does not qualify.
+
+Insurance only applies to your original 8-team allocation. Ninth Team and Resurrection additions are excluded.
 
 ---
 
@@ -245,14 +298,14 @@ A Ninth Team may be selected as a Knockout Captain.
 
 ## RESURRECTION (€5)
 
-Available in the window between the Group Stage closing and the Round of 16 beginning.
+Available in the window between the Group Stage closing and the Round of 32 beginning.
 
-You may replace one team that was eliminated in the group stage.
+You **choose which of your eliminated teams gets swapped out**. A replacement is then randomly drawn from surviving teams of the same tier.
 
 The replacement team must:
 
-* Be from the same tier
-* Have qualified from the group stage (still alive in the tournament)
+* Be from the same tier as the team being replaced
+* Have qualified from the group stage (still alive)
 * Not already be owned by you
 * Not share a World Cup group with any team you currently own
 
@@ -260,21 +313,19 @@ Each participant may purchase a maximum of one Resurrection.
 
 A Resurrection replacement:
 
-* Earns knockout-stage points only (Round of 16 onward)
+* Earns knockout-stage points only (Round of 32 onward)
 * Does not receive credit for any group stage goals, clean sheets, or bonuses
 * May be selected as a Knockout Captain
 
-The resurrection window closes before the first Round of 16 match kicks off.
+The resurrection window closes before the first Round of 32 match kicks off.
 
 ---
 
-# 5. PREDICTION PACK (€5)
+# 7. PREDICTION PACK (€5)
 
-Prediction Pack purchases must be submitted before the prediction deadline.
+Prediction Pack purchases must be submitted before **19 June**.
 
 All prediction selections remain hidden until the prediction lock occurs.
-
-Prediction lock occurs one hour before the opening match.
 
 ---
 
@@ -288,11 +339,37 @@ Correct prediction:
 
 ---
 
+### Runner-Up (2nd place)
+
+Correct prediction:
+
+**+20 points**
+
+---
+
+### Bronze Medal (3rd place)
+
+Correct prediction:
+
+**+15 points**
+
+---
+
 ### Golden Boot Winner
 
 Correct prediction:
 
 **+25 points**
+
+---
+
+### First Team Knocked Out
+
+The first team to be eliminated from the tournament.
+
+Correct prediction:
+
+**+20 points**
 
 ---
 

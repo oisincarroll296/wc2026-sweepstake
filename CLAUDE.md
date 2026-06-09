@@ -30,29 +30,33 @@ This is a **Python + Streamlit** application. The Excel/VBA approach was replace
 | `dashboard/config.py` | `TIER_COLORS`, `COLORS` constants |
 | `dashboard/components/ui.py` | Shared UI helpers (`page_header`, `empty_state`, etc.) |
 | `dashboard/pages/home.py` | Overview: prize pool, countdown, top team, recent log |
-| `dashboard/pages/prize_leaderboard.py` | PAID players only, includes Potential column |
-| `dashboard/pages/overall_leaderboard.py` | All 13 players, payment status |
+| `dashboard/pages/leaderboard.py` | Prize Standings + All Players tabs with stacked score breakdown |
 | `dashboard/pages/player_portfolios.py` | Per-player portfolio, H2H comparison, insurance status |
+| `dashboard/pages/teams.py` | Groups, Standings, Fixtures, Ownership tabs |
 | `dashboard/pages/analytics.py` | Charts: goals, form, remaining potential, insurance tracker, captains |
 | `dashboard/pages/bracket.py` | Knockout bracket coloured by tier, all owners listed |
-| `dashboard/pages/admin.py` | Password-protected: result entry, who-benefits panel |
 | `dashboard/pages/predictions_centre.py` | Prediction picks overview |
+| `dashboard/pages/purchases.py` | Purchase ledger and prize pool |
+| `dashboard/pages/var_room.py` | Full transparency — payments, draws, audit log |
+| `dashboard/pages/rules.py` | Official rules and scoring reference |
+| `dashboard/pages/admin.py` | Password-protected: result entry, who-benefits panel |
 
 ### Data files (all committed to git — private repo)
 
 | File | Purpose |
 |------|---------|
 | `data/teams.csv` | 48-team database with tier + strength scores |
-| `data/allocation.csv` | `Player,Team` — 13 players × 8 teams each |
-| `data/match_stats.csv` | Per-team stats: goals, CS, penalty/comeback wins, RoundReached |
+| `data/allocation.csv` | `Player,Team` — 14 players × 8 teams each |
+| `data/match_stats.csv` | Per-team stats: goals, CS, penalty/comeback wins, upset wins, special events, RoundReached |
 | `data/match_results.csv` | Raw match-by-match result entries |
 | `data/fixtures.csv` | Full fixture list with match numbers |
 | `data/purchases.csv` | Purchase ledger — columns: `Player, PurchaseType, Selection, Reference, Timestamp` |
-| `data/players.csv` | One row per player: Status, PaidTimestamp, PreTournamentCaptain, KnockoutCaptain, WorldCupWinner, GoldenBoot, DarkHorse |
+| `data/players.csv` | One row per player: Status, PaidTimestamp, PreTournamentCaptain, KnockoutCaptain, WorldCupWinner, RunnerUp, BronzeMedal, GoldenBoot, DarkHorse, FirstKnockedOut |
 | `data/events.csv` | Draw events (INITIAL_DRAW, GROUP_STAGE_CLOSE, etc.) |
 | `data/audit_log.csv` | Full action audit trail |
 | `data/score_history.csv` | Historical score snapshots (`Date,Player,Points`) |
 | `data/deadlines.json` | Editable deadline timestamps |
+| `data/tournament_results.json` | Final results: world_cup_winner, runner_up, bronze_winner, golden_boot_winner, first_knocked_out |
 
 ---
 
@@ -77,7 +81,7 @@ This is a **Python + Streamlit** application. The Excel/VBA approach was replace
 
 ## Allocation Rules
 
-- 13 participants, 8 teams each (2 per tier)
+- 14 participants, 8 teams each (2 per tier)
 - Each team appears 2-3 times across all participants
 - Balance threshold: max portfolio - min portfolio <= 20 pts
 - Balancing uses iterative tier-aware swapping (max 1000 iterations)
@@ -92,26 +96,49 @@ This is a **Python + Streamlit** application. The Excel/VBA approach was replace
 |-------|--------|
 | Goal scored | 1 pt |
 | Clean sheet | 2 pts |
+| Win (any) | 3 pts |
 | Penalty shootout win | 3 pts |
 | Comeback win (not pens) | 3 pts |
+| Hat trick | 10 pts |
 | Group stage winner | 3 pts |
 
-### Progression bonuses (cumulative per round cleared)
+Win, penalty win, and comeback win bonuses stack. Hat tricks manually entered, go in group/knockout bucket (not special).
 
-| Tier | R16 | QF | SF | Final | Winner |
-|------|-----|----|----|-------|--------|
-| T1   | 2   | 4  | 8  | 12    | 20     |
-| T2   | 4   | 8  | 12 | 18    | 28     |
-| T3   | 8   | 15 | 20 | 32    | 46     |
-| T4   | 12  | 25 | 30 | 45    | 65     |
+### Upset win bonuses
+
+| Upset | Bonus |
+|-------|-------|
+| Beat a team 1 tier above | +15 |
+| Beat a team 2 tiers above | +30 |
+| Beat a team 3 tiers above | +50 |
+
+### Special event bonuses (manually entered, preserved on recalculation)
+
+| Event | Points |
+|-------|--------|
+| Shirt removal celebration | +25 |
+| Goalkeeper scores | +75 |
+| Red card | -15 |
+| First team eliminated | +35 |
+
+Special events count toward Pre-Tournament Captain bonus but NOT Knockout Captain.
+
+### Progression bonuses (awarded for reaching each round, cumulative)
+
+| Tier | R32 | R16 | QF | SF | Final | Winner |
+|------|-----|-----|----|----|-------|--------|
+| T1   | 1   | 2   | 4  | 8  | 12    | 20     |
+| T2   | 2   | 4   | 8  | 12 | 18    | 28     |
+| T3   | 5   | 8   | 15 | 20 | 32    | 46     |
+| T4   | 8   | 12  | 25 | 30 | 45    | 65     |
 
 ### Captain bonuses
-- **Pre-Tournament captain**: +0.5 × team's total points (all stages)
-- **Knockout captain**: +0.5 × team's knockout points only
+- **Pre-Tournament captain**: +0.5 × team's total points (all stages incl. special events)
+- **Knockout captain**: +0.5 × team's knockout points only (excludes special events)
 - Same team cannot be both captains
 
 ### Insurance
-- `+25 pts` per Tier 1 team eliminated before R16 (max +50 if both out)
+- `+25 pts` per Tier 1 team eliminated in Group Stage or Round of 32 (max +50 if both out)
 - Only original 8-team allocation counts (not Ninth/Resurrection)
 
 ### Dark Horse bonuses (cumulative)
@@ -124,10 +151,14 @@ This is a **Python + Streamlit** application. The Excel/VBA approach was replace
 
 ### Prediction Pack bonuses
 - WC Winner correct: +30 pts
+- Runner-Up correct: +20 pts
+- Bronze Medal correct: +15 pts
 - Golden Boot correct: +25 pts
+- First Knocked Out correct: +20 pts
+- Dark Horse bonuses: cumulative per round reached (QF to Winner, as above)
 
 ### Round order
-`GroupStage → R16 → QF → SF → Final → Winner`
+`GroupStage → R32 → R16 → QF → SF → Final → Winner`
 
 ---
 
@@ -139,9 +170,10 @@ This is a **Python + Streamlit** application. The Excel/VBA approach was replace
 |-------------|--------|-----------------|
 | `BuyIn` | €5 | (empty) |
 | `PredictionPack` | €5 | (empty) |
-| `Mulligan` | €3 | (empty) |
+| `Mulligan` | €3 | (empty) — redraw for that player only |
+| `CompleteRedraw` | €6 | (empty) — redraw for all players; before first game only |
 | `NinthTeam` | €3 | Team name e.g. `"Japan"` |
-| `Resurrection` | €5 | `"EliminatedTeam->ReplacementTeam"` |
+| `Resurrection` | €5 | Eliminated team player wants to swap out e.g. `"Spain"` (replacement randomly drawn) |
 | `Insurance` | €2 | (empty) |
 
 > **Important**: PurchaseType casing must match exactly — the scoring engine does case-sensitive lookups.
@@ -152,20 +184,22 @@ This is a **Python + Streamlit** application. The Excel/VBA approach was replace
 
 | Rule | Decision |
 |------|----------|
-| Insurance bonus | +25 pts per Tier 1 team eliminated before R16 (max +50 if both out) |
-| Mulligan | Full redraw of all 8 teams; must pass all allocation rules |
-| Buy-in deadline | Before last group game kicks off |
+| Insurance bonus | +25 pts per Tier 1 team eliminated in Group Stage or Round of 32 (max +50 if both out) |
+| Mulligan | Full redraw of that player's 8 teams only; must pass all allocation rules |
+| Complete Redraw | Full redraw of ALL players' teams; must be done before first game kicks off |
+| Buy-in deadline | 19 June 20:00 UTC+1 |
 | Payment references | `"PLAYER - BUY IN, PREDICTION PACK"` |
 | Prize Leaderboard | PAID players only (eligible for prizes) |
 | Overall Leaderboard | All players, shows payment status |
 | Dark Horse | Must be Tier 3 or 4; cannot be a team the player owns |
 | Ninth Team | Random surviving unowned team; adds to knockout roster only |
-| Resurrection | Same tier, surviving, unowned replacement; once only |
+| Resurrection | Player chooses which eliminated team to swap; same-tier replacement randomly drawn; once only |
 | Tiebreaker 1 | Most goals scored by owned teams |
 | Tiebreaker 2 | Most owned teams reaching QF+ |
-| Tiebreaker 3 | Coin toss (seeded random) |
+| Tiebreaker 3 | Lowest original portfolio strength (original draw only, ignores Ninth/Resurrection) |
+| Tiebreaker 4 | Coin toss (seeded random) |
 | Comeback Win | Won in normal/extra time after being behind; NOT penalty wins |
-| Prediction lock | 1 hour before opening match |
+| Prediction lock | 19 June (before first group stage games) |
 
 ---
 
@@ -176,6 +210,7 @@ This is a **Python + Streamlit** application. The Excel/VBA approach was replace
 | Buy In | €5 |
 | Prediction Pack | €5 |
 | Mulligan | €3 |
+| Complete Redraw | €6 |
 | Ninth Team | €3 |
 | Resurrection | €5 |
 | Insurance | €2 |
@@ -220,7 +255,7 @@ pytest tests/ -v
 
 Key test files:
 - `tests/test_scoring_engine.py` — unit tests for scoring functions
-- `tests/test_rules_alignment.py` — 100 rule-alignment tests
+- `tests/test_rules_alignment.py` — rule-alignment tests
 - `tests/test_event_engine.py` — draw event tests (ninth team, resurrection, etc.)
 
-All 589 tests pass as of last run.
+All 598 tests pass as of last run.

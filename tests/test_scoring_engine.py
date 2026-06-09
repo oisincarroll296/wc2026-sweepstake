@@ -132,50 +132,68 @@ class TestCalculateTeamPoints:
         result = calculate_team_points("France", ms, 1)
         assert result["knockout"] >= 4.0
 
+    def test_progression_t1_r32(self):
+        ms = _ms({"Team": "France", "RoundReached": "R32"})
+        result = calculate_team_points("France", ms, 1)
+        # R32=1
+        assert result["knockout"] == 1.0
+
     def test_progression_t1_r16(self):
         ms = _ms({"Team": "France", "RoundReached": "R16"})
         result = calculate_team_points("France", ms, 1)
-        assert result["knockout"] == 2.0
+        # R32=1 + R16=2
+        assert result["knockout"] == 3.0
 
     def test_progression_t1_qf_cumulative(self):
         ms = _ms({"Team": "France", "RoundReached": "QF"})
         result = calculate_team_points("France", ms, 1)
-        # R16=2 + QF=4 = 6
-        assert result["knockout"] == 6.0
+        # R32=1 + R16=2 + QF=4 = 7
+        assert result["knockout"] == 7.0
 
     def test_progression_t1_sf(self):
         ms = _ms({"Team": "France", "RoundReached": "SF"})
         result = calculate_team_points("France", ms, 1)
-        # R16=2 + QF=4 + SF=8 = 14
-        assert result["knockout"] == 14.0
+        # R32=1 + R16=2 + QF=4 + SF=8 = 15
+        assert result["knockout"] == 15.0
 
     def test_progression_t1_final(self):
         ms = _ms({"Team": "France", "RoundReached": "Final"})
         result = calculate_team_points("France", ms, 1)
-        # 2+4+8+12 = 26
-        assert result["knockout"] == 26.0
+        # 1+2+4+8+12 = 27
+        assert result["knockout"] == 27.0
 
     def test_progression_t1_winner(self):
         ms = _ms({"Team": "France", "RoundReached": "Winner"})
         result = calculate_team_points("France", ms, 1)
-        # 2+4+8+12+20 = 46
-        assert result["knockout"] == 46.0
+        # 1+2+4+8+12+20 = 47
+        assert result["knockout"] == 47.0
 
     def test_progression_t2_r16(self):
         ms = _ms({"Team": "USA", "RoundReached": "R16"})
-        assert calculate_team_points("USA", ms, 2)["knockout"] == 4.0
+        # R32=2 + R16=4 = 6
+        assert calculate_team_points("USA", ms, 2)["knockout"] == 6.0
+
+    def test_progression_t3_r32(self):
+        ms = _ms({"Team": "Norway", "RoundReached": "R32"})
+        # R32=5
+        assert calculate_team_points("Norway", ms, 3)["knockout"] == 5.0
 
     def test_progression_t3_winner(self):
         ms = _ms({"Team": "Norway", "RoundReached": "Winner"})
         result = calculate_team_points("Norway", ms, 3)
-        # 8+15+20+32+46 = 121
-        assert result["knockout"] == 121.0
+        # 5+8+15+20+32+46 = 126
+        assert result["knockout"] == 126.0
+
+    def test_progression_t4_r32(self):
+        ms = _ms({"Team": "Qatar", "RoundReached": "R32"})
+        # R32=8
+        assert calculate_team_points("Qatar", ms, 4)["knockout"] == 8.0
 
     def test_progression_t4_winner(self):
         ms = _ms({"Team": "Qatar", "RoundReached": "Winner"})
         result = calculate_team_points("Qatar", ms, 4)
-        # 12+25+30+45+65 = 177
-        assert result["knockout"] == 177.0
+        # 8+12+25+30+45+65 = 185
+        assert result["knockout"] == 185.0
 
     def test_group_stage_only_no_progression(self):
         ms = _ms({"Team": "France", "GroupGoals": 2, "RoundReached": "GroupStage"})
@@ -200,9 +218,47 @@ class TestCalculateTeamPoints:
         result = calculate_team_points("France", ms, 1)
         # GS: 3*1 + 1*2 + 3 = 8
         assert result["group_stage"] == 8.0
-        # KO: 2*1 + 1*2 + 14(R16+QF+SF) = 18
-        assert result["knockout"] == 18.0
-        assert result["total"] == 26.0
+        # KO: 2*1 + 1*2 + R32(1)+R16(2)+QF(4)+SF(8) = 4+15 = 19
+        assert result["knockout"] == 19.0
+        assert result["total"] == 27.0
+
+    def test_win_bonus_group_stage(self):
+        ms = _ms({"Team": "France", "GroupWins": 3})
+        result = calculate_team_points("France", ms, 1)
+        assert result["group_stage"] == 9.0  # 3 wins * 3
+
+    def test_win_bonus_knockout(self):
+        ms = _ms({"Team": "France", "KnockoutWins": 2, "RoundReached": "R32"})
+        result = calculate_team_points("France", ms, 1)
+        # 2 wins * 3 + R32=1
+        assert result["knockout"] == 7.0
+
+    def test_win_stacks_with_comeback(self):
+        ms = _ms({"Team": "France", "GroupWins": 1, "GroupComebackWins": 1})
+        result = calculate_team_points("France", ms, 1)
+        assert result["group_stage"] == 6.0  # 3 (win) + 3 (comeback)
+
+    def test_win_stacks_with_penalty_win(self):
+        ms = _ms({"Team": "France", "KnockoutWins": 1, "KnockoutPenaltyWins": 1, "RoundReached": "R32"})
+        result = calculate_team_points("France", ms, 1)
+        # 3 (win) + 3 (penalty) + R32(1) = 7
+        assert result["knockout"] == 7.0
+
+    def test_hat_trick_group_stage(self):
+        ms = _ms({"Team": "France", "GroupHatTricks": 1})
+        result = calculate_team_points("France", ms, 1)
+        assert result["group_stage"] == 10.0
+
+    def test_hat_trick_knockout_in_knockout_bucket(self):
+        ms = _ms({"Team": "France", "KnockoutHatTricks": 2, "RoundReached": "R32"})
+        result = calculate_team_points("France", ms, 1)
+        # 2 hat tricks * 10 + R32(1) = 21
+        assert result["knockout"] == 21.0
+
+    def test_hat_trick_not_in_special(self):
+        ms = _ms({"Team": "France", "GroupHatTricks": 1, "KnockoutHatTricks": 1})
+        result = calculate_team_points("France", ms, 1)
+        assert result["special"] == 0.0
 
     def test_breakdown_has_correct_keys(self):
         ms = _ms({
@@ -220,7 +276,7 @@ class TestCalculateTeamPoints:
 
     def test_returns_dict_with_required_keys(self):
         result = calculate_team_points("X", _EMPTY_MS, 1)
-        assert set(result.keys()) == {"group_stage", "knockout", "total", "breakdown"}
+        assert set(result.keys()) == {"group_stage", "knockout", "special", "total", "breakdown"}
 
 # ---------------------------------------------------------------------------
 # TestGetEffectiveTeams
@@ -413,6 +469,23 @@ class TestCalculateInsuranceBonus:
             "Alice", _ASSIGNMENTS, ms, purchases, _TIER_MAP
         ) == 0.0
 
+    def test_has_insurance_t1_eliminated_at_r32_gives_25(self):
+        purchases = _purchases(("Alice", "Insurance", "", ""))
+        # France (T1) eliminated at R32 → also triggers insurance
+        ms = _ms({"Team": "France", "RoundReached": "R32"})
+        result = calculate_insurance_bonus(
+            "Alice", _ASSIGNMENTS, ms, purchases, _TIER_MAP
+        )
+        assert result == float(INSURANCE_BONUS)  # 25
+
+    def test_has_insurance_t1_eliminated_r16_no_bonus(self):
+        purchases = _purchases(("Alice", "Insurance", "", ""))
+        # France (T1) reaching R16 means they passed R32 — no insurance
+        ms = _ms({"Team": "France", "RoundReached": "R16"})
+        assert calculate_insurance_bonus(
+            "Alice", _ASSIGNMENTS, ms, purchases, _TIER_MAP
+        ) == 0.0
+
 # ---------------------------------------------------------------------------
 # TestCalculatePredictionPoints
 # ---------------------------------------------------------------------------
@@ -513,7 +586,10 @@ class TestCalculatePredictionPoints:
         result = calculate_prediction_points("Alice", _EMPTY_PREDICTIONS, {})
         expected = {
             "world_cup_winner", "golden_boot", "dark_horse",
-            "winner_bonus", "golden_boot_bonus", "dark_horse_bonus", "total",
+            "runner_up", "bronze_winner", "first_knocked_out",
+            "winner_bonus", "golden_boot_bonus", "dark_horse_bonus",
+            "runner_up_bonus", "bronze_bonus", "first_knocked_out_bonus",
+            "total",
         }
         assert set(result.keys()) == expected
 
@@ -542,9 +618,9 @@ class TestNinthTeam:
             "Alice", _ASSIGNMENTS, ms, purchases, _EMPTY_CAPTAINS,
             _EMPTY_PREDICTIONS, tier_map=tm,
         )
-        # 4 goals * 1 + R16 T1 = 4 + 2 = 6
+        # 4 goals * 1 + R32(1)+R16(2) T1 = 4 + 3 = 7
         germany_pts = result["team_points"]["Germany"]
-        assert germany_pts["knockout"] == 6.0
+        assert germany_pts["knockout"] == 7.0
 
     def test_ninth_team_group_stage_not_counted(self):
         purchases = _purchases(("Alice", "NinthTeam", "Germany", ""))
@@ -609,9 +685,9 @@ class TestResurrection:
             "Alice", _ASSIGNMENTS, ms, purchases, _EMPTY_CAPTAINS,
             _EMPTY_PREDICTIONS, tier_map=tm,
         )
-        # Germany: 2 KO goals + T1 R16 = 4
+        # Germany: 2 KO goals + T1 R32(1)+R16(2) = 5
         germany_ko = result["team_points"]["Germany"]["knockout"]
-        assert germany_ko == 4.0
+        assert germany_ko == 5.0
         assert "Germany" in result["knockout_teams"]
 
     def test_resurrection_does_not_change_roster_size(self):
@@ -632,7 +708,7 @@ class TestCalculatePlayerPoints:
         expected = {
             "player", "group_stage_teams", "knockout_teams", "team_points",
             "group_stage_points", "knockout_points", "base_total",
-            "captain", "insurance_bonus", "predictions", "grand_total",
+            "captain", "insurance_bonus", "predictions", "special_bonus", "grand_total",
         }
         assert set(result.keys()) == expected
 

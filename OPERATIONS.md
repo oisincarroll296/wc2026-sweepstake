@@ -66,12 +66,13 @@ When a player sends money to the **Shared Revolut Pocket**, go to **Admin → Pu
 |------|------|-------|
 | `BuyIn` | €5 | Marks player as PAID immediately |
 | `PredictionPack` | €5 | Unlocks predictions; collect picks separately |
-| `Insurance` | €2 | +25 pts if a T1 team exits in the group stage |
-| `Mulligan` | €3 | Full redraw; run `MULLIGAN_DRAW` event after adding |
+| `Insurance` | €2 | +25 pts if a T1 team exits in the Group Stage or Round of 32 |
+| `Mulligan` | €3 | Redraw for **that player only**; run `MULLIGAN_DRAW` event after adding |
+| `CompleteRedraw` | €6 | Redraw for **all players**; must be done before first game kicks off |
 | `NinthTeam` | €3 | Random surviving team added to knockout roster; run `NINTH_TEAM_DRAW` event later |
-| `Resurrection` | €5 | Random same-tier replacement; run `RESURRECTION_DRAW` event when used |
+| `Resurrection` | €5 | Player specifies which eliminated team to swap out; replacement randomly drawn; run `RESURRECTION_DRAW` event when used |
 
-> **Purchase type casing matters.** Use exactly: `BuyIn`, `PredictionPack`, `Insurance`, `Mulligan`, `NinthTeam`, `Resurrection`. Wrong casing = scoring engine ignores it.
+> **Purchase type casing matters.** Use exactly: `BuyIn`, `PredictionPack`, `Insurance`, `Mulligan`, `CompleteRedraw`, `NinthTeam`, `Resurrection`. Wrong casing = scoring engine ignores it.
 
 `BuyIn`, `PredictionPack`, and `Insurance` take effect immediately when added.  
 `Mulligan`, `NinthTeam`, and `Resurrection` require a draw event to be run before they are applied.
@@ -94,17 +95,20 @@ The player gets a completely new set of 8 teams. Must still pass all allocation 
 
 Deadline: **19 Jun 20:00 UTC+1** (same as prediction lock)
 
-Ask each Prediction Pack holder to send you three picks:
+Ask each Prediction Pack holder to send you their six picks:
 
 - **World Cup Winner** — any team
+- **Runner-Up** — any team
+- **Bronze Medal** — any team
 - **Golden Boot** — player name (free text)
+- **First Knocked Out** — any team
 - **Dark Horse** — must be Tier 3 or 4, and a team they do NOT own
 
-Edit `data/players.csv` directly — fill in the `WorldCupWinner`, `GoldenBoot`, and `DarkHorse` columns for each player:
+Edit `data/players.csv` directly — fill in the `WorldCupWinner`, `RunnerUp`, `BronzeMedal`, `GoldenBoot`, `FirstKnockedOut`, and `DarkHorse` columns for each player:
 
 ```csv
-Player,Status,PaidTimestamp,PreTournamentCaptain,KnockoutCaptain,WorldCupWinner,GoldenBoot,DarkHorse
-Alice,PAID,2026-06-01T10:00:00+01:00,Brazil,,Brazil,Vinicius Jr,Tunisia
+Player,Status,PaidTimestamp,PreTournamentCaptain,KnockoutCaptain,WorldCupWinner,RunnerUp,BronzeMedal,GoldenBoot,DarkHorse,FirstKnockedOut
+Alice,PAID,2026-06-01T10:00:00+01:00,Brazil,,Brazil,France,Spain,Vinicius Jr,Tunisia,Qatar
 ```
 
 ---
@@ -116,8 +120,8 @@ Deadline: **19 Jun 20:00 UTC+1**
 Each player sends you their Pre-Tournament captain. Edit `data/players.csv` directly — fill in the `PreTournamentCaptain` column:
 
 ```csv
-Player,Status,PaidTimestamp,PreTournamentCaptain,KnockoutCaptain,WorldCupWinner,GoldenBoot,DarkHorse
-Alice,PAID,2026-06-01T10:00:00+01:00,Brazil,,,Brazil,Vinicius Jr
+Player,Status,PaidTimestamp,PreTournamentCaptain,KnockoutCaptain,WorldCupWinner,RunnerUp,BronzeMedal,GoldenBoot,DarkHorse,FirstKnockedOut
+Alice,PAID,2026-06-01T10:00:00+01:00,Brazil,,,,Brazil,Vinicius Jr,Tunisia,
 ```
 
 - Each player gets one Pre-Tournament captain
@@ -167,6 +171,7 @@ Use this for:
 |----------------------|---------|
 | *(blank)* | Still active / not yet set |
 | `GroupStage` | Eliminated in groups |
+| `R32` | Reached Round of 32, then went out |
 | `R16` | Reached R16, then went out |
 | `QF` | Reached QF, then went out |
 | `SF` | Reached SF, then went out |
@@ -232,8 +237,8 @@ Deadline: **28 Jun 20:00 UTC+1** (same as Ninth Team draw)
 Ask each player for their Knockout captain pick before the Round of 16 starts. Edit `data/players.csv` — fill in the `KnockoutCaptain` column for each player:
 
 ```csv
-Player,Status,PaidTimestamp,PreTournamentCaptain,KnockoutCaptain,...
-Alice,PAID,2026-06-01T10:00:00+01:00,Brazil,France,...
+Player,Status,PaidTimestamp,PreTournamentCaptain,KnockoutCaptain,WorldCupWinner,RunnerUp,BronzeMedal,GoldenBoot,DarkHorse,FirstKnockedOut
+Alice,PAID,2026-06-01T10:00:00+01:00,Brazil,France,Brazil,France,Spain,Vinicius Jr,Tunisia,Qatar
 ```
 
 - Knockout captain earns ×1.5 on that team's knockout points only
@@ -260,11 +265,12 @@ After each round, go to **Advanced mode** and update `RoundReached` for all elim
 
 If a player's team is eliminated and they want to buy a Resurrection (€5):
 
-1. Add the `Resurrection` purchase via Admin → Purchases (no Selection needed — the draw picks it)
-2. Go to **Admin → Draw Events**, select `RESURRECTION_DRAW`, click **Run**
-3. Go to **Draw Broadcast**, select `Resurrection Draw`, generate and send the announcement
+1. Ask the player **which of their eliminated teams they want to swap out**
+2. Add the `Resurrection` purchase via Admin → Purchases — enter the eliminated team name in the Selection field
+3. Go to **Admin → Draw Events**, select `RESURRECTION_DRAW`, click **Run**
+4. Go to **Draw Broadcast**, select `Resurrection Draw`, generate and send the announcement
 
-The engine finds a surviving team of the same tier that the player doesn't already own and replaces the eliminated team in their knockout roster.
+The engine finds a surviving team of the same tier that the player doesn't already own and replaces the nominated eliminated team in their knockout roster.
 
 **Resurrection window closes 29 Jun 20:00 UTC+1** — after that, no more Resurrections.
 
@@ -353,17 +359,20 @@ All data is stored in plain CSV files in `data/`. You can edit any of them direc
 | `Status` | **Yes** | `PAID` or `UNPAID` — set automatically when BuyIn purchase is added |
 | `PaidTimestamp` | No | Set automatically |
 | `PreTournamentCaptain` | **Yes** | Enter via Admin → Picks before prediction lock |
-| `KnockoutCaptain` | **Yes** | Enter via Admin → Picks before R16 |
+| `KnockoutCaptain` | **Yes** | Enter via Admin → Picks before R32 |
 | `WorldCupWinner` | **Yes** | Enter via Admin → Picks (Prediction Pack holders only) |
+| `RunnerUp` | **Yes** | Enter via Admin → Picks (Prediction Pack holders only) |
+| `BronzeMedal` | **Yes** | Enter via Admin → Picks (Prediction Pack holders only) |
 | `GoldenBoot` | **Yes** | Player name, free text |
 | `DarkHorse` | **Yes** | Tier 3/4 team they don't own |
+| `FirstKnockedOut` | **Yes** | Enter via Admin → Picks (Prediction Pack holders only) |
 
 ### `data/purchases.csv` — one row per purchase
 | Column | Essential? | Notes |
 |--------|-----------|-------|
 | `Player` | **Yes** | Must match a player in players.csv |
-| `PurchaseType` | **Yes** | Exact casing: `BuyIn`, `PredictionPack`, `Insurance`, `Mulligan`, `NinthTeam`, `Resurrection` |
-| `Selection` | Conditional | `NinthTeam`: team name after draw. `Resurrection`: `"EliminatedTeam->Replacement"`. Others: blank |
+| `PurchaseType` | **Yes** | Exact casing: `BuyIn`, `PredictionPack`, `Insurance`, `Mulligan`, `CompleteRedraw`, `NinthTeam`, `Resurrection` |
+| `Selection` | Conditional | `NinthTeam`: team name after draw. `Resurrection`: eliminated team player chose to swap out (replacement filled in after draw). Others: blank |
 | `Reference` | No | Payment reference e.g. `"Oisin - BUY IN"` |
 | `Timestamp` | No | ISO datetime — set automatically |
 
@@ -449,14 +458,19 @@ All data is stored in plain CSV files in `data/`. You can edit any of them direc
 |-------|--------|
 | Goal scored | 1 |
 | Clean sheet | 2 |
+| Win (any result) | 3 |
 | Penalty shootout win | 3 |
 | Comeback win (normal/extra time only, not pens) | 3 |
+| Hat trick (manually entered) | 10 |
 | Finish top of group | 3 |
 
-### Progression Bonuses (cumulative per round cleared)
+Win, penalty win, and comeback win bonuses stack. A penalty win after a comeback = +3+3+3 = +9 for that match.
+
+### Progression Bonuses (awarded for reaching each round, cumulative)
 
 | Round | T1 | T2 | T3 | T4 |
 |-------|----|----|----|----|
+| R32   | 1  | 2  | 5  | 8  |
 | R16   | 2  | 4  | 8  | 12 |
 | QF    | 4  | 8  | 15 | 25 |
 | SF    | 8  | 12 | 20 | 30 |
@@ -469,16 +483,36 @@ All data is stored in plain CSV files in `data/`. You can edit any of them direc
 - Same team cannot fill both roles
 
 ### Insurance
-- +25 pts if either of your original T1 teams is eliminated in the group stage
-- +50 pts if both are eliminated
+- +25 pts if either of your original T1 teams is eliminated in the Group Stage or Round of 32
+- +50 pts if both are eliminated before R16
 - Only counts the original 8-team allocation (not Ninth/Resurrection teams)
+
+### Upset Win Bonuses
+
+| Upset | Bonus |
+|-------|-------|
+| Beat a team 1 tier above | +15 |
+| Beat a team 2 tiers above | +30 |
+| Beat a team 3 tiers above | +50 |
+
+### Special Event Bonuses (manually entered)
+
+| Event | Points |
+|-------|--------|
+| Player removes shirt celebrating *(proof required)* | +25 |
+| Goalkeeper scores | +75 |
+| Red card | −15 |
+| First team eliminated from tournament | +35 |
 
 ### Prediction Pack
 
 | Pick | Bonus |
 |------|-------|
 | Correct WC Winner | +30 |
+| Correct Runner-Up | +20 |
+| Correct Bronze Medal | +15 |
 | Correct Golden Boot | +25 |
+| Correct First Knocked Out | +20 |
 | Dark Horse reaches QF | +15 |
 | Dark Horse reaches SF | +30 |
 | Dark Horse reaches Final | +40 |

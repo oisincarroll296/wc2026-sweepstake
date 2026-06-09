@@ -24,7 +24,7 @@ def confirm(prompt: str) -> bool:
 def reset():
     print("\n  WC 2026 Sweepstake — Data Reset\n")
     print("  This will:")
-    print("  - Keep all 13 player names")
+    print("  - Keep all 14 player names")
     print("  - Reset all players to UNPAID")
     print("  - Clear all purchases, draws, events, predictions, captains")
     print("  - Reset all match stats to zero")
