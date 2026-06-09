@@ -122,7 +122,7 @@ with tab_purchases:
         st.markdown(
             '<div class="card"><h4 style="color:#D4A017;margin:0">Mulligan — €3</h4>'
             '<p style="color:#9CA3AF;font-size:0.88rem;margin:0.4rem 0 0">'
-            'Complete redraw of all 8 teams before the tournament starts. '
+            'Complete redraw of player\'s 8 teams before the tournament starts. '
             'Must satisfy all allocation rules. Multiple allowed per player. '
             'All mulligans processed in batches depending on how many are bought.</p></div>',
             unsafe_allow_html=True,
@@ -130,7 +130,7 @@ with tab_purchases:
         st.markdown(
             '<div class="card"><h4 style="color:#D4A017;margin:0">Complete Redraw — €6</h4>'
             '<p style="color:#9CA3AF;font-size:0.88rem;margin:0.4rem 0 0">'
-            'Full redraw of all 8 teams. Includes tier-balancing. '
+            'Full redraw of everybody\'s 8 teams. Includes tier-balancing. '
             '<strong style="color:#D4A017">Must be completed before the first game kicks off.</strong></p></div>',
             unsafe_allow_html=True,
         )
