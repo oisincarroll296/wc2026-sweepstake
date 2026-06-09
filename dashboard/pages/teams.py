@@ -93,82 +93,113 @@ with tab_groups:
 # TAB 2 — STANDINGS
 # ═══════════════════════════════════════════════════════════════════
 with tab_standings:
-    _ROUND_RANK = {"": -1, "GroupStage": 0, "R16": 1, "QF": 2, "SF": 3, "Final": 4, "Winner": 5}
+    _ROUND_RANK = {
+        "": -1, "GroupStage": 0, "R32": 1, "R16": 2,
+        "QF": 3, "SF": 4, "Final": 5, "Winner": 6,
+    }
     _ROUND_LABEL = {
-        "": "—", "GroupStage": "Group Stage",
-        "R16": "Reached R16", "QF": "Reached QF",
-        "SF": "Semi-Final", "Final": "Runner-Up", "Winner": "Champion",
+        "": "Eliminated", "GroupStage": "Group Stage",
+        "R32": "R32", "R16": "R16",
+        "QF": "Quarter-Final", "SF": "Semi-Final",
+        "Final": "Runner-Up", "Winner": "Champion",
     }
     tier_map_local = {str(r["Team"]): int(r.get("Tier", 4)) for _, r in teams_df.iterrows()}
 
     if stats_df.empty:
         st.info("Standings will appear once match data is entered.")
     else:
+        from src.scoring_engine import calculate_team_points as _ctp_s
+
         rows_s = []
         for _, row in stats_df.iterrows():
             team = str(row["Team"])
             grp  = group_map.get(team, "")
             if not grp or grp.lower() == "nan":
                 continue
-            rnd = str(row.get("RoundReached", "") or "").strip()
+            tier = tier_map_local.get(team, 4)
+            rnd  = str(row.get("RoundReached", "") or "").strip()
+            bp   = _ctp_s(team, stats_df, tier)
             rows_s.append({
-                "Group": grp, "Team": team,
+                "Group": grp, "Team": team, "_tier": tier,
+                "W":   int(float(row.get("GroupWins", 0) or 0)),
                 "GF":  int(float(row.get("GroupGoals", 0) or 0)),
                 "CS":  int(float(row.get("GroupCleanSheets", 0) or 0)),
+                "Pts": int(bp["total"]),
                 "GW":  int(float(row.get("GroupWinner", 0) or 0)),
                 "RoundReached": rnd,
                 "_rr": _ROUND_RANK.get(rnd, -1),
-                "_tier": tier_map_local.get(team, 4),
             })
 
         stand_df = pd.DataFrame(rows_s)
         for g_letter in sorted(stand_df["Group"].unique()):
             grp_df = (
                 stand_df[stand_df["Group"] == g_letter]
-                .sort_values(["GW", "_rr", "GF"], ascending=[False, False, False])
+                .sort_values(["GW", "_rr", "W", "GF"], ascending=[False, False, False, False])
                 .reset_index(drop=True)
             )
+
+            rows_html = ""
+            for pos, (_, r) in enumerate(grp_df.iterrows(), 1):
+                team  = r["Team"]
+                tier  = r["_tier"]
+                color = TIER_COLORS.get(tier, "#9CA3AF")
+                rnd   = r["RoundReached"]
+
+                if rnd in ("QF", "SF", "Final", "Winner"):
+                    status_col = "#D4A017"
+                elif rnd in ("R32", "R16"):
+                    status_col = "#6EE7B7"
+                elif rnd == "GroupStage":
+                    status_col = "#6B7280"
+                else:
+                    status_col = "#4B5563"
+
+                rnd_label = _ROUND_LABEL.get(rnd, "—")
+                gw_badge = (
+                    '<span style="background:#D4A01722;color:#D4A017;font-size:0.6rem;'
+                    'border-radius:3px;padding:1px 4px;margin-left:4px">★ Group Winner</span>'
+                ) if r["GW"] else ""
+
+                owners = ownership_map.get(team, [])
+                owners_html = (
+                    f'<div style="color:#6EE7B7;font-size:0.62rem;margin-top:1px">{", ".join(owners)}</div>'
+                ) if owners else ""
+
+                rows_html += (
+                    f'<tr style="border-top:1px solid #2A3A4A">'
+                    f'<td style="color:#9CA3AF;font-size:0.78rem;text-align:center;padding:0.32rem 0.4rem;width:1.8rem">{pos}</td>'
+                    f'<td style="padding:0.32rem 0.5rem">'
+                    f'<div style="display:flex;align-items:center;gap:0.3rem">'
+                    f'<span style="color:{color};font-size:0.6rem;font-weight:700;background:{color}22;border-radius:3px;padding:0 3px">T{tier}</span>'
+                    f'<span style="color:#F5F5F5;font-weight:600;font-size:0.85rem">{team}</span>'
+                    f'{gw_badge}</div>{owners_html}</td>'
+                    f'<td style="color:#F5F5F5;font-size:0.82rem;text-align:center;padding:0.32rem 0.4rem">{r["W"]}</td>'
+                    f'<td style="color:#F5F5F5;font-size:0.82rem;text-align:center;padding:0.32rem 0.4rem">{r["GF"]}</td>'
+                    f'<td style="color:#F5F5F5;font-size:0.82rem;text-align:center;padding:0.32rem 0.4rem">{r["CS"]}</td>'
+                    f'<td style="color:#D4A017;font-weight:700;font-size:0.88rem;text-align:center;padding:0.32rem 0.4rem">{r["Pts"]}</td>'
+                    f'<td style="color:{status_col};font-size:0.72rem;padding:0.32rem 0.5rem">{rnd_label}</td>'
+                    f'</tr>'
+                )
+
             st.markdown(
+                f'<div style="margin-bottom:1.4rem">'
                 f'<div style="color:#D4A017;font-weight:700;font-size:0.95rem;'
-                f'margin:1rem 0 0.3rem;border-bottom:1px solid #2A3A4A;padding-bottom:0.15rem">'
-                f'Group {g_letter}</div>',
+                f'margin:0.8rem 0 0;border-bottom:1px solid #2A3A4A;padding-bottom:0.2rem">'
+                f'Group {g_letter}</div>'
+                f'<table style="width:100%;border-collapse:collapse">'
+                f'<thead><tr style="background:#131D2A">'
+                f'<th style="color:#6B7280;font-size:0.62rem;font-weight:600;padding:0.2rem 0.4rem;text-align:center">#</th>'
+                f'<th style="color:#6B7280;font-size:0.62rem;font-weight:600;padding:0.2rem 0.5rem;text-align:left">Team</th>'
+                f'<th style="color:#6B7280;font-size:0.62rem;font-weight:600;padding:0.2rem 0.4rem;text-align:center">W</th>'
+                f'<th style="color:#6B7280;font-size:0.62rem;font-weight:600;padding:0.2rem 0.4rem;text-align:center">GF</th>'
+                f'<th style="color:#6B7280;font-size:0.62rem;font-weight:600;padding:0.2rem 0.4rem;text-align:center">CS</th>'
+                f'<th style="color:#6B7280;font-size:0.62rem;font-weight:600;padding:0.2rem 0.4rem;text-align:center">Swp Pts</th>'
+                f'<th style="color:#6B7280;font-size:0.62rem;font-weight:600;padding:0.2rem 0.5rem;text-align:left">Status</th>'
+                f'</tr></thead>'
+                f'<tbody style="background:#1E2937">{rows_html}</tbody>'
+                f'</table></div>',
                 unsafe_allow_html=True,
             )
-            for pos, (_, r) in enumerate(grp_df.iterrows(), 1):
-                team   = r["Team"]
-                tier   = r["_tier"]
-                color  = TIER_COLORS.get(tier, "#9CA3AF")
-                rnd    = r["RoundReached"]
-                rnd_label = _ROUND_LABEL.get(rnd, rnd)
-                gw_badge = (
-                    '<span style="background:#D4A01722;color:#D4A017;font-size:0.62rem;'
-                    'border-radius:3px;padding:1px 4px;margin-left:0.3rem">Group Winner</span>'
-                    if r["GW"] else ""
-                )
-                pos_col = "#D4A017" if pos == 1 else ("#6EE7B7" if pos == 2 else "#9CA3AF")
-                rnd_col = "#6EE7B7" if rnd and rnd != "GroupStage" else "#6B7280"
-                owners  = ownership_map.get(team, [])
-                owner_html = (
-                    f'<span style="color:#6EE7B7;font-size:0.65rem"> · {", ".join(owners)}</span>'
-                    if owners else ""
-                )
-                st.markdown(
-                    f'<div style="background:#1E2937;border-left:3px solid {color};'
-                    f'border-radius:0 6px 6px 0;padding:0.3rem 0.6rem;margin:0.15rem 0;'
-                    f'display:flex;justify-content:space-between;align-items:center">'
-                    f'<div style="display:flex;align-items:center;gap:0.4rem">'
-                    f'<span style="color:{pos_col};font-weight:700;font-size:0.8rem;min-width:1rem">{pos}</span>'
-                    f'<span style="color:{color};font-size:0.62rem;font-weight:700;'
-                    f'background:{color}22;border-radius:3px;padding:0 3px">T{tier}</span>'
-                    f'<span style="color:#F5F5F5;font-weight:600;font-size:0.85rem">{team}</span>'
-                    f'{gw_badge}{owner_html}'
-                    f'</div>'
-                    f'<div style="text-align:right">'
-                    f'<span style="color:#D4A017;font-size:0.75rem;margin-right:0.6rem">⚽ {r["GF"]}  🧤 {r["CS"]}</span>'
-                    f'<span style="color:{rnd_col};font-size:0.72rem">{rnd_label}</span>'
-                    f'</div></div>',
-                    unsafe_allow_html=True,
-                )
 
 # ═══════════════════════════════════════════════════════════════════
 # TAB 3 — FIXTURES
