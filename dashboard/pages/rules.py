@@ -92,9 +92,9 @@ with tab_purchases:
         '<div style="color:#E5E7EB;font-size:0.84rem;line-height:1.65">'
         '1. Send the money to the <strong style="color:#D4A017">Shared Revolut Pocket</strong> '
         'and include what you\'re buying in the transaction message<br>'
-        '2. <strong>Ninth Team</strong> &amp; <strong>Resurrection</strong> — teams are randomly drawn, '
-        'no selection needed<br>'
-        '3. <strong>Prediction Pack</strong> — send your picks (World Cup winner, Golden Boot, Dark Horse) '
+        '2. <strong>Ninth Team</strong>  — teams are randomly drawn, &amp; <strong>Resurrection</strong> you choose'
+        '<br>'
+        '3. <strong>Prediction Pack</strong> — send your picks (World Cup winner, Golden Boot, Dark Horse, etc.) '
         'in a separate message<br>'
         '4. <strong>Captains</strong> — send your Pre-Tournament and Knockout captain picks separately'
         '</div></div>',
