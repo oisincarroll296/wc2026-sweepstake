@@ -220,56 +220,91 @@ with tab_shop:
         if not _avail:
             st.success("✓ You have all currently available add-ons!")
         else:
-            from dashboard.data import get_assignments, get_match_stats as _gms
+            from dashboard.data import get_assignments, get_match_stats as _gms, get_tier_map
+            from src.event_engine import resurrection_candidates
             _player_teams = get_assignments().get(_sv, [])
             _stats = _gms()
-            _eliminated: set[str] = set()
+            _tier_map = get_tier_map()
+            _purch_live = get_purchases()
+            _team_rounds: dict[str, str] = {}
             if not _stats.empty:
-                _eliminated = set(
-                    _stats[_stats["RoundReached"].fillna("").str.strip() == ""]["Team"].tolist()
-                )
+                for _, _sr in _stats.iterrows():
+                    _team_rounds[str(_sr["Team"])] = str(_sr.get("RoundReached", "") or "").strip()
+            _gs_done = any(v not in ("", "GroupStage") for v in _team_rounds.values())
             _DATA = Path(__file__).resolve().parent.parent.parent / "data"
 
             for _pt, _ptitle, _pcost, _pcol in _avail:
-                with st.form(f"shop_{_pt}_{_sv}"):
-                    st.markdown(
-                        f'<span style="color:#D4A017;font-weight:700">{_ptitle}</span>'
-                        f' — <span style="color:#D4A017">€{_pcost}</span>',
-                        unsafe_allow_html=True,
-                    )
-                    _sel_val = ""
-                    _disabled = False
+                st.markdown(
+                    f'<span style="color:#D4A017;font-weight:700">{_ptitle}</span>'
+                    f' — <span style="color:#D4A017">€{_pcost}</span>',
+                    unsafe_allow_html=True,
+                )
 
-                    if _pt == "Resurrection":
-                        _elig = [t for t in _player_teams if t in _eliminated]
-                        if _elig:
-                            _sel_val = st.selectbox("Which of your teams to replace?", _elig)
+                if _pt == "Resurrection":
+                    # Cascading selection requires live widget updates — no st.form
+                    if not _gs_done:
+                        st.caption("Available after the group stage — check back once groups are settled.")
+                    else:
+                        _knocked_out = [
+                            t for t in _player_teams
+                            if _team_rounds.get(t, "") in ("", "GroupStage")
+                        ]
+                        if not _knocked_out:
+                            st.caption("None of your teams were knocked out of the group stage.")
                         else:
-                            st.caption("No eliminated teams yet — available after the group stage.")
-                            _disabled = True
-                    elif _pt == "NinthTeam":
-                        st.caption("Admin will randomly draw a surviving team you don't own.")
-                    elif _pt == "PredictionPack":
-                        st.caption("After purchasing, submit your picks on the Predictions page.")
-                    elif _pt == "Mulligan":
-                        st.caption("Admin will redraw your 8 teams — message Oisin after buying.")
-                    elif _pt == "Insurance":
-                        st.caption("+25 pts if either original Tier 1 team is eliminated in Group Stage or R32.")
+                            _elim_pick = st.selectbox(
+                                "Which of your group-stage knockouts to replace?",
+                                _knocked_out, key=f"res_elim_{_sv}",
+                            )
+                            _cands = resurrection_candidates(
+                                _sv, _elim_pick, get_assignments(), _stats, _purch_live, _tier_map,
+                            )
+                            if not _cands:
+                                st.caption("No valid same-tier replacements currently available.")
+                            else:
+                                _repl_pick = st.selectbox(
+                                    "Replacement team (same tier, still in competition)?",
+                                    _cands, key=f"res_repl_{_sv}",
+                                )
+                                if st.button(f"Buy Resurrection €{_pcost}", type="primary",
+                                             key=f"buy_res_{_sv}"):
+                                    try:
+                                        from src.competition import add_purchase, load_purchases as _lp
+                                        _p = _lp()
+                                        _p = add_purchase(_sv, "Resurrection", "(self-service)", _p,
+                                                          selection=f"{_elim_pick}->{_repl_pick}")
+                                        _p.to_csv(_DATA / "purchases.csv", index=False)
+                                        st.cache_data.clear()
+                                        st.success(
+                                            f"✓ Resurrection recorded: {_elim_pick} → {_repl_pick}. "
+                                            f"Send €{_pcost} to the Revolut pocket."
+                                        )
+                                        st.rerun()
+                                    except Exception as _ex:
+                                        st.error(f"Error: {_ex}")
 
-                    _buy = st.form_submit_button(f"Buy €{_pcost}", type="primary", disabled=_disabled)
+                else:
+                    with st.form(f"shop_{_pt}_{_sv}"):
+                        if _pt == "NinthTeam":
+                            st.caption("Admin will randomly draw a surviving team you don't own.")
+                        elif _pt == "PredictionPack":
+                            st.caption("After purchasing, submit your picks on the Predictions page.")
+                        elif _pt == "Mulligan":
+                            st.caption("Admin will redraw your 8 teams — message Oisin after buying.")
+                        elif _pt == "Insurance":
+                            st.caption("+25 pts if either original Tier 1 team is eliminated in Group Stage or R32.")
 
-                    if _buy:
-                        try:
-                            from src.competition import add_purchase, load_purchases as _lp
-                            _purch = _lp()
-                            _sel = _sel_val if _pt == "Resurrection" else ""
-                            _purch = add_purchase(_sv, _pt, "(self-service)", _purch, selection=_sel)
-                            _purch.to_csv(_DATA / "purchases.csv", index=False)
-                            st.cache_data.clear()
-                            st.success(f"✓ {_ptitle} recorded! Send €{_pcost} to the shared Revolut pocket.")
-                            st.rerun()
-                        except Exception as _ex:
-                            st.error(f"Error: {_ex}")
+                        if st.form_submit_button(f"Buy €{_pcost}", type="primary"):
+                            try:
+                                from src.competition import add_purchase, load_purchases as _lp
+                                _purch = _lp()
+                                _purch = add_purchase(_sv, _pt, "(self-service)", _purch, selection="")
+                                _purch.to_csv(_DATA / "purchases.csv", index=False)
+                                st.cache_data.clear()
+                                st.success(f"✓ {_ptitle} recorded! Send €{_pcost} to the shared Revolut pocket.")
+                                st.rerun()
+                            except Exception as _ex:
+                                st.error(f"Error: {_ex}")
 
         _already = [(pt, title) for pt, title, _, _ in PTYPES if pt in _has]
         if _already:

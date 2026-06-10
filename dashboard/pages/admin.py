@@ -203,34 +203,65 @@ with tabs[1]:
     from src.competition import PRICES as _PRICES
     _price_labels = {k: f"{k}  (€{int(v)})" for k, v in _PRICES.items()}
 
-    with st.form("add_purchase"):
-        from dashboard.data import get_participants
-        players = get_participants() or []
-        add_player = st.selectbox("Player", players or ["—"])
-        add_type   = st.selectbox("Type", list(_price_labels.keys()), format_func=lambda k: _price_labels[k])
-        add_ref    = st.text_input("Payment Reference (optional)", placeholder="e.g. Oisin - BUY IN")
-        add_sel    = st.text_input(
-            "Selection (Resurrection: EliminatedTeam->ReplacementTeam · NinthTeam: team name · others: leave blank)",
-            placeholder="e.g. Spain->Norway",
-        )
-        submitted  = st.form_submit_button("Add Purchase", type="primary")
+    from dashboard.data import get_participants as _gp_adm
+    _adm_players = ["—"] + (_gp_adm() or [])
+    _adm_player = st.selectbox("Player", _adm_players, key="adm_ap_player")
+    _adm_type   = st.selectbox("Type", list(_price_labels.keys()),
+                                format_func=lambda k: _price_labels[k], key="adm_ap_type")
+    _adm_ref    = st.text_input("Payment Reference (optional)",
+                                 placeholder="e.g. Oisin - BUY IN", key="adm_ap_ref")
 
-        if submitted and add_player and add_player != "—":
+    _adm_sel = ""
+    if _adm_type == "Resurrection" and _adm_player and _adm_player != "—":
+        from src.competition import load_purchases as _lp_adm
+        from src.event_engine import resurrection_candidates as _rc_adm
+        from dashboard.data import (get_assignments as _ga_adm, get_match_stats as _gms_adm,
+                                     get_tier_map as _gtm_adm)
+        _assign_adm = _ga_adm()
+        _ms_adm     = _gms_adm()
+        _tm_adm     = _gtm_adm()
+        _pr_adm     = _lp_adm()
+        _pteams_adm = _assign_adm.get(_adm_player, [])
+        _rounds_adm: dict[str, str] = {}
+        if not _ms_adm.empty:
+            for _, _sr_adm in _ms_adm.iterrows():
+                _rounds_adm[str(_sr_adm["Team"])] = str(_sr_adm.get("RoundReached", "") or "").strip()
+        _gs_adm = any(v not in ("", "GroupStage") for v in _rounds_adm.values())
+        if not _gs_adm:
+            st.info("Group stage not yet concluded.")
+        else:
+            _ko_adm = [t for t in _pteams_adm if _rounds_adm.get(t, "") in ("", "GroupStage")]
+            if not _ko_adm:
+                st.info(f"No group-stage knockouts for {_adm_player}.")
+            else:
+                _elim_adm = st.selectbox("Eliminated team to replace", _ko_adm, key="adm_ap_elim")
+                _cands_adm = _rc_adm(_adm_player, _elim_adm, _assign_adm, _ms_adm, _pr_adm, _tm_adm)
+                if not _cands_adm:
+                    st.info("No valid same-tier replacements available.")
+                else:
+                    _repl_adm = st.selectbox("Replacement team", _cands_adm, key="adm_ap_repl")
+                    _adm_sel = f"{_elim_adm}->{_repl_adm}"
+
+    if st.button("Add Purchase", type="primary", key="adm_ap_submit"):
+        if not _adm_player or _adm_player == "—":
+            st.error("Select a player.")
+        elif _adm_type == "Resurrection" and not _adm_sel:
+            st.error("Complete the Resurrection team selections first.")
+        else:
             try:
                 from src.competition import add_purchase, load_purchases, load_player_status
                 from src.event_engine import process_pending_purchases
 
                 p = load_purchases()
                 s = load_player_status()
-                p = add_purchase(add_player, add_type, add_ref, p, selection=add_sel)
+                p = add_purchase(_adm_player, _adm_type, _adm_ref, p, selection=_adm_sel)
 
-                # Mark PAID for BuyIn
                 up, us, _msgs = process_pending_purchases(p, s)
                 _save_purchases(up)
                 _save_statuses(us)
 
-                cost = _PRICES.get(add_type, 0)
-                st.success(f"✓ {add_type} added for {add_player}  (€{int(cost)})")
+                cost = _PRICES.get(_adm_type, 0)
+                st.success(f"✓ {_adm_type} added for {_adm_player}  (€{int(cost)})")
                 _refresh()
             except Exception as exc:
                 st.error(f"Error: {exc}")
