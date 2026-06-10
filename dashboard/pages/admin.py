@@ -1193,13 +1193,14 @@ with tabs[11]:
         "Available balance = Budget minus recorded purchases."
     )
 
-    from src.competition import load_player_status as _lps_b, calculate_prize_pool as _cpp_b
+    from src.competition import load_player_status as _lps_b
+    from dashboard.data import get_prize_pool as _gpp_b
     _budg_st = _lps_b()
 
     if _budg_st.empty:
         st.warning("No player data found.")
     else:
-        _pool_b = _cpp_b(_budg_st)
+        _pool_b = _gpp_b()
         _bc1, _bc2, _bc3, _bc4 = st.columns(4)
         with _bc1:
             st.metric("Prize Pool", f"€{_pool_b['current_pot']:.2f}",
