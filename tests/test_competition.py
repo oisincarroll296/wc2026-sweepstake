@@ -59,7 +59,13 @@ def _empty_purchases() -> pd.DataFrame:
 
 
 def _empty_statuses() -> pd.DataFrame:
-    return pd.DataFrame(columns=["Player", "Status", "PaidTimestamp"])
+    return pd.DataFrame(columns=["Player", "Status", "PaidTimestamp", "Budget"])
+
+
+def _statuses_with_budget(*rows) -> pd.DataFrame:
+    """rows: (player, status, budget_float)"""
+    records = [{"Player": r[0], "Status": r[1], "PaidTimestamp": "", "Budget": str(r[2])} for r in rows]
+    return pd.DataFrame(records, columns=["Player", "Status", "PaidTimestamp", "Budget"])
 
 
 def _empty_captains() -> pd.DataFrame:
@@ -170,59 +176,38 @@ class TestPlayerStatus:
 # ---------------------------------------------------------------------------
 
 class TestPrizePool:
-    def test_empty_purchases_zero_pot(self):
-        pool = calculate_prize_pool(_empty_purchases())
+    def test_empty_statuses_zero_pot(self):
+        pool = calculate_prize_pool(_empty_statuses())
         assert pool["current_pot"] == 0.0
 
-    def test_buyin_adds_5(self):
-        p = _purchases(("Alice", "BuyIn"))
-        assert calculate_prize_pool(p)["current_pot"] == 5.0
+    def test_budget_sums_to_pot(self):
+        st = _statuses_with_budget(("Alice", "PAID", 10.0), ("Bob", "PAID", 5.0))
+        assert calculate_prize_pool(st)["current_pot"] == 15.0
 
-    def test_pack_adds_5(self):
-        p = _purchases(("Alice", "PredictionPack"))
-        assert calculate_prize_pool(p)["current_pot"] == 5.0
-
-    def test_mulligan_adds_3(self):
-        p = _purchases(("Alice", "Mulligan"))
-        assert calculate_prize_pool(p)["current_pot"] == 3.0
-
-    def test_ninth_adds_3(self):
-        p = _purchases(("Alice", "NinthTeam"))
-        assert calculate_prize_pool(p)["current_pot"] == 3.0
-
-    def test_resurrection_adds_5(self):
-        p = _purchases(("Alice", "Resurrection"))
-        assert calculate_prize_pool(p)["current_pot"] == 5.0
-
-    def test_insurance_adds_2(self):
-        p = _purchases(("Alice", "Insurance"))
-        assert calculate_prize_pool(p)["current_pot"] == 2.0
+    def test_zero_budgets_zero_pot(self):
+        st = _statuses_with_budget(("Alice", "PAID", 0.0), ("Bob", "UNPAID", 0.0))
+        assert calculate_prize_pool(st)["current_pot"] == 0.0
 
     def test_prize_split_50_30_20(self):
-        # 2 buyins = €10
-        p = _purchases(
-            ("Alice", "BuyIn"),
-            ("Bob",   "BuyIn"),
-        )
-        pool = calculate_prize_pool(p)
+        st = _statuses_with_budget(("Alice", "PAID", 5.0), ("Bob", "PAID", 5.0))
+        pool = calculate_prize_pool(st)
         assert pool["current_pot"] == 10.0
         assert pool["first_prize"] == 5.0
         assert pool["second_prize"] == 3.0
         assert pool["third_prize"] == 2.0
 
     def test_prize_split_sums_to_pot(self):
-        p = _purchases(
-            ("Alice", "BuyIn"),
-            ("Alice", "PredictionPack"),
-            ("Bob",   "NinthTeam"),
+        st = _statuses_with_budget(
+            ("Alice", "PAID", 13.0),
+            ("Bob",   "PAID",  3.0),
         )
-        pool = calculate_prize_pool(p)
+        pool = calculate_prize_pool(st)
         assert abs(pool["first_prize"] + pool["second_prize"] + pool["third_prize"] - pool["current_pot"]) < 0.01
 
     def test_export_prize_pool_creates_csv(self, tmp_path):
-        p = _purchases(("Alice", "BuyIn"))
+        st = _statuses_with_budget(("Alice", "PAID", 5.0))
         out = tmp_path / "prize_pool.csv"
-        df = export_prize_pool(p, out)
+        df = export_prize_pool(st, out)
         assert out.exists()
         assert "CurrentPot" in df.columns
 

@@ -1,11 +1,26 @@
 """Rules — official competition rules and scoring system."""
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+_p = str(Path(__file__).resolve().parent.parent.parent); sys.path.insert(0, _p) if _p not in sys.path else None
 
 import streamlit as st
 
 from dashboard.components.ui import page_header
+
+_GRP = "#F59E0B"  # amber — must buy before group stage closes
+_KO  = "#22D3EE"  # cyan  — must buy before knockout stage
+
+
+def _badge(color: str, label: str) -> str:
+    return (
+        f'<span style="background:{color}22;border:1px solid {color};border-radius:4px;'
+        f'padding:0.1rem 0.4rem;font-size:0.71rem;color:{color};white-space:nowrap">'
+        f'{label}</span>'
+    )
+
+
+_GRP_BADGE = _badge(_GRP, "⏰ Before group stage closes")
+_KO_BADGE  = _badge(_KO,  "⏰ Before knockout stage")
 
 page_header("Rules", "Official competition rules and scoring system")
 
@@ -92,7 +107,9 @@ with tab_purchases:
         '<div style="color:#E5E7EB;font-size:0.84rem;line-height:1.65">'
         '1. Send the money to the <strong style="color:#D4A017">Shared Revolut Pocket</strong> '
         'and include what you\'re buying in the transaction message<br>'
-        '2. <strong>Ninth Team</strong>  — teams are randomly drawn, &amp; <strong>Resurrection</strong> you choose'
+        '2. <strong>Ninth Team</strong> — randomly drawn from surviving teams you don\'t own<br>'
+        '&nbsp;&nbsp;&nbsp;<strong>Resurrection</strong> — you choose which eliminated team to replace; '
+        'a same-tier replacement is chosen by you and recorded by admin'
         '<br>'
         '3. <strong>Prediction Pack</strong> — send your picks (World Cup winner, Golden Boot, Dark Horse, etc.) '
         'in a separate message<br>'
@@ -104,15 +121,17 @@ with tab_purchases:
 
     with col1:
         st.markdown(
-            '<div class="card"><h4 style="color:#D4A017;margin:0">Buy In — €5</h4>'
-            '<p style="color:#9CA3AF;font-size:0.88rem;margin:0.4rem 0 0">'
+            f'<div class="card"><div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.1rem">'
+            f'<h4 style="color:#D4A017;margin:0">Buy In — €5</h4>{_GRP_BADGE}</div>'
+            '<p style="color:#9CA3AF;font-size:0.88rem;margin:0">'
             'Entry into the competition. Required to receive prizes. '
             'You still appear on the Overall Leaderboard without it, but are excluded from prize money.</p></div>',
             unsafe_allow_html=True,
         )
         st.markdown(
-            '<div class="card"><h4 style="color:#D4A017;margin:0">Prediction Pack — €5</h4>'
-            '<p style="color:#9CA3AF;font-size:0.88rem;margin:0.4rem 0 0">'
+            f'<div class="card"><div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.1rem">'
+            f'<h4 style="color:#D4A017;margin:0">Prediction Pack — €5</h4>{_GRP_BADGE}</div>'
+            '<p style="color:#9CA3AF;font-size:0.88rem;margin:0">'
             'Unlocks six predictions: World Cup Winner (+30), Runner-Up (+20), '
             'Bronze Medal (+15), Golden Boot (+25), Dark Horse (up to +135 cumulative), '
             'and First Knocked Out (+20). '
@@ -120,16 +139,18 @@ with tab_purchases:
             unsafe_allow_html=True,
         )
         st.markdown(
-            '<div class="card"><h4 style="color:#D4A017;margin:0">Mulligan — €3</h4>'
-            '<p style="color:#9CA3AF;font-size:0.88rem;margin:0.4rem 0 0">'
+            f'<div class="card"><div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.1rem">'
+            f'<h4 style="color:#D4A017;margin:0">Mulligan — €3</h4>{_GRP_BADGE}</div>'
+            '<p style="color:#9CA3AF;font-size:0.88rem;margin:0">'
             'Complete redraw of player\'s 8 teams before the tournament starts. '
             'Must satisfy all allocation rules. Multiple allowed per player. '
             'All mulligans processed in batches depending on how many are bought.</p></div>',
             unsafe_allow_html=True,
         )
         st.markdown(
-            '<div class="card"><h4 style="color:#D4A017;margin:0">Complete Redraw — €6</h4>'
-            '<p style="color:#9CA3AF;font-size:0.88rem;margin:0.4rem 0 0">'
+            f'<div class="card"><div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.1rem">'
+            f'<h4 style="color:#D4A017;margin:0">Complete Redraw — €6</h4>{_GRP_BADGE}</div>'
+            '<p style="color:#9CA3AF;font-size:0.88rem;margin:0">'
             'Full redraw of everybody\'s 8 teams. Includes tier-balancing. '
             '<strong style="color:#D4A017">Must be completed before the first game kicks off.</strong></p></div>',
             unsafe_allow_html=True,
@@ -137,8 +158,9 @@ with tab_purchases:
 
     with col2:
         st.markdown(
-            '<div class="card"><h4 style="color:#D4A017;margin:0">Insurance — €2</h4>'
-            '<p style="color:#9CA3AF;font-size:0.88rem;margin:0.4rem 0 0">'
+            f'<div class="card"><div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.1rem">'
+            f'<h4 style="color:#D4A017;margin:0">Insurance — €2</h4>{_GRP_BADGE}</div>'
+            '<p style="color:#9CA3AF;font-size:0.88rem;margin:0">'
             'If either of your original Tier 1 teams is eliminated in the '
             '<strong>Group Stage or Round of 32</strong>, '
             'you receive <strong>+25 points</strong>. Triggers for each team knocked out early '
@@ -147,18 +169,20 @@ with tab_purchases:
             unsafe_allow_html=True,
         )
         st.markdown(
-            '<div class="card"><h4 style="color:#D4A017;margin:0">Ninth Team — €3</h4>'
-            '<p style="color:#9CA3AF;font-size:0.88rem;margin:0.4rem 0 0">'
+            f'<div class="card"><div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.1rem">'
+            f'<h4 style="color:#D4A017;margin:0">Ninth Team — €3</h4>{_KO_BADGE}</div>'
+            '<p style="color:#9CA3AF;font-size:0.88rem;margin:0">'
             'After the Group Stage, receive one random surviving team you don\'t already own. '
             'Added to your roster for knockout rounds only. '
             'Can be selected as Knockout Captain.</p></div>',
             unsafe_allow_html=True,
         )
         st.markdown(
-            '<div class="card"><h4 style="color:#D4A017;margin:0">Resurrection — €5</h4>'
-            '<p style="color:#9CA3AF;font-size:0.88rem;margin:0.4rem 0 0">'
-            'You <strong>choose which of your eliminated teams</strong> gets swapped out. '
-            'A replacement is randomly drawn from surviving teams of the same tier. '
+            f'<div class="card"><div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.1rem">'
+            f'<h4 style="color:#D4A017;margin:0">Resurrection — €5</h4>{_KO_BADGE}</div>'
+            '<p style="color:#9CA3AF;font-size:0.88rem;margin:0">'
+            'You <strong>choose which of your eliminated teams</strong> gets swapped out, '
+            '<strong>and you also choose the replacement</strong> from surviving same-tier teams you don\'t own. '
             'Replacement earns knockout points only. Maximum one per player.</p></div>',
             unsafe_allow_html=True,
         )

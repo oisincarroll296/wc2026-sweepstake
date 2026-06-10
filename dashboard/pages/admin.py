@@ -1,7 +1,7 @@
 """Admin page — password-protected event and draw controls."""
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+_p = str(Path(__file__).resolve().parent.parent.parent); sys.path.insert(0, _p) if _p not in sys.path else None
 
 import streamlit as st
 import pandas as pd
@@ -48,7 +48,7 @@ tabs = st.tabs([
     "Draw Events", "Purchases", "Picks",
     "Locking", "Results Entry", "Special Events",
     "Tournament Results",
-    "WhatsApp", "Draw Broadcast", "Deadlines", "Snapshots",
+    "WhatsApp", "Draw Broadcast", "Deadlines", "Snapshots", "Budgets",
 ])
 
 # ─────────────────────────────────────────────
@@ -209,7 +209,10 @@ with tabs[1]:
         add_player = st.selectbox("Player", players or ["—"])
         add_type   = st.selectbox("Type", list(_price_labels.keys()), format_func=lambda k: _price_labels[k])
         add_ref    = st.text_input("Payment Reference (optional)", placeholder="e.g. Oisin - BUY IN")
-        add_sel    = st.text_input("Resurrection — player's eliminated team to swap out", placeholder="e.g. Spain (you choose which of your eliminated teams to replace)")
+        add_sel    = st.text_input(
+            "Selection (Resurrection: EliminatedTeam->ReplacementTeam · NinthTeam: team name · others: leave blank)",
+            placeholder="e.g. Spain->Norway",
+        )
         submitted  = st.form_submit_button("Add Purchase", type="primary")
 
         if submitted and add_player and add_player != "—":
@@ -246,6 +249,35 @@ with tabs[1]:
         show = disp[["Player", "PurchaseType", "€", "Selection", "Reference", "Timestamp"]].copy()
         show = show.sort_values("Timestamp", ascending=False)
         st.dataframe(show, use_container_width=True, hide_index=True)
+
+    st.divider()
+    st.subheader("Delete Purchase")
+    _p_del = load_purchases()
+    if _p_del.empty:
+        st.caption("No purchases to delete.")
+    else:
+        _del_p_opts = [
+            f"{i}: {row['Player']} — {row['PurchaseType']} ({str(row.get('Timestamp', ''))[:16]})"
+            for i, (_, row) in enumerate(_p_del.iterrows())
+        ]
+        _del_p_sel   = st.selectbox("Select purchase to delete", _del_p_opts, key="del_purch_sel")
+        _del_p_idx   = _del_p_opts.index(_del_p_sel)
+        _del_p_row   = _p_del.iloc[_del_p_idx]
+        _del_p_ok    = st.checkbox("Confirm deletion", key="del_purch_confirm")
+        if st.button("Delete Purchase", type="primary", disabled=not _del_p_ok):
+            try:
+                from src.competition import load_player_status, mark_unpaid
+                _p_new = _p_del.drop(_p_del.index[_del_p_idx]).reset_index(drop=True)
+                _s_del = load_player_status()
+                if _del_p_row["PurchaseType"] == "BuyIn":
+                    _s_del = mark_unpaid(str(_del_p_row["Player"]), _s_del)
+                    _save_statuses(_s_del)
+                _save_purchases(_p_new)
+                _refresh()
+                st.success(f"Deleted: {_del_p_row['Player']} — {_del_p_row['PurchaseType']}")
+                st.rerun()
+            except Exception as _del_exc:
+                st.error(f"Error: {_del_exc}")
 
 # ─────────────────────────────────────────────
 # Tab 2: Picks (captains + predictions)
@@ -707,7 +739,7 @@ with tabs[4]:
             with cb2: ko_cs    = st.number_input("Cl. Sheets", 0, 10, _ev("KnockoutCleanSheets"))
             with cb3: ko_pw    = st.number_input("Pen. Wins",  0,  5, _ev("KnockoutPenaltyWins"))
             with cb4: ko_cw    = st.number_input("CB Wins",    0,  5, _ev("KnockoutComebackWins"))
-            rounds  = ["", "GroupStage", "R16", "QF", "SF", "Final", "Winner"]
+            rounds  = ["", "GroupStage", "R32", "R16", "QF", "SF", "Final", "Winner"]
             cur_rnd = _es("RoundReached")
             rnd     = st.selectbox("Round Reached", rounds,
                                    index=rounds.index(cur_rnd) if cur_rnd in rounds else 0)
@@ -1082,3 +1114,121 @@ with tabs[10]:
                     _refresh()
                     st.success(f"Restored from **{snap.name}**")
                     st.rerun()
+
+# ─────────────────────────────────────────────
+# Tab 11: Budgets
+# ─────────────────────────────────────────────
+with tabs[11]:
+    st.subheader("Player Budgets")
+    st.caption(
+        "Budget = money each player has contributed to the Revolut pocket. "
+        "The prize pool equals the sum of all budgets. "
+        "Available balance = Budget minus recorded purchases."
+    )
+
+    from src.competition import load_player_status as _lps_b, calculate_prize_pool as _cpp_b
+    _budg_st = _lps_b()
+
+    if _budg_st.empty:
+        st.warning("No player data found.")
+    else:
+        _pool_b = _cpp_b(_budg_st)
+        _bc1, _bc2, _bc3, _bc4 = st.columns(4)
+        with _bc1:
+            st.metric("Prize Pool", f"€{_pool_b['current_pot']:.2f}",
+                      help="Sum of all Budget values in players.csv")
+        with _bc2:
+            st.metric("🥇 1st (50%)", f"€{_pool_b['first_prize']:.2f}")
+        with _bc3:
+            st.metric("🥈 2nd (30%)", f"€{_pool_b['second_prize']:.2f}")
+        with _bc4:
+            st.metric("🥉 3rd (20%)", f"€{_pool_b['third_prize']:.2f}")
+
+        st.divider()
+
+        with st.form("budgets_form"):
+            st.markdown("**Set each player's budget** (€ contributed to the Revolut pocket)")
+            _new_budgets: dict[str, float] = {}
+            _b_cols = st.columns(2)
+            for _bi, (_b_idx, _b_row) in enumerate(_budg_st.iterrows()):
+                _b_player = str(_b_row["Player"])
+                _b_cur = float(pd.to_numeric(_b_row.get("Budget", 0.0), errors="coerce") or 0.0)
+                with _b_cols[_bi % 2]:
+                    _new_budgets[_b_player] = st.number_input(
+                        _b_player,
+                        min_value=0.0,
+                        max_value=500.0,
+                        value=_b_cur,
+                        step=0.5,
+                        format="%.2f",
+                        key=f"budget_{_b_player}",
+                    )
+
+            if st.form_submit_button("💾 Save Budgets", type="primary"):
+                from src.competition import (
+                    load_purchases as _lp_b, add_purchase as _ap_b,
+                    mark_paid as _mp_b,
+                )
+                from src.event_engine import process_pending_purchases as _ppp_b
+                _budg_st2 = _lps_b().copy()
+                _budg_st2["Budget"] = _budg_st2["Player"].map(_new_budgets).fillna(0.0)
+
+                # Auto-add BuyIn for any player whose budget is >= €5 (cost of Buy In).
+                # Remove BuyIn and mark UNPAID for any player whose budget drops below €5.
+                _purch_b = _lp_b()
+                _has_buyin = set(_purch_b[_purch_b["PurchaseType"] == "BuyIn"]["Player"].tolist()) if not _purch_b.empty else set()
+                from src.competition import mark_unpaid as _mu_b
+                for _bp, _bv in _new_budgets.items():
+                    if _bv >= 5.0 and _bp not in _has_buyin:
+                        _purch_b = _ap_b(_bp, "BuyIn", "auto (budget set)", _purch_b)
+                    elif _bv < 5.0 and _bp in _has_buyin:
+                        # Budget dropped below Buy In cost — remove auto BuyIn and mark UNPAID
+                        _purch_b = _purch_b[
+                            ~((_purch_b["Player"] == _bp) &
+                              (_purch_b["PurchaseType"] == "BuyIn") &
+                              (_purch_b["Reference"].str.contains("auto", case=False, na=False)))
+                        ].reset_index(drop=True)
+                        _budg_st2 = _mu_b(_bp, _budg_st2)
+                _up_b, _us_b, _ = _ppp_b(_purch_b, _budg_st2)
+                # Preserve the budget values (process_pending_purchases may not know about Budget)
+                _us_b["Budget"] = _us_b["Player"].map(_new_budgets).fillna(0.0)
+                _save_purchases(_up_b)
+                _save_statuses(_us_b)
+                _refresh()
+                _new_pool = sum(_new_budgets.values())
+                st.success(f"Budgets saved. New prize pool: **€{_new_pool:.2f}**")
+                st.rerun()
+
+        st.divider()
+        st.markdown("**Spend vs budget breakdown**")
+        st.caption("Spend is computed from purchase records × unit price. Available = Budget − Spent.")
+
+        try:
+            from dashboard.data import get_player_budgets as _gpb
+            _bdf = _gpb()
+            if _bdf.empty:
+                st.info("No data yet.")
+            else:
+                def _bdf_style(row):
+                    styles = []
+                    for col in row.index:
+                        if col == "Budget":
+                            styles.append("color:#D4A017;font-weight:700")
+                        elif col == "Available":
+                            try:
+                                v = float(str(row[col]).replace("€", "") or 0)
+                            except (ValueError, TypeError):
+                                v = 0.0
+                            styles.append("color:#EF4444;font-weight:700" if v < 0 else (
+                                "color:#6EE7B7;font-weight:600" if v > 0 else "color:#9CA3AF"))
+                        else:
+                            styles.append("")
+                    return styles
+
+                _bdf_disp = _bdf.copy()
+                for _c in ["Budget", "Spent", "Available"]:
+                    _bdf_disp[_c] = _bdf_disp[_c].apply(lambda v: f"€{float(v):.2f}")
+                st.dataframe(_bdf_disp.style.apply(_bdf_style, axis=1),
+                             use_container_width=True, hide_index=True)
+        except Exception as _be:
+            st.warning(f"Could not load budget detail: {_be}")

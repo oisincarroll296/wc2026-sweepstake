@@ -60,11 +60,28 @@ After the draw completes, go to **Admin → Draw Broadcast**, select `Initial Dr
 
 ### 3. Collect Buy-Ins and Optional Purchases
 
-When a player sends money to the **Shared Revolut Pocket**, go to **Admin → Purchases → Add Purchase**.
+#### Recording a payment (budget)
+
+When a player sends money to the **Shared Revolut Pocket**:
+
+1. Go to **Admin → Budgets**
+2. Enter the total amount the player has sent (e.g. `13` if they paid €5 Buy In + €5 Prediction Pack + €3 Insurance)
+3. Click **Save Budgets**
+
+The app automatically:
+- Records the budget amount against the player
+- Adds a `BuyIn` purchase if their budget is ≥ €5
+- Marks the player as **PAID**
+- Updates the prize pool
+
+> The **Budget** is the raw total contributed to the Revolut pocket — it never changes when they buy add-ons. Spending is tracked separately in purchases.
+
+#### Recording add-on purchases
+
+For purchases beyond the Buy In, go to **Admin → Purchases → Add Purchase** and enter the type and player:
 
 | Type | Cost | Notes |
 |------|------|-------|
-| `BuyIn` | €5 | Marks player as PAID immediately |
 | `PredictionPack` | €5 | Unlocks predictions; collect picks separately |
 | `Insurance` | €2 | +25 pts if a T1 team exits in the Group Stage or Round of 32 |
 | `Mulligan` | €3 | Redraw for **that player only**; run `MULLIGAN_DRAW` event after adding |
@@ -74,8 +91,12 @@ When a player sends money to the **Shared Revolut Pocket**, go to **Admin → Pu
 
 > **Purchase type casing matters.** Use exactly: `BuyIn`, `PredictionPack`, `Insurance`, `Mulligan`, `CompleteRedraw`, `NinthTeam`, `Resurrection`. Wrong casing = scoring engine ignores it.
 
-`BuyIn`, `PredictionPack`, and `Insurance` take effect immediately when added.  
+`PredictionPack` and `Insurance` take effect immediately when added.  
 `Mulligan`, `NinthTeam`, and `Resurrection` require a draw event to be run before they are applied.
+
+#### Prize pool
+
+The prize pool is calculated from **Budget totals only** — it equals the sum of all player budgets. 1st/2nd/3rd prizes are 50%/30%/20% of that total. The breakdown is visible on **VAR Room → Prize Pool**.
 
 ---
 
@@ -336,8 +357,10 @@ All data is stored in plain CSV files in `data/`. You can edit any of them direc
 
 | Problem | Fix |
 |---------|-----|
-| Wrong purchase entered | Open `data/purchases.csv`, delete or correct the row, push to git |
-| Wrong captain entered | Edit `data/players.csv` directly |
+| Wrong purchase entered | **Admin → Purchases → Delete Purchase** (select the row, tick confirm, delete) |
+| Wrong budget entered | **Admin → Budgets**, correct the number, Save Budgets |
+| Player budget set but not PAID | Budget must be ≥ €5; re-save in Admin → Budgets |
+| Wrong captain entered | Edit `data/players.csv` directly, or Admin → Picks |
 | Wrong prediction entered | Edit `data/players.csv` directly (before prediction lock only) |
 | Predictions locked too early | Admin → Locking → Unlock Predictions |
 | Buy-ins locked too early | Admin → Locking → Unlock Buy-Ins |
@@ -356,8 +379,9 @@ All data is stored in plain CSV files in `data/`. You can edit any of them direc
 | Column | Essential? | Notes |
 |--------|-----------|-------|
 | `Player` | **Yes** | Name exactly as used everywhere |
-| `Status` | **Yes** | `PAID` or `UNPAID` — set automatically when BuyIn purchase is added |
+| `Status` | **Yes** | `PAID` or `UNPAID` — set automatically when budget ≥ €5 is saved |
 | `PaidTimestamp` | No | Set automatically |
+| `Budget` | **Yes** | Total €€ contributed to Revolut pocket — set via Admin → Budgets |
 | `PreTournamentCaptain` | **Yes** | Enter via Admin → Picks before prediction lock |
 | `KnockoutCaptain` | **Yes** | Enter via Admin → Picks before R32 |
 | `WorldCupWinner` | **Yes** | Enter via Admin → Picks (Prediction Pack holders only) |
@@ -434,7 +458,8 @@ All data is stored in plain CSV files in `data/`. You can edit any of them direc
 
 | What | Where | When |
 |------|-------|------|
-| BuyIn for each player who has paid | Admin → Purchases | As money arrives |
+| Budget for each player who has paid | Admin → Budgets | As money arrives — BuyIn is auto-added if budget ≥ €5 |
+| Add-on purchases (PredictionPack, Insurance, etc.) | Admin → Purchases | As money arrives |
 | PreTournamentCaptain for each player | Admin → Picks | Before prediction lock |
 | WorldCupWinner, GoldenBoot, DarkHorse | Admin → Picks | As picks are submitted to you |
 | KnockoutCaptain for each player | Admin → Picks | Before R16 kicks off |

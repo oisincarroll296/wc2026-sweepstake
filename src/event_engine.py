@@ -14,7 +14,7 @@ from src.allocation_engine import (
 from src.competition import (
     load_player_status, load_purchases as _load_purchases,
     load_events, load_audit_log,
-    purchases_to_scoring_format, calculate_prize_pool,
+    purchases_to_scoring_format,
     log_action, create_event, update_event_status,
     mark_paid, get_paid_players, get_player_status, PRICES,
     prize_leaderboard, overall_leaderboard,

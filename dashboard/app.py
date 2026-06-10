@@ -29,7 +29,7 @@ pages = [
     st.Page("pages/bracket.py",            title="Bracket",            icon="🏟️"),
     st.Page("pages/predictions_centre.py", title="Predictions",        icon="🔮"),
     st.Page("pages/analytics.py",          title="Analytics",          icon="📊"),
-    st.Page("pages/purchases.py",          title="Purchases",          icon="🛒"),
+    st.Page("pages/purchases.py",          title="Shop",               icon="🛒"),
     st.Page("pages/var_room.py",           title="VAR Room",           icon="🔍"),
     st.Page("pages/rules.py",              title="Rules",              icon="📋"),
     st.Page("pages/admin.py",              title="Admin",              icon="🔐"),

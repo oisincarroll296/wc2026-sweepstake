@@ -9,7 +9,7 @@ class _FC:
     def clear(self): pass
 st.cache_data = _FC()
 
-from src.competition import prize_leaderboard, load_player_status, load_purchases, calculate_prize_pool
+from src.competition import prize_leaderboard, load_player_status, load_purchases, calculate_prize_pool, calculate_player_spend
 from src.scoring_engine import load_match_stats, load_predictions, load_captains
 from src.event_engine import load_allocation
 
@@ -25,7 +25,7 @@ lb = prize_leaderboard(parts, alloc, ms, purch, caps, preds, status)
 print("PRIZE LEADERBOARD (QF stage demo)")
 print(lb[["Rank","Player","TotalPoints","BasePoints","CaptainBonus","PredictionBonus","InsuranceBonus"]].to_string(index=False))
 
-pool = calculate_prize_pool(purch)
+pool = calculate_prize_pool(status)
 print(f"\nPrize pool: E{pool['current_pot']:.2f}  "
       f"1st: E{pool['first_prize']:.2f}  "
       f"2nd: E{pool['second_prize']:.2f}  "

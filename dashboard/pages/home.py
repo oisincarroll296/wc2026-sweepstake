@@ -1,7 +1,7 @@
 """Home page — tournament overview dashboard."""
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+_p = str(Path(__file__).resolve().parent.parent.parent); sys.path.insert(0, _p) if _p not in sys.path else None
 
 import urllib.parse as _urlparse
 
@@ -150,7 +150,8 @@ lb       = get_overall_leaderboard()
 r1c1, r1c2 = st.columns(2)
 r2c1, r2c2 = st.columns(2)
 with r1c1:
-    st.metric("Prize Pool", f"€{pool.get('current_pot', 0):.2f}")
+    st.metric("Prize Pool", f"€{pool.get('current_pot', 0):.2f}",
+              help="Sum of all player budgets (money in the Revolut pocket)")
 with r1c2:
     st.metric("Paid Players", f"{paid} / {len(lb)}" if not lb.empty else str(paid))
 with r2c1:

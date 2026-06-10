@@ -5,12 +5,14 @@ page switches don't re-hit the filesystem on every render.  Admin actions
 call st.cache_data.clear() to force a refresh after writes.
 """
 import sys
+import os
 from pathlib import Path
 
-# Ensure project root is on sys.path regardless of working directory
-_ROOT = Path(__file__).parent.parent
-if str(_ROOT) not in sys.path:
-    sys.path.insert(0, str(_ROOT))
+# Ensure project root is on sys.path regardless of working directory or case
+_ROOT = Path(__file__).resolve().parent.parent
+_ROOT_STR = str(_ROOT)
+if not any(os.path.normcase(p) == os.path.normcase(_ROOT_STR) for p in sys.path):
+    sys.path.insert(0, _ROOT_STR)
 
 import streamlit as st
 import pandas as pd
@@ -19,8 +21,8 @@ from src.team_database  import load_teams
 from src.scoring_engine import load_match_stats, load_predictions, load_captains
 from src.competition    import (
     load_player_status, load_purchases, load_events, load_audit_log,
-    calculate_prize_pool, prize_leaderboard, overall_leaderboard,
-    get_team_ownership, get_predictions_centre,
+    prize_leaderboard, overall_leaderboard,
+    get_team_ownership, get_predictions_centre, PRICES,
 )
 from src.event_engine      import load_allocation
 
@@ -86,11 +88,50 @@ def get_assignments() -> dict[str, list[str]]:
 
 # ── Derived loaders ─────────────────────────────────────────────────────────
 
+_PRIZE_SHARES = (0.50, 0.30, 0.20)
+
+
 @st.cache_data(ttl=30)
 def get_prize_pool() -> dict:
-    # Load directly — avoids nested @st.cache_data call which can return
-    # a stale/empty result on first render before the inner cache is primed.
-    return calculate_prize_pool(load_purchases())
+    # Implemented directly here so it is immune to stale in-memory competition.py.
+    # Prize pool = sum of Budget values from players.csv.
+    statuses = load_player_status()
+    if statuses.empty or "Budget" not in statuses.columns:
+        total = 0.0
+    else:
+        total = float(pd.to_numeric(statuses["Budget"], errors="coerce").fillna(0.0).sum())
+    return {
+        "current_pot":  round(total, 2),
+        "first_prize":  round(total * _PRIZE_SHARES[0], 2),
+        "second_prize": round(total * _PRIZE_SHARES[1], 2),
+        "third_prize":  round(total * _PRIZE_SHARES[2], 2),
+    }
+
+
+@st.cache_data(ttl=30)
+def get_player_budgets() -> pd.DataFrame:
+    """Per-player budget summary: Budget, Spent, Available."""
+    statuses  = load_player_status()
+    purchases = load_purchases()
+    if statuses.empty:
+        return pd.DataFrame(columns=["Player", "Budget", "Spent", "Available"])
+    rows = []
+    for _, row in statuses.iterrows():
+        player = str(row["Player"])
+        budget = float(pd.to_numeric(row.get("Budget", 0), errors="coerce") or 0.0)
+        # Compute spend inline — immune to stale competition.py in memory.
+        if not purchases.empty:
+            p = purchases[purchases["Player"] == player]
+            spent = float(p["PurchaseType"].map(PRICES).fillna(0.0).sum()) if not p.empty else 0.0
+        else:
+            spent = 0.0
+        rows.append({
+            "Player":    player,
+            "Budget":    budget,
+            "Spent":     spent,
+            "Available": round(budget - spent, 2),
+        })
+    return pd.DataFrame(rows)
 
 
 @st.cache_data(ttl=30)
@@ -675,7 +716,7 @@ def get_insurance_overview() -> dict:
             row = match_stats[match_stats["Team"] == team]
             if not row.empty:
                 rnd = str(row.iloc[0].get("RoundReached", "") or "").strip()
-        eliminated = rnd == "GroupStage"
+        eliminated = rnd in {"GroupStage", "R32"}
         owners = [p for p, ts in assignments.items() if team in ts]
         t1_status.append({
             "team":         team,
@@ -693,7 +734,7 @@ def get_insurance_overview() -> dict:
             elim_count = 0
             for t in t1_teams:
                 entry = next((x for x in t1_status if x["team"] == t), None)
-                if entry and entry["eliminated"]:
+                if entry and entry["eliminated"]:  # eliminated = GroupStage or R32
                     elim_count += 1
             holders.append({
                 "player":          player,

@@ -50,8 +50,8 @@ This is a **Python + Streamlit** application. The Excel/VBA approach was replace
 | `data/match_stats.csv` | Per-team stats: goals, CS, penalty/comeback wins, upset wins, special events, RoundReached |
 | `data/match_results.csv` | Raw match-by-match result entries |
 | `data/fixtures.csv` | Full fixture list with match numbers |
-| `data/purchases.csv` | Purchase ledger — columns: `Player, PurchaseType, Selection, Reference, Timestamp` |
-| `data/players.csv` | One row per player: Status, PaidTimestamp, PreTournamentCaptain, KnockoutCaptain, WorldCupWinner, RunnerUp, BronzeMedal, GoldenBoot, DarkHorse, FirstKnockedOut |
+| `data/purchases.csv` | Purchase ledger — columns: `Player, PurchaseType, Selection, Reference, Timestamp` (no Amount or Status column) |
+| `data/players.csv` | One row per player: Status, PaidTimestamp, Budget, PreTournamentCaptain, KnockoutCaptain, WorldCupWinner, RunnerUp, BronzeMedal, GoldenBoot, DarkHorse, FirstKnockedOut |
 | `data/events.csv` | Draw events (INITIAL_DRAW, GROUP_STAGE_CLOSE, etc.) |
 | `data/audit_log.csv` | Full action audit trail |
 | `data/score_history.csv` | Historical score snapshots (`Date,Player,Points`) |
@@ -164,7 +164,7 @@ Special events count toward Pre-Tournament Captain bonus but NOT Knockout Captai
 
 ## Purchase Types
 
-`purchases.csv` columns: `Player, PurchaseType, Amount, Selection, Reference, Timestamp, Status`
+`purchases.csv` columns: `Player, PurchaseType, Selection, Reference, Timestamp`
 
 | PurchaseType | Amount | Selection field |
 |-------------|--------|-----------------|

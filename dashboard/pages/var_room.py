@@ -1,13 +1,14 @@
 """The VAR Room — transparency centre with full audit trail."""
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+_p = str(Path(__file__).resolve().parent.parent.parent); sys.path.insert(0, _p) if _p not in sys.path else None
 
 import streamlit as st
 import pandas as pd
 
 from dashboard.data import (
     get_purchases, get_statuses, get_events, get_audit_log,
+    get_player_budgets,
 )
 from dashboard.components.ui import page_header, searchable_table, empty_state
 
@@ -51,7 +52,11 @@ with tabs[0]:
         for _, _sr in _pur_statuses.iterrows():
             _pl = _sr["Player"]
             _pp = _pur0[_pur0["Player"] == _pl] if not _pur0.empty else pd.DataFrame()
-            _has_buyin = not _pp.empty and not _pp[_pp["PurchaseType"] == "BuyIn"].empty
+            _status_val = _sr.get("Status", "UNPAID")
+            _has_buyin = (
+                (not _pp.empty and not _pp[_pp["PurchaseType"] == "BuyIn"].empty)
+                or _status_val == "PAID"  # implicit Buy In for manually-marked PAID players
+            )
             _has_pack  = not _pp.empty and not _pp[_pp["PurchaseType"] == "PredictionPack"].empty
             _has_ins   = not _pp.empty and not _pp[_pp["PurchaseType"] == "Insurance"].empty
             _has_9th   = not _pp.empty and not _pp[_pp["PurchaseType"] == "NinthTeam"].empty
@@ -72,7 +77,21 @@ with tabs[0]:
             })
         _ledger_df = pd.DataFrame(_ledger_rows)
 
+        # Highlight invalid paid players (PAID but missing BuyIn or budget < €5)
+        _budgets_tab0 = get_player_budgets()
+        _budget_map   = dict(zip(_budgets_tab0["Player"], _budgets_tab0["Budget"])) if not _budgets_tab0.empty else {}
+
+        _invalid_paid = [
+            r["Player"] for r in _ledger_rows
+            if r["Status"] == "PAID" and float(_budget_map.get(r["Player"], 0)) < 5.0
+        ]
+        if _invalid_paid:
+            st.warning(f"⚠️ Validation issue — PAID status requires budget ≥ €5: **{', '.join(_invalid_paid)}**")
+
         def _lstyle(row):
+            _bgt = float(_budget_map.get(row.get("Player", ""), 0))
+            if row.get("Status") == "PAID" and _bgt < 5.0:
+                return ["background-color:#7F1D1D;color:#FCA5A5"] * len(row)
             if row.get("Status") == "UNPAID":
                 return ["color:#6B7280"] * len(row)
             return [""] * len(row)
@@ -81,6 +100,7 @@ with tabs[0]:
             _ledger_df.style.apply(_lstyle, axis=1),
             use_container_width=True, hide_index=True,
         )
+        st.caption("PAID status requires budget ≥ €5. Buy In is recorded automatically when budget is saved; players marked PAID before that system existed show ✓ implicitly.")
     else:
         empty_state("No payment data yet.")
 
@@ -113,19 +133,55 @@ with tabs[2]:
     st.subheader("💰 Prize Pool Breakdown")
     from dashboard.data import get_prize_pool
     pool = get_prize_pool()
-    st.metric("Total Pot",   f"€{pool.get('current_pot',0):.2f}")
-    st.metric("1st Prize",   f"€{pool.get('first_prize',0):.2f}")
-    st.metric("2nd Prize",   f"€{pool.get('second_prize',0):.2f}")
-    st.metric("3rd Prize",   f"€{pool.get('third_prize',0):.2f}")
+    _pp_c1, _pp_c2, _pp_c3, _pp_c4 = st.columns(4)
+    with _pp_c1: st.metric("Total Pot",  f"€{pool.get('current_pot',0):.2f}")
+    with _pp_c2: st.metric("🥇 1st Prize", f"€{pool.get('first_prize',0):.2f}")
+    with _pp_c3: st.metric("🥈 2nd Prize", f"€{pool.get('second_prize',0):.2f}")
+    with _pp_c4: st.metric("🥉 3rd Prize", f"€{pool.get('third_prize',0):.2f}")
+
+    st.caption("Prize pool = sum of all player budgets (money contributed to the Revolut pocket).")
     st.divider()
-    # Per-type breakdown
+
+    st.subheader("💳 Player Budgets")
+    _budgets_df = get_player_budgets()
+    if not _budgets_df.empty:
+        def _bstyle(row):
+            styles = []
+            for col in row.index:
+                if col == "Available":
+                    try:
+                        v = float(str(row[col]).replace("€", "") or 0)
+                    except (ValueError, TypeError):
+                        v = 0.0
+                    if v < 0:
+                        styles.append("color:#EF4444;font-weight:700")
+                    elif v > 0:
+                        styles.append("color:#6EE7B7;font-weight:600")
+                    else:
+                        styles.append("color:#9CA3AF")
+                elif col == "Budget":
+                    styles.append("color:#D4A017;font-weight:700")
+                else:
+                    styles.append("")
+            return styles
+
+        _bdisp = _budgets_df.copy()
+        for _c in ["Budget", "Spent", "Available"]:
+            _bdisp[_c] = _bdisp[_c].apply(lambda v: f"€{float(v):.2f}")
+        st.dataframe(_bdisp.style.apply(_bstyle, axis=1), use_container_width=True, hide_index=True)
+    else:
+        st.caption("No budget data yet.")
+
+    st.divider()
+    st.subheader("🛒 Purchase Spend Breakdown")
     p = get_purchases()
     from src.competition import PRICES
     rows = []
     for ptype, price in PRICES.items():
         cnt = int((p["PurchaseType"] == ptype).sum()) if not p.empty else 0
-        rows.append({"Type": ptype, "Count": cnt, "Total": f"€{cnt * price:.0f}"})
+        rows.append({"Type": ptype, "Count": cnt, "Unit Price": f"€{price:.0f}", "Total": f"€{cnt * price:.0f}"})
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+    st.caption("This breakdown counts purchase records × unit price. It is informational — the prize pool figure above is based on actual Revolut contributions (Budget column).")
 
 # ── 3. Event Timeline ──────────────────────────────────────────────────────
 with tabs[3]:

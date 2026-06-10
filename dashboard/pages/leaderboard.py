@@ -1,7 +1,7 @@
 """Leaderboard — Prize standings + All Players with full score breakdown."""
 import sys, math
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+_p = str(Path(__file__).resolve().parent.parent.parent); sys.path.insert(0, _p) if _p not in sys.path else None
 
 import streamlit as st
 import pandas as pd

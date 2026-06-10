@@ -98,11 +98,14 @@ def load_player_status(path: Optional[Path | str] = None) -> pd.DataFrame:
     p = Path(path) if path else PLAYER_STATUS_PATH
     if not p.exists():
         return pd.DataFrame(columns=[
-            "Player", "Status", "PaidTimestamp",
+            "Player", "Status", "PaidTimestamp", "Budget",
             "PreTournamentCaptain", "KnockoutCaptain",
             "WorldCupWinner", "GoldenBoot", "DarkHorse",
         ])
-    return pd.read_csv(p, dtype=str).fillna("")
+    df = pd.read_csv(p, dtype=str).fillna("")
+    if "Budget" not in df.columns:
+        df["Budget"] = "0.0"
+    return df
 
 
 def load_purchases(path: Optional[Path | str] = None) -> pd.DataFrame:
@@ -147,7 +150,7 @@ def mark_paid(
     """Return updated statuses with player set to PAID."""
     ts = timestamp or _now_iso()
     df = statuses.copy() if not statuses.empty else pd.DataFrame(
-        columns=["Player", "Status", "PaidTimestamp"]
+        columns=["Player", "Status", "PaidTimestamp", "Budget"]
     )
     mask = df["Player"] == player
     if mask.any():
@@ -155,7 +158,7 @@ def mark_paid(
         df.loc[mask, "PaidTimestamp"] = ts
     else:
         df = pd.concat(
-            [df, pd.DataFrame([{"Player": player, "Status": "PAID", "PaidTimestamp": ts}])],
+            [df, pd.DataFrame([{"Player": player, "Status": "PAID", "PaidTimestamp": ts, "Budget": "0.0"}])],
             ignore_index=True,
         )
     return df
@@ -164,7 +167,7 @@ def mark_paid(
 def mark_unpaid(player: str, statuses: pd.DataFrame) -> pd.DataFrame:
     """Return updated statuses with player set to UNPAID."""
     df = statuses.copy() if not statuses.empty else pd.DataFrame(
-        columns=["Player", "Status", "PaidTimestamp"]
+        columns=["Player", "Status", "PaidTimestamp", "Budget"]
     )
     mask = df["Player"] == player
     if mask.any():
@@ -172,7 +175,7 @@ def mark_unpaid(player: str, statuses: pd.DataFrame) -> pd.DataFrame:
         df.loc[mask, "PaidTimestamp"] = ""
     else:
         df = pd.concat(
-            [df, pd.DataFrame([{"Player": player, "Status": "UNPAID", "PaidTimestamp": ""}])],
+            [df, pd.DataFrame([{"Player": player, "Status": "UNPAID", "PaidTimestamp": "", "Budget": "0.0"}])],
             ignore_index=True,
         )
     return df
@@ -262,31 +265,62 @@ def parse_payment_reference(reference: str) -> dict:
 # Prize pool
 # ---------------------------------------------------------------------------
 
-def calculate_prize_pool(purchases: pd.DataFrame) -> dict:
-    """Sum all purchase fees and return prize distribution.
+def calculate_prize_pool(statuses: pd.DataFrame) -> dict:
+    """Sum Budget values from players.csv and return prize distribution.
+
+    Prize pool = sum of all player Budget fields (money actually contributed
+    to the Revolut pocket).  Managed manually by admin via the Budget tab.
 
     Returns {current_pot, first_prize, second_prize, third_prize}.
     """
-    if purchases.empty:
+    if statuses.empty or "Budget" not in statuses.columns:
         total = 0.0
     else:
-        total = float(purchases["PurchaseType"].map(PRICES).fillna(0.0).sum())
+        total = float(
+            pd.to_numeric(statuses["Budget"], errors="coerce").fillna(0.0).sum()
+        )
 
     return {
-        "current_pot":  total,
+        "current_pot":  round(total, 2),
         "first_prize":  round(total * PRIZE_SHARES[0], 2),
         "second_prize": round(total * PRIZE_SHARES[1], 2),
         "third_prize":  round(total * PRIZE_SHARES[2], 2),
     }
 
 
-def export_prize_pool(
+def calculate_player_spend(player: str, purchases: pd.DataFrame) -> float:
+    """Total spend for one player derived from their logged purchases × price."""
+    if purchases.empty:
+        return 0.0
+    p = purchases[purchases["Player"] == player]
+    if p.empty:
+        return 0.0
+    return float(p["PurchaseType"].map(PRICES).fillna(0.0).sum())
+
+
+def calculate_player_available_budget(
+    player: str,
+    statuses: pd.DataFrame,
     purchases: pd.DataFrame,
+) -> float:
+    """Available spend = Budget minus logged purchase amounts."""
+    if statuses.empty:
+        return 0.0
+    row = statuses[statuses["Player"] == player]
+    if row.empty:
+        return 0.0
+    budget = float(pd.to_numeric(row.iloc[0].get("Budget", 0), errors="coerce") or 0.0)
+    spent = calculate_player_spend(player, purchases)
+    return round(budget - spent, 2)
+
+
+def export_prize_pool(
+    statuses: pd.DataFrame,
     path: Optional[Path | str] = None,
 ) -> pd.DataFrame:
     out = Path(path) if path else EXPORTS_DIR / "prize_pool.csv"
     out.parent.mkdir(parents=True, exist_ok=True)
-    pool = calculate_prize_pool(purchases)
+    pool = calculate_prize_pool(statuses)
     df = pd.DataFrame([{
         "CurrentPot": pool["current_pot"], "FirstPrize":  pool["first_prize"],
         "SecondPrize": pool["second_prize"], "ThirdPrize": pool["third_prize"],
@@ -422,7 +456,7 @@ def validate_resurrection(
         row = match_stats[match_stats["Team"] == eliminated_team]
         if not row.empty:
             rr = str(row.iloc[0].get("RoundReached", "") or "").strip()
-            if rr and rr != "GroupStage":
+            if rr and rr not in {"GroupStage", "R32"}:
                 errors.append(f"{eliminated_team!r} has not been eliminated (round={rr!r})")
 
     elim_tier = tier_map.get(eliminated_team)

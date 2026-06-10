@@ -148,23 +148,23 @@ class TestBackendIntegration:
     def _empty_df(self, cols):
         return pd.DataFrame(columns=cols)
 
-    def test_prize_pool_empty_purchases(self):
+    def test_prize_pool_empty_statuses(self):
         from src.competition import calculate_prize_pool
-        p = self._empty_df(["Player", "PurchaseType", "Selection", "Reference", "Timestamp"])
-        pool = calculate_prize_pool(p)
+        s = self._empty_df(["Player", "Status", "PaidTimestamp", "Budget"])
+        pool = calculate_prize_pool(s)
         assert pool["current_pot"] == 0.0
         assert pool["first_prize"] == 0.0
 
-    def test_prize_pool_with_buyins(self):
+    def test_prize_pool_with_budgets(self):
         from src.competition import calculate_prize_pool
         rows = [
-            {"Player": "Alice", "PurchaseType": "BuyIn", "Timestamp": "", "Reference": "", "Selection": ""},
-            {"Player": "Bob",   "PurchaseType": "BuyIn", "Timestamp": "", "Reference": "", "Selection": ""},
+            {"Player": "Alice", "Status": "PAID",   "PaidTimestamp": "", "Budget": "10.0"},
+            {"Player": "Bob",   "Status": "UNPAID", "PaidTimestamp": "", "Budget": "5.0"},
         ]
-        p = pd.DataFrame(rows)
-        pool = calculate_prize_pool(p)
-        assert pool["current_pot"] == pytest.approx(10.0)
-        assert pool["first_prize"] == pytest.approx(5.0)
+        s = pd.DataFrame(rows)
+        pool = calculate_prize_pool(s)
+        assert pool["current_pot"] == pytest.approx(15.0)
+        assert pool["first_prize"] == pytest.approx(7.5)
 
     def test_prize_leaderboard_no_paid_returns_empty(self):
         from src.competition import prize_leaderboard
