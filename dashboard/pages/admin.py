@@ -31,16 +31,28 @@ st.success("Authenticated", icon="🔓")
 st.divider()
 
 
+from dashboard.github_sync import push_file as _push_gh
+
+
 def _refresh():
     st.cache_data.clear()
 
 
-def _save_purchases(df: pd.DataFrame):
+def _push(local, repo_path: str, msg: str) -> None:
+    try:
+        _push_gh(local, repo_path, msg)
+    except Exception as _e:
+        st.warning(f"⚠️ GitHub sync: {_e}")
+
+
+def _save_purchases(df: pd.DataFrame, msg: str = "Update purchases.csv"):
     df.to_csv(DATA / "purchases.csv", index=False)
+    _push(DATA / "purchases.csv", "data/purchases.csv", msg)
 
 
-def _save_statuses(df: pd.DataFrame):
+def _save_statuses(df: pd.DataFrame, msg: str = "Update players.csv"):
     df.to_csv(DATA / "players.csv", index=False)
+    _push(DATA / "players.csv", "data/players.csv", msg)
 
 
 # ── Tabs ──────────────────────────────────────────────────────────────────
@@ -74,6 +86,18 @@ with tabs[0]:
             try:
                 from src.event_engine import run_event
                 result = run_event(event_type, seed=seed)
+                # Push all files that draw events can modify
+                for _f, _r in [
+                    ("allocation.csv",  "data/allocation.csv"),
+                    ("purchases.csv",   "data/purchases.csv"),
+                    ("events.csv",      "data/events.csv"),
+                    ("audit_log.csv",   "data/audit_log.csv"),
+                    ("match_stats.csv", "data/match_stats.csv"),
+                    ("players.csv",     "data/players.csv"),
+                ]:
+                    _fp = DATA / _f
+                    if _fp.exists():
+                        _push(_fp, _r, f"{event_type}: update {_f}")
                 st.success(f"{event_type} executed successfully.")
                 if "errors" in result and result["errors"]:
                     st.warning("Some players had errors:")
@@ -148,11 +172,13 @@ with tabs[0]:
                     pd.DataFrame(columns=["Player", "Team"]).to_csv(
                         DATA / "allocation.csv", index=False
                     )
+                    _push(DATA / "allocation.csv", "data/allocation.csv", "Clear allocation (draw deleted)")
                 elif _del_type == "NINTH_TEAM_DRAW":
                     if not _purch.empty and "PurchaseType" in _purch.columns:
                         mask = _purch["PurchaseType"] == "NinthTeam"
                         _purch.loc[mask, "Selection"] = ""
                         _purch.to_csv(DATA / "purchases.csv", index=False)
+                        _push(DATA / "purchases.csv", "data/purchases.csv", "Reset NinthTeam selections")
                 elif _del_type == "RESURRECTION_DRAW":
                     if not _purch.empty and "PurchaseType" in _purch.columns:
                         mask = (
@@ -161,10 +187,12 @@ with tabs[0]:
                         )
                         _purch.loc[mask, "Selection"] = ""
                         _purch.to_csv(DATA / "purchases.csv", index=False)
+                        _push(DATA / "purchases.csv", "data/purchases.csv", "Reset Resurrection selections")
 
                 # 2. Remove the event row
                 _ev_df_new = _ev_df[_ev_df["EventID"].astype(str) != _del_eid].copy()
                 _ev_df_new.to_csv(DATA / "events.csv", index=False)
+                _push(DATA / "events.csv", "data/events.csv", f"Delete draw event {_del_eid}")
 
                 # 3. Add audit entry
                 from datetime import datetime, timezone, timedelta
@@ -178,6 +206,7 @@ with tabs[0]:
                 }])
                 _audit_new = pd.concat([_audit, _new_log], ignore_index=True)
                 _audit_new.to_csv(DATA / "audit_log.csv", index=False)
+                _push(DATA / "audit_log.csv", "data/audit_log.csv", "Audit: draw deleted")
 
                 _refresh()
                 st.success(
@@ -442,6 +471,7 @@ with tabs[2]:
                     _picks_df.loc[_row_mask, "DarkHorse"]            = new_dh
                     _picks_df.loc[_row_mask, "FirstKnockedOut"]      = new_fko
                     _picks_df.to_csv(_players_path, index=False)
+                    _push(_players_path, "data/players.csv", f"Picks saved for {_player_sel}")
                     st.success(f"Picks saved for {_player_sel}.")
                     _refresh()
 
@@ -489,6 +519,8 @@ with tabs[3]:
                     ev, log = lock_predictions(load_events(), load_audit_log())
                     ev.to_csv(DATA / "events.csv", index=False)
                     log.to_csv(DATA / "audit_log.csv", index=False)
+                    _push(DATA / "events.csv", "data/events.csv", "Lock predictions")
+                    _push(DATA / "audit_log.csv", "data/audit_log.csv", "Audit: predictions locked")
                     dl = get_deadlines()
                     dl["prediction_lock"] = now_iso
                     save_deadlines(dl)
@@ -513,6 +545,8 @@ with tabs[3]:
                     s, ev, log = lock_buyins(load_player_status(), load_events(), load_audit_log())
                     ev.to_csv(DATA / "events.csv", index=False)
                     log.to_csv(DATA / "audit_log.csv", index=False)
+                    _push(DATA / "events.csv", "data/events.csv", "Lock buy-ins")
+                    _push(DATA / "audit_log.csv", "data/audit_log.csv", "Audit: buy-ins locked")
                     dl = get_deadlines()
                     dl["buy_in_deadline"] = now_iso
                     save_deadlines(dl)
@@ -787,6 +821,7 @@ with tabs[4]:
                         "RoundReached": rnd,
                     }, ms)
                     ms.to_csv(DATA / "match_stats.csv", index=False)
+                    _push(DATA / "match_stats.csv", "data/match_stats.csv", f"Results: {res_team}")
                     st.success(f"Saved {res_team}.")
                     _refresh()
                 except Exception as exc:
@@ -870,6 +905,7 @@ with tabs[5]:
                             _se_ms2[_col] = 0
                         _se_ms2.loc[_mask, _col] = _val
                     _se_ms2.to_csv(DATA / "match_stats.csv", index=False)
+                    _push(DATA / "match_stats.csv", "data/match_stats.csv", f"Special events: {_se_team}")
                     st.success(f"Special events saved for {_se_team}.")
                     _refresh()
             except Exception as exc:

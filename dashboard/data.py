@@ -385,6 +385,13 @@ def save_match_result_and_recalculate(
     _recalculate_match_stats()
     st.cache_data.clear()
 
+    from dashboard.github_sync import push_file as _pf
+    try:
+        _pf(results_path, "data/match_results.csv", f"Results: match {match_number}")
+        _pf(_ROOT / "data" / "match_stats.csv", "data/match_stats.csv", f"Stats: match {match_number}")
+    except Exception as _e:
+        st.warning(f"⚠️ GitHub sync: {_e}")
+
 
 def _recalculate_match_stats() -> None:
     """Rebuild Goals + CleanSheets + PenaltyWins + ComebackWins from match_results.csv."""

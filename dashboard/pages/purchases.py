@@ -274,6 +274,12 @@ with tab_shop:
                                         _p = add_purchase(_sv, "Resurrection", "(self-service)", _p,
                                                           selection=f"{_elim_pick}->{_repl_pick}")
                                         _p.to_csv(_DATA / "purchases.csv", index=False)
+                                        from dashboard.github_sync import push_file as _pf
+                                        try:
+                                            _pf(_DATA / "purchases.csv", "data/purchases.csv",
+                                                f"Purchase: {_sv} Resurrection")
+                                        except Exception as _pe:
+                                            st.warning(f"⚠️ GitHub sync: {_pe}")
                                         st.cache_data.clear()
                                         st.success(
                                             f"✓ Resurrection recorded: {_elim_pick} → {_repl_pick}. "
@@ -300,6 +306,12 @@ with tab_shop:
                                 _purch = _lp()
                                 _purch = add_purchase(_sv, _pt, "(self-service)", _purch, selection="")
                                 _purch.to_csv(_DATA / "purchases.csv", index=False)
+                                from dashboard.github_sync import push_file as _pf
+                                try:
+                                    _pf(_DATA / "purchases.csv", "data/purchases.csv",
+                                        f"Purchase: {_sv} {_pt}")
+                                except Exception as _pe:
+                                    st.warning(f"⚠️ GitHub sync: {_pe}")
                                 st.cache_data.clear()
                                 st.success(f"✓ {_ptitle} recorded! Send €{_pcost} to the shared Revolut pocket.")
                                 st.rerun()
@@ -309,6 +321,54 @@ with tab_shop:
         _already = [(pt, title) for pt, title, _, _ in PTYPES if pt in _has]
         if _already:
             st.caption("Already purchased: " + " · ".join(f"✓ {lbl}" for _, lbl in _already))
+
+        # ── Undo a purchase ───────────────────────────────────────────────
+        _own_p = purchases[purchases["Player"] == _sv].reset_index()
+        if not _own_p.empty:
+            st.markdown("---")
+            st.markdown("##### Remove a purchase")
+            for _, _ur in _own_p.iterrows():
+                _u_orig = int(_ur["index"])
+                _u_pt   = str(_ur.get("PurchaseType", ""))
+                _u_lbl  = next((lbl for pt, lbl, _, _ in PTYPES if pt == _u_pt), _u_pt)
+                _u_cost = COSTS.get(_u_pt, 0)
+                _u_ts   = str(_ur.get("Timestamp", ""))[:16]
+                _u_sel  = str(_ur.get("Selection", ""))
+                _uc1, _uc2 = st.columns([4, 1])
+                with _uc1:
+                    _sel_txt = f" · {_u_sel}" if _u_sel else ""
+                    st.markdown(
+                        f'<span style="color:#F5F5F5">{_u_lbl}{_sel_txt}</span>'
+                        f' <span style="color:#6B7280;font-size:0.78rem">{_u_ts}</span>',
+                        unsafe_allow_html=True,
+                    )
+                with _uc2:
+                    if st.button("Remove", key=f"undo_{_sv}_{_u_orig}", type="secondary"):
+                        try:
+                            from src.competition import add_purchase, load_purchases as _lp2, load_player_status, mark_unpaid
+                            _pa = _lp2()
+                            _pa = _pa.drop(index=_u_orig).reset_index(drop=True)
+                            _pa.to_csv(_DATA / "purchases.csv", index=False)
+                            if _u_pt == "BuyIn":
+                                _s2 = load_player_status()
+                                _s2 = mark_unpaid(_sv, _s2)
+                                _s2.to_csv(_DATA / "players.csv", index=False)
+                                from dashboard.github_sync import push_file as _pfu
+                                try:
+                                    _pfu(_DATA / "players.csv", "data/players.csv", f"Undo BuyIn: {_sv}")
+                                except Exception:
+                                    pass
+                            from dashboard.github_sync import push_file as _pfu
+                            try:
+                                _pfu(_DATA / "purchases.csv", "data/purchases.csv",
+                                     f"Undo purchase: {_sv} {_u_pt}")
+                            except Exception as _pe2:
+                                st.warning(f"⚠️ GitHub sync: {_pe2}")
+                            st.cache_data.clear()
+                            st.success(f"✓ {_u_lbl} removed.")
+                            st.rerun()
+                        except Exception as _ex2:
+                            st.error(f"Error: {_ex2}")
 
 # ═══════════════════════════════════════
 # TAB 2: MY BUDGET
