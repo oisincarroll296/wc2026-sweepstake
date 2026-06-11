@@ -23,6 +23,7 @@ from src.competition    import (
     load_player_status, load_purchases, load_events, load_audit_log,
     prize_leaderboard, overall_leaderboard,
     get_team_ownership, get_predictions_centre, PRICES,
+    _PURCHASE_FLAG_COLS,
 )
 from src.event_engine      import load_allocation
 
@@ -99,20 +100,19 @@ def get_prize_pool() -> dict:
 @st.cache_data(ttl=30)
 def get_player_budgets() -> pd.DataFrame:
     """Per-player budget summary: Budget, Spent, Available."""
-    statuses  = load_player_status()
-    purchases = load_purchases()
+    statuses = load_player_status()
     if statuses.empty:
         return pd.DataFrame(columns=["Player", "Budget", "Spent", "Available"])
     rows = []
     for _, row in statuses.iterrows():
         player = str(row["Player"])
         budget = float(pd.to_numeric(row.get("Budget", 0), errors="coerce") or 0.0)
-        # Compute spend inline — immune to stale competition.py in memory.
-        if not purchases.empty:
-            p = purchases[purchases["Player"] == player]
-            spent = float(p["PurchaseType"].map(PRICES).fillna(0.0).sum()) if not p.empty else 0.0
-        else:
-            spent = 0.0
+        # Auto-rule: Budget >= 5 implies BuyIn purchased
+        spent = sum(
+            PRICES.get(col, 0.0)
+            for col in _PURCHASE_FLAG_COLS
+            if str(row.get(col, "0")).strip() in ("1", "True", "true")
+        )
         rows.append({
             "Player":    player,
             "Budget":    budget,
