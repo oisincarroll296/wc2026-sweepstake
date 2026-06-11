@@ -113,7 +113,7 @@ def _format_lb(lb: pd.DataFrame, show_prize: bool = False) -> pd.DataFrame:
             "Gap":      f"{pts - leader_pts:+.0f}" if rank > 1 else "—",
             "Match":    f"{base:.0f}",
             "Captain":  f"+{cap:.0f}" if cap else "—",
-            "Special":  f"+{spec:.0f}" if spec else "—",
+            "Special":  f"{spec:+.0f}" if spec else "—",
             "Insurance":f"+{ins:.0f}" if ins else "—",
             "Preds":    f"+{pred:.0f}" if pred else "—",
             "Potential":f"+{rem:.0f}",
