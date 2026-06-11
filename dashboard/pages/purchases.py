@@ -211,28 +211,41 @@ with tab_shop:
     if not _sv or _sv == "— select —":
         st.info("👆 Select your name in the sidebar to buy add-ons.")
     else:
-        _has = processed.get(_sv, set())
+        _has  = processed.get(_sv, set())
         _avail = [(pt, title, cost, colour) for pt, title, cost, colour in PTYPES
                   if pt not in _has and _is_open(pt)]
+        _DATA = Path(__file__).resolve().parent.parent.parent / "data"
 
+        # Shared data used by buy, edit, and selection forms
+        from dashboard.data import (get_assignments, get_match_stats as _gms,
+                                     get_tier_map, is_predictions_locked as _ipl)
+        from src.event_engine import resurrection_candidates
+        from src.team_database import load_teams as _ltsh
+        _player_teams = get_assignments().get(_sv, [])
+        _stats        = _gms()
+        _tier_map     = get_tier_map()
+        _purch_live   = get_purchases()
+        _team_rounds: dict[str, str] = {}
+        if not _stats.empty:
+            for _, _sr in _stats.iterrows():
+                _team_rounds[str(_sr["Team"])] = str(_sr.get("RoundReached", "") or "").strip()
+        _gs_done = any(v not in ("", "GroupStage") for v in _team_rounds.values())
+
+        def _save_and_push_purchases(df: pd.DataFrame, msg: str) -> None:
+            df.to_csv(_DATA / "purchases.csv", index=False)
+            from dashboard.github_sync import push_file as _pf
+            try:
+                _pf(_DATA / "purchases.csv", "data/purchases.csv", msg)
+            except Exception as _pe:
+                st.warning(f"⚠️ GitHub sync: {_pe}")
+            st.cache_data.clear()
+
+        # ── Buy available add-ons ──────────────────────────────────────────
         st.markdown(f"#### 🛒 Buy for {_sv}")
 
         if not _avail:
             st.success("✓ You have all currently available add-ons!")
         else:
-            from dashboard.data import get_assignments, get_match_stats as _gms, get_tier_map
-            from src.event_engine import resurrection_candidates
-            _player_teams = get_assignments().get(_sv, [])
-            _stats = _gms()
-            _tier_map = get_tier_map()
-            _purch_live = get_purchases()
-            _team_rounds: dict[str, str] = {}
-            if not _stats.empty:
-                for _, _sr in _stats.iterrows():
-                    _team_rounds[str(_sr["Team"])] = str(_sr.get("RoundReached", "") or "").strip()
-            _gs_done = any(v not in ("", "GroupStage") for v in _team_rounds.values())
-            _DATA = Path(__file__).resolve().parent.parent.parent / "data"
-
             for _pt, _ptitle, _pcost, _pcol in _avail:
                 st.markdown(
                     f'<span style="color:#D4A017;font-weight:700">{_ptitle}</span>'
@@ -241,14 +254,11 @@ with tab_shop:
                 )
 
                 if _pt == "Resurrection":
-                    # Cascading selection requires live widget updates — no st.form
                     if not _gs_done:
                         st.caption("Available after the group stage — check back once groups are settled.")
                     else:
-                        _knocked_out = [
-                            t for t in _player_teams
-                            if _team_rounds.get(t, "") in ("", "GroupStage")
-                        ]
+                        _knocked_out = [t for t in _player_teams
+                                        if _team_rounds.get(t, "") in ("", "GroupStage")]
                         if not _knocked_out:
                             st.caption("None of your teams were knocked out of the group stage.")
                         else:
@@ -273,14 +283,7 @@ with tab_shop:
                                         _p = _lp()
                                         _p = add_purchase(_sv, "Resurrection", "(self-service)", _p,
                                                           selection=f"{_elim_pick}->{_repl_pick}")
-                                        _p.to_csv(_DATA / "purchases.csv", index=False)
-                                        from dashboard.github_sync import push_file as _pf
-                                        try:
-                                            _pf(_DATA / "purchases.csv", "data/purchases.csv",
-                                                f"Purchase: {_sv} Resurrection")
-                                        except Exception as _pe:
-                                            st.warning(f"⚠️ GitHub sync: {_pe}")
-                                        st.cache_data.clear()
+                                        _save_and_push_purchases(_p, f"Purchase: {_sv} Resurrection")
                                         st.success(
                                             f"✓ Resurrection recorded: {_elim_pick} → {_repl_pick}. "
                                             f"Send €{_pcost} to the Revolut pocket."
@@ -288,41 +291,32 @@ with tab_shop:
                                         st.rerun()
                                     except Exception as _ex:
                                         st.error(f"Error: {_ex}")
-
                 else:
                     with st.form(f"shop_{_pt}_{_sv}"):
-                        if _pt == "NinthTeam":
+                        if _pt == "PredictionPack":
+                            st.caption("Your picks form will appear below as soon as you buy.")
+                        elif _pt == "NinthTeam":
                             st.caption("Admin will randomly draw a surviving team you don't own.")
-                        elif _pt == "PredictionPack":
-                            st.caption("After purchasing, submit your picks on the Predictions page.")
                         elif _pt == "Mulligan":
                             st.caption("Admin will redraw your 8 teams — message Oisin after buying.")
                         elif _pt == "Insurance":
                             st.caption("+25 pts if either original Tier 1 team is eliminated in Group Stage or R32.")
-
                         if st.form_submit_button(f"Buy €{_pcost}", type="primary"):
                             try:
                                 from src.competition import add_purchase, load_purchases as _lp
                                 _purch = _lp()
                                 _purch = add_purchase(_sv, _pt, "(self-service)", _purch, selection="")
-                                _purch.to_csv(_DATA / "purchases.csv", index=False)
-                                from dashboard.github_sync import push_file as _pf
-                                try:
-                                    _pf(_DATA / "purchases.csv", "data/purchases.csv",
-                                        f"Purchase: {_sv} {_pt}")
-                                except Exception as _pe:
-                                    st.warning(f"⚠️ GitHub sync: {_pe}")
-                                st.cache_data.clear()
+                                _save_and_push_purchases(_purch, f"Purchase: {_sv} {_pt}")
                                 st.success(f"✓ {_ptitle} recorded! Send €{_pcost} to the shared Revolut pocket.")
                                 st.rerun()
                             except Exception as _ex:
                                 st.error(f"Error: {_ex}")
 
+        # ── Already purchased + undo ───────────────────────────────────────
         _already = [(pt, title) for pt, title, _, _ in PTYPES if pt in _has]
         if _already:
             st.caption("Already purchased: " + " · ".join(f"✓ {lbl}" for _, lbl in _already))
 
-        # ── Undo a purchase ───────────────────────────────────────────────
         _own_p = purchases[purchases["Player"] == _sv].reset_index()
         if not _own_p.empty:
             st.markdown("---")
@@ -345,10 +339,9 @@ with tab_shop:
                 with _uc2:
                     if st.button("Remove", key=f"undo_{_sv}_{_u_orig}", type="secondary"):
                         try:
-                            from src.competition import add_purchase, load_purchases as _lp2, load_player_status, mark_unpaid
+                            from src.competition import load_purchases as _lp2, load_player_status, mark_unpaid
                             _pa = _lp2()
                             _pa = _pa.drop(index=_u_orig).reset_index(drop=True)
-                            _pa.to_csv(_DATA / "purchases.csv", index=False)
                             if _u_pt == "BuyIn":
                                 _s2 = load_player_status()
                                 _s2 = mark_unpaid(_sv, _s2)
@@ -358,17 +351,205 @@ with tab_shop:
                                     _pfu(_DATA / "players.csv", "data/players.csv", f"Undo BuyIn: {_sv}")
                                 except Exception:
                                     pass
-                            from dashboard.github_sync import push_file as _pfu
-                            try:
-                                _pfu(_DATA / "purchases.csv", "data/purchases.csv",
-                                     f"Undo purchase: {_sv} {_u_pt}")
-                            except Exception as _pe2:
-                                st.warning(f"⚠️ GitHub sync: {_pe2}")
-                            st.cache_data.clear()
+                            _save_and_push_purchases(_pa, f"Undo purchase: {_sv} {_u_pt}")
                             st.success(f"✓ {_u_lbl} removed.")
                             st.rerun()
                         except Exception as _ex2:
                             st.error(f"Error: {_ex2}")
+
+        # ── Your Selections ────────────────────────────────────────────────
+        _has_pred = "PredictionPack" in _has
+        _has_res  = "Resurrection"   in _has
+
+        st.markdown("---")
+        st.markdown("### Your Selections")
+
+        # Shared players.csv load (used by both captains + picks forms)
+        _tdf_sh = _ltsh()
+        _all_t  = sorted(_tdf_sh["Team"].tolist()) if not _tdf_sh.empty else []
+        _tm_sh  = {str(r["Team"]): int(r.get("Tier", 4)) for _, r in _tdf_sh.iterrows()} if not _tdf_sh.empty else {}
+        _low_sh = sorted([t for t, ti in _tm_sh.items() if ti in (3, 4) and t not in _player_teams])
+        _ppdf   = pd.read_csv(_DATA / "players.csv", dtype=str).fillna("") if (_DATA / "players.csv").exists() else pd.DataFrame()
+        _all_pick_cols = ["PreTournamentCaptain", "KnockoutCaptain",
+                          "WorldCupWinner", "RunnerUp", "BronzeMedal",
+                          "GoldenBoot", "DarkHorse", "FirstKnockedOut"]
+        for _c in _all_pick_cols:
+            if not _ppdf.empty and _c not in _ppdf.columns:
+                _ppdf[_c] = ""
+        _rmask_sh = _ppdf["Player"] == _sv if not _ppdf.empty else pd.Series(dtype=bool)
+        _rrow_sh  = _ppdf[_rmask_sh].iloc[0] if _rmask_sh.any() else pd.Series(dtype=str)
+
+        def _vsh(col):
+            v = _rrow_sh.get(col, "") if not _rrow_sh.empty else ""
+            return str(v) if pd.notna(v) else ""
+
+        def _save_players(df: pd.DataFrame, msg: str) -> None:
+            df.to_csv(_DATA / "players.csv", index=False)
+            from dashboard.github_sync import push_file as _pfsh
+            try:
+                _pfsh(_DATA / "players.csv", "data/players.csv", msg)
+            except Exception as _egh:
+                st.warning(f"⚠️ GitHub sync: {_egh}")
+            st.cache_data.clear()
+
+        # ── Captains (all players) ─────────────────────────────────────────
+        st.markdown("#### Captains")
+        if _ipl():
+            st.success("Predictions are locked — captain selections are final.")
+        else:
+            st.caption("Pre-Tournament Captain: +0.5× all points. Knockout Captain: +0.5× knockout points only.")
+            _cap_opts_sh = [""] + sorted(_player_teams)
+            with st.form(f"sh_captains_{_sv}"):
+                _sh_c1, _sh_c2 = st.columns(2)
+                with _sh_c1:
+                    st.markdown("**Pre-Tournament Captain**")
+                    _ptc_cur = _vsh("PreTournamentCaptain")
+                    _new_ptc = st.selectbox("One of your 8 teams", _cap_opts_sh,
+                                             index=_cap_opts_sh.index(_ptc_cur) if _ptc_cur in _cap_opts_sh else 0,
+                                             key="sh_ptc", label_visibility="collapsed")
+                with _sh_c2:
+                    st.markdown("**Knockout Captain**")
+                    _new_kc = st.text_input("Surviving team you own (can be 9th/Resurrection)",
+                                             value=_vsh("KnockoutCaptain"), key="sh_kc",
+                                             label_visibility="collapsed", placeholder="e.g. France")
+                if st.form_submit_button("Save Captains", type="primary"):
+                    try:
+                        if _rmask_sh.any():
+                            _ppdf.loc[_rmask_sh, "PreTournamentCaptain"] = _new_ptc
+                            _ppdf.loc[_rmask_sh, "KnockoutCaptain"]      = _new_kc
+                            _save_players(_ppdf, f"Captains: {_sv}")
+                            st.success("✓ Captains saved!")
+                            st.rerun()
+                        else:
+                            st.error(f"Player {_sv!r} not found in players.csv.")
+                    except Exception as _exsh:
+                        st.error(f"Error: {_exsh}")
+
+        # ── Prediction picks (pack holders only) ───────────────────────────
+        if _has_pred:
+            st.markdown("#### Prediction Picks")
+            if _ipl():
+                st.success("Predictions are locked — your picks are final.")
+            else:
+                st.caption("Editable until the prediction lock deadline.")
+                _topts_sh = [""] + _all_t
+                with st.form(f"sh_picks_{_sv}"):
+                    _sh_d1, _sh_d2, _sh_d3 = st.columns(3)
+                    with _sh_d1:
+                        st.markdown("**World Cup Winner**")
+                        _wcw_c = _vsh("WorldCupWinner")
+                        _new_wcw = st.selectbox("Any team", _topts_sh,
+                                                 index=_topts_sh.index(_wcw_c) if _wcw_c in _topts_sh else 0,
+                                                 key="sh_wcw", label_visibility="collapsed")
+                    with _sh_d2:
+                        st.markdown("**Runner-Up**")
+                        _ru_c = _vsh("RunnerUp")
+                        _new_ru = st.selectbox("Any team", _topts_sh,
+                                                index=_topts_sh.index(_ru_c) if _ru_c in _topts_sh else 0,
+                                                key="sh_ru", label_visibility="collapsed")
+                    with _sh_d3:
+                        st.markdown("**Bronze Medal**")
+                        _bm_c = _vsh("BronzeMedal")
+                        _new_bm = st.selectbox("Any team", _topts_sh,
+                                                index=_topts_sh.index(_bm_c) if _bm_c in _topts_sh else 0,
+                                                key="sh_bm", label_visibility="collapsed")
+                    _sh_d4, _sh_d5, _sh_d6 = st.columns(3)
+                    with _sh_d4:
+                        st.markdown("**Golden Boot**")
+                        _new_gb = st.text_input("Player name", value=_vsh("GoldenBoot"),
+                                                 key="sh_gb", label_visibility="collapsed",
+                                                 placeholder="e.g. Mbappé")
+                    with _sh_d5:
+                        st.markdown("**Dark Horse**")
+                        st.caption("Tier 3/4 team you don't own")
+                        _dh_opts_sh = [""] + _low_sh
+                        _dh_c = _vsh("DarkHorse")
+                        _new_dh = st.selectbox("Tier 3/4, not owned", _dh_opts_sh,
+                                                index=_dh_opts_sh.index(_dh_c) if _dh_c in _dh_opts_sh else 0,
+                                                key="sh_dh", label_visibility="collapsed")
+                    with _sh_d6:
+                        st.markdown("**First Knocked Out**")
+                        _fko_c = _vsh("FirstKnockedOut")
+                        _new_fko = st.selectbox("Any team", _topts_sh,
+                                                 index=_topts_sh.index(_fko_c) if _fko_c in _topts_sh else 0,
+                                                 key="sh_fko", label_visibility="collapsed")
+
+                    if st.form_submit_button("Save Picks", type="primary"):
+                        try:
+                            if _rmask_sh.any():
+                                for _col_sh, _val_sh in [
+                                    ("WorldCupWinner", _new_wcw),
+                                    ("RunnerUp",       _new_ru),
+                                    ("BronzeMedal",    _new_bm),
+                                    ("GoldenBoot",     _new_gb),
+                                    ("DarkHorse",      _new_dh),
+                                    ("FirstKnockedOut", _new_fko),
+                                ]:
+                                    _ppdf.loc[_rmask_sh, _col_sh] = _val_sh
+                                _save_players(_ppdf, f"Picks: {_sv}")
+                                st.success("✓ Picks saved!")
+                                st.rerun()
+                            else:
+                                st.error(f"Player {_sv!r} not found in players.csv.")
+                        except Exception as _exsh:
+                            st.error(f"Error: {_exsh}")
+        else:
+            st.info("Buy a Prediction Pack above to unlock tournament predictions (World Cup Winner, Runner-Up, Golden Boot, etc.).")
+
+            # ── Resurrection edit ──────────────────────────────────────────
+            if _has_res:
+                st.markdown("#### Resurrection Selection")
+                if not _is_open("Resurrection"):
+                    st.info("Resurrection window is closed — selection is final.")
+                else:
+                    st.caption("Update your team swap until the Resurrection deadline.")
+                    _res_rows = _purch_live[
+                        (_purch_live["Player"] == _sv) &
+                        (_purch_live["PurchaseType"] == "Resurrection")
+                    ]
+                    if not _res_rows.empty:
+                        _res_sel = str(_res_rows.iloc[0].get("Selection", ""))
+                        _res_orig_idx = int(_res_rows.index[0])
+                        _cur_elim = _res_sel.split("->")[0].strip() if "->" in _res_sel else _res_sel.strip()
+                        _cur_repl = _res_sel.split("->")[1].strip() if "->" in _res_sel else ""
+
+                        if not _gs_done:
+                            st.caption("Group stage not yet concluded.")
+                        else:
+                            _ko_edit = [t for t in _player_teams
+                                        if _team_rounds.get(t, "") in ("", "GroupStage")]
+                            if not _ko_edit:
+                                st.caption("None of your teams were knocked out of the group stage.")
+                            else:
+                                _elim_e = st.selectbox(
+                                    "Which of your group-stage knockouts to replace?",
+                                    _ko_edit,
+                                    index=_ko_edit.index(_cur_elim) if _cur_elim in _ko_edit else 0,
+                                    key=f"res_edit_elim_{_sv}",
+                                )
+                                _cands_e = resurrection_candidates(
+                                    _sv, _elim_e, get_assignments(), _stats, _purch_live, _tier_map,
+                                )
+                                _repl_opts_e = _cands_e if _cands_e else ([_cur_repl] if _cur_repl else [])
+                                if not _repl_opts_e:
+                                    st.caption("No valid same-tier replacements currently available.")
+                                else:
+                                    _repl_e = st.selectbox(
+                                        "Replacement team (same tier, still in competition)?",
+                                        _repl_opts_e,
+                                        index=_repl_opts_e.index(_cur_repl) if _cur_repl in _repl_opts_e else 0,
+                                        key=f"res_edit_repl_{_sv}",
+                                    )
+                                    if st.button("Update Resurrection", type="primary", key=f"res_edit_save_{_sv}"):
+                                        try:
+                                            from src.competition import load_purchases as _lpe
+                                            _pe_df = _lpe()
+                                            _pe_df.loc[_res_orig_idx, "Selection"] = f"{_elim_e}->{_repl_e}"
+                                            _save_and_push_purchases(_pe_df, f"Edit Resurrection: {_sv}")
+                                            st.success(f"✓ Updated: {_elim_e} → {_repl_e}")
+                                            st.rerun()
+                                        except Exception as _exe:
+                                            st.error(f"Error: {_exe}")
 
 # ═══════════════════════════════════════
 # TAB 2: MY BUDGET
