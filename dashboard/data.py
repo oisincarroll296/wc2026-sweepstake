@@ -346,13 +346,28 @@ def save_match_result_and_recalculate(
     penalty_winner: str,
     comeback_home: bool,
     comeback_away: bool,
+    home_hat_tricks: int = 0,
+    away_hat_tricks: int = 0,
+    home_red_cards: int = 0,
+    away_red_cards: int = 0,
+    home_shirt_off: int = 0,
+    away_shirt_off: int = 0,
+    home_gk_goals: int = 0,
+    away_gk_goals: int = 0,
+    home_first_eliminated: bool = False,
+    away_first_eliminated: bool = False,
 ) -> None:
     """Upsert a match result then fully recalculate team stats from scratch."""
     results_path = _ROOT / "data" / "match_results.csv"
 
     # Load / upsert
     cols = ["match_number", "home_goals", "away_goals", "extra_time",
-            "penalty_winner", "comeback_home", "comeback_away"]
+            "penalty_winner", "comeback_home", "comeback_away",
+            "home_hat_tricks", "away_hat_tricks",
+            "home_red_cards", "away_red_cards",
+            "home_shirt_off", "away_shirt_off",
+            "home_gk_goals", "away_gk_goals",
+            "home_first_eliminated", "away_first_eliminated"]
     if results_path.exists() and results_path.stat().st_size > len(",".join(cols)):
         df = pd.read_csv(results_path, dtype=str).fillna("")
         df["match_number"] = pd.to_numeric(df["match_number"], errors="coerce").astype("Int64")
@@ -362,13 +377,23 @@ def save_match_result_and_recalculate(
         df = pd.DataFrame(columns=cols)
 
     new_row = pd.DataFrame([{
-        "match_number":  match_number,
-        "home_goals":    home_goals,
-        "away_goals":    away_goals,
-        "extra_time":    int(extra_time),
-        "penalty_winner": penalty_winner,
-        "comeback_home": int(comeback_home),
-        "comeback_away": int(comeback_away),
+        "match_number":         match_number,
+        "home_goals":           home_goals,
+        "away_goals":           away_goals,
+        "extra_time":           int(extra_time),
+        "penalty_winner":       penalty_winner,
+        "comeback_home":        int(comeback_home),
+        "comeback_away":        int(comeback_away),
+        "home_hat_tricks":      home_hat_tricks,
+        "away_hat_tricks":      away_hat_tricks,
+        "home_red_cards":       home_red_cards,
+        "away_red_cards":       away_red_cards,
+        "home_shirt_off":       home_shirt_off,
+        "away_shirt_off":       away_shirt_off,
+        "home_gk_goals":        home_gk_goals,
+        "away_gk_goals":        away_gk_goals,
+        "home_first_eliminated": int(home_first_eliminated),
+        "away_first_eliminated": int(away_first_eliminated),
     }])
     df = pd.concat([df, new_row], ignore_index=True)
     df.to_csv(results_path, index=False)
@@ -412,13 +437,15 @@ def _recalculate_match_stats() -> None:
         if col not in ms.columns:
             ms[col] = 0
 
-    # Zero out all auto-derived stat columns (manual columns are NOT zeroed)
+    # Zero out all auto-derived stat columns (special events now also derived from match_results)
     for col in ["GroupGoals", "GroupCleanSheets", "GroupPenaltyWins", "GroupComebackWins",
                 "GroupWins",
                 "KnockoutGoals", "KnockoutCleanSheets", "KnockoutPenaltyWins", "KnockoutComebackWins",
                 "KnockoutWins",
                 "GroupUpsetWins1", "GroupUpsetWins2", "GroupUpsetWins3",
-                "KnockoutUpsetWins1", "KnockoutUpsetWins2", "KnockoutUpsetWins3"]:
+                "KnockoutUpsetWins1", "KnockoutUpsetWins2", "KnockoutUpsetWins3",
+                "GroupHatTricks", "KnockoutHatTricks",
+                "ShirtRemovals", "GKGoals", "RedCards", "FirstEliminated"]:
         if col in ms.columns:
             ms[col] = 0
 
@@ -515,6 +542,20 @@ def _recalculate_match_stats() -> None:
                 mask = ms["Team"] == winner
                 if mask.any():
                     ms.loc[mask, upset_col] = ms.loc[mask, upset_col].astype(int) + 1
+
+        # Special events — aggregated per match from match_results.csv
+        ht_col = f"{pfx}HatTricks"
+        for team, side in [(home, "home"), (away, "away")]:
+            mask = ms["Team"] == team
+            if not mask.any():
+                continue
+            ms.loc[mask, ht_col] = ms.loc[mask, ht_col].astype(int) + _int(res.get(f"{side}_hat_tricks", 0))
+            ms.loc[mask, "RedCards"]      = ms.loc[mask, "RedCards"].astype(int)      + _int(res.get(f"{side}_red_cards", 0))
+            ms.loc[mask, "ShirtRemovals"] = ms.loc[mask, "ShirtRemovals"].astype(int) + _int(res.get(f"{side}_shirt_off", 0))
+            ms.loc[mask, "GKGoals"]       = ms.loc[mask, "GKGoals"].astype(int)       + _int(res.get(f"{side}_gk_goals", 0))
+            if _int(res.get(f"{side}_first_eliminated", 0)):
+                ms["FirstEliminated"] = 0          # clear any previous flag
+                ms.loc[mask, "FirstEliminated"] = 1
 
     ms.to_csv(_ROOT / "data" / "match_stats.csv", index=False)
 
