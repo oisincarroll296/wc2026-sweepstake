@@ -118,7 +118,7 @@ Win, penalty win, and comeback win bonuses stack. Hat tricks manually entered, g
 |-------|--------|
 | Shirt removal celebration | +25 |
 | Goalkeeper scores | +75 |
-| Red card | -15 |
+| Red card | -5 |
 | First team eliminated | +35 |
 
 Special events count toward Pre-Tournament Captain bonus but NOT Knockout Captain.
