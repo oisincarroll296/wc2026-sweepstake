@@ -568,6 +568,37 @@ with col_extras:
             unsafe_allow_html=True,
         )
 
+# ── Mulligan History ───────────────────────────────────────────────────────
+_mulligan_path = Path(__file__).resolve().parent.parent.parent / "data" / "mulligan_results.csv"
+if _mulligan_path.exists():
+    _mul_df = pd.read_csv(_mulligan_path, dtype=str).fillna("")
+    _player_mulligans = _mul_df[_mul_df["Player"] == player]
+    if not _player_mulligans.empty:
+        st.divider()
+        st.subheader("🎲 Mulligan Draw History")
+        for _, _mr in _player_mulligans.iterrows():
+            _prev = [t.strip() for t in str(_mr.get("PreviousTeams", "")).split("|") if t.strip()]
+            _new  = [t.strip() for t in str(_mr.get("NewTeams", "")).split("|") if t.strip()]
+            _removed = [t for t in _prev if t not in _new]
+            _added   = [t for t in _new  if t not in _prev]
+            st.markdown(
+                '<div class="card" style="padding:0.6rem 0.75rem">'
+                '<div style="color:#9CA3AF;font-size:0.72rem;margin-bottom:0.4rem">ORIGINAL TEAMS REPLACED</div>'
+                + "".join(
+                    f'<span style="background:#7f1d1d;color:#fca5a5;padding:0.15rem 0.5rem;'
+                    f'border-radius:4px;font-size:0.82rem;margin:0.15rem;display:inline-block">{t}</span>'
+                    for t in _removed
+                )
+                + '<div style="color:#9CA3AF;font-size:0.72rem;margin:0.4rem 0 0.2rem">NEW TEAMS RECEIVED</div>'
+                + "".join(
+                    f'<span style="background:#14532d;color:#86efac;padding:0.15rem 0.5rem;'
+                    f'border-radius:4px;font-size:0.82rem;margin:0.15rem;display:inline-block">{t}</span>'
+                    for t in _added
+                )
+                + "</div>",
+                unsafe_allow_html=True,
+            )
+
 # ── Head-to-Head Comparison ────────────────────────────────────────────────
 st.divider()
 st.subheader("⚔️ Head-to-Head Comparison")

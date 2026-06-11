@@ -18,6 +18,7 @@ from src.competition import (
     log_action, create_event, update_event_status,
     mark_paid, get_paid_players, get_player_status, PRICES,
     prize_leaderboard, overall_leaderboard,
+    save_purchases_to_players, PLAYER_STATUS_PATH,
 )
 from src.scoring_engine import load_match_stats, calculate_team_points, get_effective_teams
 from src.team_database import load_teams
@@ -31,7 +32,7 @@ EXPORTS_DIR = _ROOT / "exports"
 
 ALLOCATION_PATH           = DATA_DIR / "allocation.csv"
 PAYMENT_LEDGER_PATH       = DATA_DIR / "payment_ledger.csv"
-MULLIGAN_RESULTS_PATH     = EXPORTS_DIR / "mulligan_results.csv"
+MULLIGAN_RESULTS_PATH     = DATA_DIR / "mulligan_results.csv"
 NINTH_RESULTS_PATH        = EXPORTS_DIR / "ninth_team_results.csv"
 RESURRECTION_RESULTS_PATH = EXPORTS_DIR / "resurrection_results.csv"
 RANDOM_SEEDS_PATH         = EXPORTS_DIR / "random_seeds.csv"
@@ -797,7 +798,6 @@ def run_event(event_type: str, seed: Optional[int] = None) -> dict:
         result = run_mulligan_draw(allocation, participants, purchases, events, audit_log, seed)
         if "updated_allocation" in result:
             save_allocation(result["updated_allocation"])
-        result["updated_purchases"].to_csv(PURCHASES_PATH, index=False)
         result["updated_events"].to_csv(EVENTS_PATH, index=False)
         result["updated_audit_log"].to_csv(AUDIT_LOG_PATH, index=False)
         _export_mulligan_results(result["results"])
@@ -811,7 +811,9 @@ def run_event(event_type: str, seed: Optional[int] = None) -> dict:
 
     elif event_type == "NINTH_TEAM_DRAW":
         result = run_ninth_team_draw(allocation.assignments, match_stats, purchases, events, audit_log, seed)
-        result["updated_purchases"].to_csv(PURCHASES_PATH, index=False)
+        _pl = load_player_status()
+        _pl = save_purchases_to_players(result["updated_purchases"], _pl)
+        _pl.to_csv(PLAYER_STATUS_PATH, index=False)
         result["updated_events"].to_csv(EVENTS_PATH, index=False)
         result["updated_audit_log"].to_csv(AUDIT_LOG_PATH, index=False)
         _export_ninth_results(result["results"], seed)
@@ -819,7 +821,9 @@ def run_event(event_type: str, seed: Optional[int] = None) -> dict:
 
     elif event_type == "RESURRECTION_DRAW":
         result = run_resurrection_draw(allocation.assignments, match_stats, purchases, events, audit_log, seed)
-        result["updated_purchases"].to_csv(PURCHASES_PATH, index=False)
+        _pl = load_player_status()
+        _pl = save_purchases_to_players(result["updated_purchases"], _pl)
+        _pl.to_csv(PLAYER_STATUS_PATH, index=False)
         result["updated_events"].to_csv(EVENTS_PATH, index=False)
         result["updated_audit_log"].to_csv(AUDIT_LOG_PATH, index=False)
         _export_resurrection_results(result["results"], seed)
