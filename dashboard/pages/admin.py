@@ -91,7 +91,6 @@ with tabs[0]:
                 # Push all files that draw events can modify
                 for _f, _r in [
                     ("allocation.csv",  "data/allocation.csv"),
-                    ("purchases.csv",   "data/purchases.csv"),
                     ("events.csv",      "data/events.csv"),
                     ("audit_log.csv",   "data/audit_log.csv"),
                     ("match_stats.csv", "data/match_stats.csv"),
@@ -176,20 +175,19 @@ with tabs[0]:
                     )
                     _push(DATA / "allocation.csv", "data/allocation.csv", "Clear allocation (draw deleted)")
                 elif _del_type == "NINTH_TEAM_DRAW":
-                    if not _purch.empty and "PurchaseType" in _purch.columns:
-                        mask = _purch["PurchaseType"] == "NinthTeam"
-                        _purch.loc[mask, "Selection"] = ""
-                        _purch.to_csv(DATA / "purchases.csv", index=False)
-                        _push(DATA / "purchases.csv", "data/purchases.csv", "Reset NinthTeam selections")
+                    from src.competition import load_player_status as _lps_undo
+                    _pl_undo = _lps_undo()
+                    if not _pl_undo.empty and "NinthTeamSelection" in _pl_undo.columns:
+                        _pl_undo["NinthTeamSelection"] = ""
+                        _pl_undo.to_csv(DATA / "players.csv", index=False)
+                        _push(DATA / "players.csv", "data/players.csv", "Reset NinthTeam selections")
                 elif _del_type == "RESURRECTION_DRAW":
-                    if not _purch.empty and "PurchaseType" in _purch.columns:
-                        mask = (
-                            (_purch["PurchaseType"] == "Resurrection") &
-                            (_purch["Selection"].str.contains("->", na=False))
-                        )
-                        _purch.loc[mask, "Selection"] = ""
-                        _purch.to_csv(DATA / "purchases.csv", index=False)
-                        _push(DATA / "purchases.csv", "data/purchases.csv", "Reset Resurrection selections")
+                    from src.competition import load_player_status as _lps_undo
+                    _pl_undo = _lps_undo()
+                    if not _pl_undo.empty and "ResurrectionSelection" in _pl_undo.columns:
+                        _pl_undo["ResurrectionSelection"] = ""
+                        _pl_undo.to_csv(DATA / "players.csv", index=False)
+                        _push(DATA / "players.csv", "data/players.csv", "Reset Resurrection selections")
 
                 # 2. Remove the event row
                 _ev_df_new = _ev_df[_ev_df["EventID"].astype(str) != _del_eid].copy()

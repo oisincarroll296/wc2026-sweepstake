@@ -12,7 +12,6 @@ from src.team_database import load_teams
 # ---------------------------------------------------------------------------
 _ROOT = Path(__file__).parent.parent
 MATCH_STATS_PATH  = _ROOT / "data" / "match_stats.csv"
-PURCHASES_PATH    = _ROOT / "data" / "purchases.csv"
 PLAYER_PICKS_PATH = _ROOT / "data" / "players.csv"
 PLAYER_SUMMARY_PATH = _ROOT / "exports" / "player_summary.csv"
 
@@ -81,10 +80,8 @@ def load_match_stats(path: Optional[Path | str] = None) -> pd.DataFrame:
 
 
 def load_purchases(path: Optional[Path | str] = None) -> pd.DataFrame:
-    p = Path(path) if path else PURCHASES_PATH
-    if not p.exists():
-        return pd.DataFrame(columns=["Player", "PurchaseType", "Selection", "Timestamp"])
-    return pd.read_csv(p, dtype=str).fillna("")
+    from src.competition import load_purchases as _lp
+    return _lp()
 
 
 def load_predictions(path: Optional[Path | str] = None) -> pd.DataFrame:

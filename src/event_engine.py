@@ -38,7 +38,6 @@ RESURRECTION_RESULTS_PATH = EXPORTS_DIR / "resurrection_results.csv"
 RANDOM_SEEDS_PATH         = EXPORTS_DIR / "random_seeds.csv"
 TEAM_OWNERSHIP_PATH       = EXPORTS_DIR / "team_ownership.csv"
 
-PURCHASES_PATH = DATA_DIR / "purchases.csv"
 EVENTS_PATH    = DATA_DIR / "events.csv"
 AUDIT_LOG_PATH = DATA_DIR / "audit_log.csv"
 STATUS_PATH    = DATA_DIR / "players.csv"

@@ -23,7 +23,6 @@ DATA_DIR  = _ROOT / "data"
 EXPORTS_DIR = _ROOT / "exports"
 
 PLAYER_STATUS_PATH = DATA_DIR / "players.csv"
-PURCHASES_PATH     = DATA_DIR / "purchases.csv"
 EVENTS_PATH        = DATA_DIR / "events.csv"
 AUDIT_LOG_PATH     = DATA_DIR / "audit_log.csv"
 
