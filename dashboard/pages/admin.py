@@ -730,14 +730,14 @@ with tabs[4]:
                     with se1:
                         st.caption(f"{home_team}")
                         h_ht   = st.number_input("Hat Tricks 🎩",     0, 5,  _pi("home_hat_tricks"),      key="h_ht",  help="+10 pts each")
-                        h_rc   = st.number_input("Red Cards 🟥",      0, 10, _pi("home_red_cards"),       key="h_rc",  help="−15 pts each")
+                        h_rc   = st.number_input("Red Cards 🟥",      0, 10, _pi("home_red_cards"),       key="h_rc",  help="−5 pts each")
                         h_so   = st.number_input("Shirt Off 👕",      0, 5,  _pi("home_shirt_off"),       key="h_so",  help="+25 pts each")
                         h_gk   = st.number_input("GK Goal 🧤",        0, 3,  _pi("home_gk_goals"),        key="h_gk",  help="+75 pts each")
                         h_fe   = st.checkbox("First Eliminated ☠️",          bool(_pi("home_first_eliminated")), key="h_fe", help="+35 pts to owners")
                     with se2:
                         st.caption(f"{away_team}")
                         a_ht   = st.number_input("Hat Tricks 🎩",     0, 5,  _pi("away_hat_tricks"),      key="a_ht",  help="+10 pts each")
-                        a_rc   = st.number_input("Red Cards 🟥",      0, 10, _pi("away_red_cards"),       key="a_rc",  help="−15 pts each")
+                        a_rc   = st.number_input("Red Cards 🟥",      0, 10, _pi("away_red_cards"),       key="a_rc",  help="−5 pts each")
                         a_so   = st.number_input("Shirt Off 👕",      0, 5,  _pi("away_shirt_off"),       key="a_so",  help="+25 pts each")
                         a_gk   = st.number_input("GK Goal 🧤",        0, 3,  _pi("away_gk_goals"),        key="a_gk",  help="+75 pts each")
                         a_fe   = st.checkbox("First Eliminated ☠️",          bool(_pi("away_first_eliminated")), key="a_fe", help="+35 pts to owners")
@@ -903,7 +903,7 @@ with tabs[5]:
         _gk = st.number_input("Count", 0, 10, _sei("GKGoals"), key="se_gk",
                                help="Goal scored by a goalkeeper")
 
-        st.markdown("**Red Cards** (−15 per card)")
+        st.markdown("**Red Cards** (−5 per card)")
         _red = st.number_input("Count", 0, 20, _sei("RedCards"), key="se_red",
                                help="Total red cards received by this team across the tournament")
 
