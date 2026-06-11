@@ -13,6 +13,7 @@ from dashboard.data import (
     get_prize_pool, get_overall_leaderboard, get_top_team,
     get_paid_count, get_pack_count, get_audit_log, get_events,
     get_assignments, get_participants, get_deadlines, countdown, DEADLINE_LABELS,
+    get_fixtures,
 )
 from dashboard.components.ui import page_header, empty_state
 
@@ -294,13 +295,58 @@ with col_right:
                 unsafe_allow_html=True,
             )
         else:
-            st.markdown(
-                '<div class="card"><span style="color:#9CA3AF">No upcoming events scheduled.</span></div>',
-                unsafe_allow_html=True,
-            )
+            _render_next_fixtures()
     else:
+        _render_next_fixtures()
+
+
+def _render_next_fixtures() -> None:
+    from datetime import date as _date, timedelta as _td2
+    _fix = get_fixtures()
+    if _fix.empty:
+        st.markdown('<div class="card"><span style="color:#9CA3AF">No upcoming fixtures.</span></div>', unsafe_allow_html=True)
+        return
+    _today = _date.today()
+    _tomorrow = _today + _td2(days=1)
+    # Try tomorrow first, then next available date
+    for _target in [_tomorrow, None]:
+        if _target:
+            _day_fix = _fix[_fix["match_date"] == _target.strftime("%d/%m/%Y")]
+        else:
+            # Find the next fixture date after today
+            _future = _fix[pd.to_datetime(_fix["match_date"], format="%d/%m/%Y", errors="coerce") > pd.Timestamp(_today)]
+            if _future.empty:
+                st.markdown('<div class="card"><span style="color:#9CA3AF">No upcoming fixtures.</span></div>', unsafe_allow_html=True)
+                return
+            _next_date = pd.to_datetime(_future["match_date"], format="%d/%m/%Y", errors="coerce").min()
+            _day_fix = _fix[pd.to_datetime(_fix["match_date"], format="%d/%m/%Y", errors="coerce") == _next_date]
+        if not _day_fix.empty:
+            break
+
+    _dt = pd.to_datetime(_day_fix.iloc[0]["match_date"], format="%d/%m/%Y", errors="coerce")
+    _day_label = "Tomorrow" if _dt.date() == _tomorrow else _dt.strftime("%A %-d %b") if hasattr(_dt, 'date') else str(_dt.date())
+    try:
+        _day_label = ("Tomorrow" if _dt.date() == _tomorrow else _dt.strftime("%A") + " " + str(_dt.day) + " " + _dt.strftime("%b"))
+    except Exception:
+        pass
+
+    st.markdown(
+        f'<p style="color:#D4A017;font-weight:700;font-size:0.85rem;margin:0 0 0.4rem">'
+        f'{_day_label} · {len(_day_fix)} match{"es" if len(_day_fix) != 1 else ""}</p>',
+        unsafe_allow_html=True,
+    )
+    for _, _m in _day_fix.iterrows():
+        _ko = str(_m.get("kickoff_time", "")).strip()
+        _grp = str(_m.get("group", "")).strip()
+        _venue = str(_m.get("venue", "")).strip().replace(" Stadium", "").replace("Estadio ", "")
+        _lbl = f"Group {_grp}" if _grp else "Knockout"
+        _time_str = f"{_ko} GMT · " if _ko else ""
         st.markdown(
-            '<div class="card"><span style="color:#9CA3AF">Draw not yet run.</span></div>',
+            f'<div class="card" style="padding:0.4rem 0.7rem;margin:0.2rem 0">'
+            f'<span style="color:#F1F5F9;font-weight:600">'
+            f'{_m["home_team"]} <span style="color:#6B7280">vs</span> {_m["away_team"]}</span>'
+            f'<span style="color:#6B7280;font-size:0.72rem;float:right">{_time_str}{_lbl}</span>'
+            f'</div>',
             unsafe_allow_html=True,
         )
 
