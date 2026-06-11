@@ -49,8 +49,8 @@ def push_repo(path: Path, msg: str) -> bool:
     run(["git", "add", "data/"], path)
     run(["git", "commit", "-m", msg], path)
     print("Pulling...")
-    if not run(["git", "pull", "--rebase"], path):
-        print("ERROR: pull/rebase failed — resolve conflicts manually.")
+    if not run(["git", "pull", "--no-rebase", "-X", "ours"], path):
+        print("ERROR: pull failed — resolve conflicts manually.")
         return False
     print("Pushing...")
     if not run(["git", "push"], path):
@@ -61,7 +61,7 @@ def push_repo(path: Path, msg: str) -> bool:
 
 
 # ── Step 1: sync match data files WC → WCW ─────────────────────────────────
-print("Syncing match data: World Cup → World Cup Work")
+print("Syncing match data: World Cup -> World Cup Work")
 print("-" * 50)
 synced = []
 for rel in SYNC_FILES:
