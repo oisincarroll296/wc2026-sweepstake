@@ -1,8 +1,8 @@
 Player,Status,PaidTimestamp,Budget,PreTournamentCaptain,KnockoutCaptain,WorldCupWinner,RunnerUp,BronzeMedal,GoldenBoot,DarkHorse,FirstKnockedOut
-Aod,UNPAID,,0,,,,,,,,
+Aod,PAID,2026-06-08T19:07:38+00:00,5,,,,,,,,
 Campo,UNPAID,,0,,,,,,,,
 Guilly,PAID,2026-06-08T19:07:38+00:00,13,,,,,,,,
-Harry,UNPAID,,0,,,,,,,,
+Harry,PAID,2026-06-08T19:07:38+00:00,8,,,,,,,,
 Ian,UNPAID,,0,,,,,,,,
 Jack C,UNPAID,,0,,,,,,,,
 Lobber,UNPAID,,0,,,,,,,,
@@ -10,6 +10,6 @@ Mcgree,PAID,2026-06-08T19:07:38+00:00,5,,,,,,,,
 Moorsey,UNPAID,,0,,,,,,,,
 Mush,PAID,2026-06-08T19:07:38+00:00,13,,,,,,,,
 Oisin C,PAID,2026-06-08T19:07:38+00:00,13,Germany,,France,Spain,Brazil,Yamal,Algeria,Korea Republic
-Oisin E,UNPAID,,0,,,,,,,,
+Oisin E,PAID,2026-06-08T19:07:38+00:00,13,,,,,,,,
 Ronan,UNPAID,,0,,,,,,,,
 Wheelo,UNPAID,,0,,,,,,,,
