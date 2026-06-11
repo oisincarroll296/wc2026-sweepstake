@@ -91,10 +91,14 @@ PTYPES = [
 ]
 COSTS = {pt: cost for pt, _, cost, _ in PTYPES}
 
+_PFLAG_COLS = ["BuyIn", "PredictionPack", "Mulligan", "CompleteRedraw",
+               "NinthTeam", "Resurrection", "Insurance"]
 processed: dict[str, set] = {}
-if not purchases.empty:
-    for _, r in purchases.iterrows():
-        processed.setdefault(r["Player"], set()).add(r["PurchaseType"])
+if not statuses.empty:
+    for _, r in statuses.iterrows():
+        p = str(r.get("Player", ""))
+        if p:
+            processed[p] = {c for c in _PFLAG_COLS if str(r.get(c, "0")).strip() in ("1", "True", "true")}
 
 # ── Budget notice ──────────────────────────────────────────────────────────────
 st.markdown(
@@ -232,10 +236,13 @@ with tab_shop:
         _gs_done = any(v not in ("", "GroupStage") for v in _team_rounds.values())
 
         def _save_and_push_purchases(df: pd.DataFrame, msg: str) -> None:
-            df.to_csv(_DATA / "purchases.csv", index=False)
+            from src.competition import save_purchases_to_players, load_player_status
+            _pl = pd.read_csv(_DATA / "players.csv", dtype=str).fillna("") if (_DATA / "players.csv").exists() else load_player_status()
+            _pl = save_purchases_to_players(df, _pl)
+            _pl.to_csv(_DATA / "players.csv", index=False)
             from dashboard.github_sync import push_file as _pf
             try:
-                _pf(_DATA / "purchases.csv", "data/purchases.csv", msg)
+                _pf(_DATA / "players.csv", "data/players.csv", msg)
             except Exception as _pe:
                 st.warning(f"⚠️ GitHub sync: {_pe}")
             st.cache_data.clear()

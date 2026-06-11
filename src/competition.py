@@ -108,11 +108,63 @@ def load_player_status(path: Optional[Path | str] = None) -> pd.DataFrame:
     return df
 
 
+_PURCHASE_FLAG_COLS = [
+    "BuyIn", "PredictionPack", "Mulligan", "CompleteRedraw",
+    "NinthTeam", "Resurrection", "Insurance",
+]
+_SELECTION_COLS = {"NinthTeam": "NinthTeamSelection", "Resurrection": "ResurrectionSelection"}
+
+
 def load_purchases(path: Optional[Path | str] = None) -> pd.DataFrame:
-    p = Path(path) if path else PURCHASES_PATH
-    if not p.exists():
-        return pd.DataFrame(columns=["Player", "PurchaseType", "Selection", "Reference", "Timestamp"])
-    return pd.read_csv(p, dtype=str).fillna("")
+    """Derive the purchases DataFrame from players.csv flag columns.
+
+    The path argument is accepted for backward compatibility but ignored.
+    Scoring engine and event engine receive the same DataFrame shape as before.
+    """
+    players = load_player_status()
+    _COLS = ["Player", "PurchaseType", "Selection", "Reference", "Timestamp"]
+    if players.empty:
+        return pd.DataFrame(columns=_COLS)
+    rows = []
+    for _, row in players.iterrows():
+        p = str(row.get("Player", ""))
+        if not p:
+            continue
+        for col in _PURCHASE_FLAG_COLS:
+            if str(row.get(col, "0")).strip() in ("1", "True", "true"):
+                sel = str(row.get(_SELECTION_COLS[col], "") or "") if col in _SELECTION_COLS else ""
+                rows.append({"Player": p, "PurchaseType": col, "Selection": sel,
+                              "Reference": "", "Timestamp": ""})
+    return pd.DataFrame(rows, columns=_COLS) if rows else pd.DataFrame(columns=_COLS)
+
+
+def save_purchases_to_players(purchases: pd.DataFrame, players: pd.DataFrame) -> pd.DataFrame:
+    """Sync a purchases-format DataFrame back into players.csv flag columns."""
+    players = players.copy()
+    for col in _PURCHASE_FLAG_COLS:
+        if col not in players.columns:
+            players[col] = 0
+    for sel_col in _SELECTION_COLS.values():
+        if sel_col not in players.columns:
+            players[sel_col] = ""
+    # Reset
+    for col in _PURCHASE_FLAG_COLS:
+        players[col] = 0
+    for sel_col in _SELECTION_COLS.values():
+        players[sel_col] = ""
+    # Apply
+    if not purchases.empty:
+        for _, row in purchases.iterrows():
+            p_name = str(row.get("Player", ""))
+            ptype  = str(row.get("PurchaseType", ""))
+            sel    = str(row.get("Selection", "") or "")
+            mask   = players["Player"] == p_name
+            if not mask.any() or ptype not in _PURCHASE_FLAG_COLS:
+                continue
+            players.loc[mask, ptype] = 1
+            if ptype in _SELECTION_COLS:
+                players.loc[mask, _SELECTION_COLS[ptype]] = sel
+    return players
 
 
 def load_events(path: Optional[Path | str] = None) -> pd.DataFrame:
