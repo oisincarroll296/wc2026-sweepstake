@@ -23,8 +23,12 @@ from src.competition    import (
     load_player_status, load_purchases, load_events, load_audit_log,
     prize_leaderboard, overall_leaderboard,
     get_team_ownership, get_predictions_centre, PRICES,
-    _PURCHASE_FLAG_COLS,
 )
+
+_PURCHASE_FLAG_COLS = [
+    "BuyIn", "PredictionPack", "Mulligan", "CompleteRedraw",
+    "NinthTeam", "Resurrection", "Insurance",
+]
 from src.event_engine      import load_allocation
 
 
