@@ -99,7 +99,7 @@ st.markdown(
     f'<div style="color:#F5F5F5;font-weight:700;font-size:1.05rem">{base_total:.0f}</div></div>'
     f'<div style="background:#0D1B2A;border-radius:6px;padding:0.35rem 0.7rem;text-align:center">'
     f'<div style="color:#9CA3AF;font-size:0.68rem">CAPTAIN</div>'
-    f'<div style="color:#6EE7B7;font-weight:700;font-size:1.05rem">+{captain_bonus:.0f}</div></div>'
+    f'<div style="color:#6EE7B7;font-weight:700;font-size:1.05rem">+{captain_bonus:.1f}</div></div>'
     f'<div style="background:#0D1B2A;border-radius:6px;padding:0.35rem 0.7rem;text-align:center">'
     f'<div style="color:#9CA3AF;font-size:0.68rem">INSURANCE</div>'
     f'<div style="color:{"#6EE7B7" if insurance_pts > 0 else ("#D4A017" if has_ins else "#9CA3AF")};font-weight:700;font-size:1.05rem">+{insurance_pts:.0f}</div></div>'
@@ -351,7 +351,7 @@ with col_extras:
             f'<div><div style="color:#9CA3AF;font-size:0.72rem">{cap_type} Captain</div>'
             f'<div style="color:#F5F5F5;font-weight:700;font-size:0.95rem">{team_name}</div>'
             f'<div style="color:#9CA3AF;font-size:0.7rem">{base_pts:.0f} pts × 0.5 — {note}</div></div>'
-            f'<div style="color:{bonus_col};font-weight:700;font-size:1.1rem">+{bonus_pts:.0f}</div>'
+            f'<div style="color:{bonus_col};font-weight:700;font-size:1.1rem">+{bonus_pts:.1f}</div>'
             f'</div></div>',
             unsafe_allow_html=True,
         )
@@ -658,7 +658,7 @@ if h2h_opponent:
         )
 
     _h2h_row("Team Points",    base_total,    h2h_result.get("base_total", 0))
-    _h2h_row("Captain Bonus",  captain_bonus, h2h_cap_info.get("total", 0))
+    _h2h_row("Captain Bonus",  captain_bonus, h2h_cap_info.get("total", 0), fmt=".1f")
     _h2h_row("Special Events", special_bonus, h2h_spec)
     _h2h_row("Insurance",      insurance_pts, h2h_ins)
     _h2h_row("Predictions",    pred_total,    h2h_pred)
