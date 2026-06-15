@@ -13,7 +13,7 @@ from dashboard.data import (
     get_prize_pool, get_overall_leaderboard, get_top_team,
     get_paid_count, get_pack_count, get_audit_log, get_events,
     get_assignments, get_participants, get_deadlines, countdown, DEADLINE_LABELS,
-    get_fixtures,
+    get_fixtures, get_match_results,
 )
 from dashboard.components.ui import page_header, empty_state
 
@@ -147,6 +147,24 @@ paid     = get_paid_count()
 packs    = get_pack_count()
 top_t, top_pts = get_top_team()
 lb       = get_overall_leaderboard()
+_assignments = get_assignments()
+
+# Compute total matches played per player (sum across all owned teams)
+try:
+    _mr = get_match_results()
+    _played_teams: dict[str, int] = {}
+    if not _mr.empty and "home_team" in _mr.columns:
+        for _, _rrow in _mr.iterrows():
+            for _tc in ["home_team", "away_team"]:
+                _t = str(_rrow.get(_tc, "")).strip()
+                if _t:
+                    _played_teams[_t] = _played_teams.get(_t, 0) + 1
+    _player_played: dict[str, int] = {
+        p: sum(_played_teams.get(t, 0) for t in ts)
+        for p, ts in _assignments.items()
+    }
+except Exception:
+    _player_played = {}
 
 r1c1, r1c2 = st.columns(2)
 r2c1, r2c2 = st.columns(2)
@@ -180,14 +198,17 @@ with col_left:
             rank   = int(row.get("Rank", 0))
             pts    = float(row.get("TotalPoints", 0))
             status = row.get("PaymentStatus", "UNPAID")
+            player = row.get("Player", "")
             medal  = {1: "🥇", 2: "🥈", 3: "🥉"}.get(rank, f"#{rank}")
             gap    = f"{pts - leader_pts:+.0f}" if rank > 1 else "—"
+            played = _player_played.get(player, 0)
             rows.append({
-                "":       medal,
-                "Player": row.get("Player", ""),
-                "Points": f"{pts:.0f}",
-                "Gap":    gap,
-                "Status": status,
+                "":        medal,
+                "Player":  player,
+                "Points":  f"{pts:.0f}",
+                "Gap":     gap,
+                "Played":  str(played) if played else "0",
+                "Status":  status,
             })
 
         display = pd.DataFrame(rows)
