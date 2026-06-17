@@ -16,10 +16,10 @@ WC  = Path(r"c:\World Cup")
 WCW = Path(r"c:\World Cup Work")
 
 # Files that are match-data — same for both apps
+# NOTE: score_history.csv is player-specific (different players per app) — never sync it
 SYNC_FILES = [
     "data/match_results.csv",
     "data/match_stats.csv",
-    "data/score_history.csv",
     "data/fixtures.csv",
     "data/tournament_results.json",
     "data/teams.csv",
@@ -77,6 +77,19 @@ for rel in SYNC_FILES:
 if not synced:
     print("Nothing to sync — exiting.")
     sys.exit(0)
+
+# ── Step 1b: regenerate WCW score history for WCW players ──────────────────
+print("\nRecalculating WCW player scores...")
+recalc = subprocess.run(
+    [sys.executable, str(WCW / "recalc_scores.py")],
+    capture_output=True, text=True,
+)
+if recalc.stdout.strip():
+    print(" ", recalc.stdout.strip())
+if recalc.returncode != 0:
+    print(f"  WARNING: recalc_scores.py failed (rc={recalc.returncode})")
+    if recalc.stderr.strip():
+        print(" ", recalc.stderr.strip())
 
 # ── Step 2: commit + push both repos ───────────────────────────────────────
 today = datetime.now().strftime("%Y-%m-%d")
