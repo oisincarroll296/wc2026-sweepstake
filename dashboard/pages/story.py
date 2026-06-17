@@ -194,12 +194,19 @@ def _build_story_context(date_from: date | None = None, date_to: date | None = N
             entry["notable_events"] = match_events
         match_narratives.append(entry)
 
+    # Payment status map
+    pay_status: dict[str, str] = {}
+    if not players_df.empty and "Player" in players_df.columns:
+        for _, row in players_df.iterrows():
+            pay_status[str(row["Player"])] = str(row.get("Status", "UNPAID"))
+
     standings: list[dict] = []
     if not lb.empty:
         for _, row in lb.iterrows():
             p = str(row.get("Player",""))
             standings.append({
                 "rank": int(row.get("Rank",0)), "player": p,
+                "paid": pay_status.get(p, "UNPAID") == "PAID",
                 "total_pts": round(float(row.get("TotalPoints",0)),1),
                 "goals_pts": round(float(row.get("GoalsPoints",0)),1),
                 "upset_pts": round(float(row.get("UpsetPoints",0)),1),
@@ -233,13 +240,19 @@ def _build_story_context(date_from: date | None = None, date_to: date | None = N
     elif date_to:
         period_label = f"Up to {date_to.strftime('%d %b %Y')}"
 
+    # Highlight unpaid players sitting in the top half of the table
+    n_players   = len(standings)
+    top_half    = n_players // 2
+    unpaid_top  = [s for s in standings if not s["paid"] and s["rank"] <= top_half]
+
     return {
         "sweepstake_info": (
             "14 friends, each owning 8 teams (2 per tier across 4 FIFA tiers). "
             "Points: Goal 1pt · Clean sheet 2pt · Win 3pt · "
             "Upset vs 1 tier higher +15pt, 2 tiers +30pt, 3 tiers +50pt · "
             "Hat trick 10pt · Shirt removal 25pt · GK goal 75pt · Red card −5pt. "
-            "Captain earns ×1.5 their points."
+            "Captain earns ×1.5 their points. "
+            "Only PAID players are eligible for prizes."
         ),
         "period": period_label,
         "matches_in_period": n_matches,
@@ -247,6 +260,7 @@ def _build_story_context(date_from: date | None = None, date_to: date | None = N
         "goals_in_period": total_goals,
         "avg_goals_per_game": round(total_goals / n_matches, 2) if n_matches else 0,
         "current_standings": standings,
+        "unpaid_players_in_top_half": unpaid_top,
         "match_results": match_narratives,
         "upsets": upsets,
         "hat_tricks": hat_tricks,
