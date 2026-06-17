@@ -320,62 +320,82 @@ Requirements:
 
 page_header("Story of the Tournament", "AI-generated narrative from live match data")
 
-_api_key = st.secrets.get("GROQ_API_KEY", "")
-_cache   = _load_cache()
+_api_key      = st.secrets.get("GROQ_API_KEY", "")
+_admin_pw     = st.secrets.get("ADMIN_PASSWORD", "wc2026admin")
+_cache        = _load_cache()
+_date_from: date | None = None
+_date_to:   date | None = None
+_topic        = ""
+_generate_clicked = False
 
-# ── Controls ──────────────────────────────────────────────────────────────────
-with st.expander("Story settings", expanded=not bool(_cache)):
+# ── Admin panel (hidden from regular users) ───────────────────────────────────
+_is_admin = st.session_state.get("_story_admin", False)
+
+with st.sidebar:
+    if not _is_admin:
+        with st.expander("Admin", expanded=False):
+            _pw_input = st.text_input("Password", type="password", key="story_pw")
+            if st.button("Unlock", key="story_unlock"):
+                if _pw_input == _admin_pw:
+                    st.session_state["_story_admin"] = True
+                    st.rerun()
+                else:
+                    st.error("Wrong password")
+    else:
+        st.success("Admin unlocked")
+        if st.button("Lock", key="story_lock"):
+            st.session_state["_story_admin"] = False
+            st.rerun()
+
+if _is_admin:
     _today = date.today()
-
-    _period_options = [
-        "Full tournament so far",
-        "Last 3 days",
-        "Last 7 days",
-        "Custom date range",
-    ]
-    _period_choice = st.radio(
-        "Time period", _period_options, horizontal=True, label_visibility="collapsed"
-    )
-
-    _date_from: date | None = None
-    _date_to:   date | None = None
-
-    if _period_choice == "Last 3 days":
-        _date_from = _today - timedelta(days=3)
-    elif _period_choice == "Last 7 days":
-        _date_from = _today - timedelta(days=7)
-    elif _period_choice == "Custom date range":
-        _c1, _c2 = st.columns(2)
-        _date_from = _c1.date_input("From", value=_today - timedelta(days=7), key="story_from")
-        _date_to   = _c2.date_input("To",   value=_today,                     key="story_to")
-
-    _topic = st.text_input(
-        "Focus on a specific angle (optional)",
-        placeholder="e.g. who's benefiting most from upsets · the red card chaos · Germany's goal machine",
-        key="story_topic",
-    )
-
-    _col_btn, _col_meta = st.columns([1, 3])
-    with _col_btn:
-        _btn_disabled = not _api_key
-        _btn_label    = "Regenerate" if _cache else "Generate Story"
-        _generate_clicked = st.button(
-            _btn_label,
-            type="primary",
-            use_container_width=True,
-            disabled=_btn_disabled,
-            help="Add GROQ_API_KEY to Streamlit secrets" if _btn_disabled else "",
+    with st.expander("Story settings", expanded=not bool(_cache)):
+        _period_options = [
+            "Full tournament so far",
+            "Last 3 days",
+            "Last 7 days",
+            "Custom date range",
+        ]
+        _period_choice = st.radio(
+            "Time period", _period_options, horizontal=True, label_visibility="collapsed"
         )
-    with _col_meta:
-        if _cache:
-            st.caption(
-                f"Last generated: {_cache.get('generated_at', '?')}  ·  "
-                f"{_cache.get('matches_covered', '?')} matches played at time of generation  ·  "
-                f"Period: {_cache.get('period', '?')}"
-                + (f"  ·  Topic: _{_cache.get('topic', '')}_" if _cache.get("topic") else "")
+
+        if _period_choice == "Last 3 days":
+            _date_from = _today - timedelta(days=3)
+        elif _period_choice == "Last 7 days":
+            _date_from = _today - timedelta(days=7)
+        elif _period_choice == "Custom date range":
+            _c1, _c2 = st.columns(2)
+            _date_from = _c1.date_input("From", value=_today - timedelta(days=7), key="story_from")
+            _date_to   = _c2.date_input("To",   value=_today,                     key="story_to")
+
+        _topic = st.text_input(
+            "Focus on a specific angle (optional)",
+            placeholder="e.g. who's benefiting most from upsets · the red card chaos · Germany's goal machine",
+            key="story_topic",
+        )
+
+        _col_btn, _col_meta = st.columns([1, 3])
+        with _col_btn:
+            _btn_disabled = not _api_key
+            _btn_label    = "Regenerate" if _cache else "Generate Story"
+            _generate_clicked = st.button(
+                _btn_label,
+                type="primary",
+                use_container_width=True,
+                disabled=_btn_disabled,
+                help="Add GROQ_API_KEY to Streamlit secrets" if _btn_disabled else "",
             )
-        elif not _api_key:
-            st.caption("Add `GROQ_API_KEY` to Streamlit secrets to enable generation.")
+        with _col_meta:
+            if _cache:
+                st.caption(
+                    f"Last generated: {_cache.get('generated_at', '?')}  ·  "
+                    f"{_cache.get('matches_covered', '?')} matches at generation  ·  "
+                    f"Period: {_cache.get('period', '?')}"
+                    + (f"  ·  Topic: _{_cache.get('topic', '')}_" if _cache.get("topic") else "")
+                )
+            elif not _api_key:
+                st.caption("Add `GROQ_API_KEY` to Streamlit secrets.")
 
 # ── Generation ────────────────────────────────────────────────────────────────
 if _generate_clicked:
@@ -395,8 +415,16 @@ if _generate_clicked:
         except Exception as exc:
             st.error(f"Generation failed: {exc}")
 
-# ── Display ───────────────────────────────────────────────────────────────────
+# ── Display (visible to everyone) ─────────────────────────────────────────────
 if _cache and "story" in _cache:
+    if _cache.get("period") or _cache.get("topic"):
+        _meta_parts = []
+        if _cache.get("period") and _cache["period"] != "Full tournament so far":
+            _meta_parts.append(_cache["period"])
+        if _cache.get("topic"):
+            _meta_parts.append(f"Focus: _{_cache['topic']}_")
+        if _meta_parts:
+            st.caption("  ·  ".join(_meta_parts))
     st.markdown(
         f'<div style="background:#1A2535;border:1px solid #D4A01733;border-radius:12px;'
         f'padding:1.75rem 2rem 1.5rem;line-height:1.8;font-size:0.96rem">'
@@ -404,14 +432,13 @@ if _cache and "story" in _cache:
         f'</div>',
         unsafe_allow_html=True,
     )
-elif not _api_key:
-    st.info("Add `GROQ_API_KEY` to your Streamlit secrets to enable story generation.")
 else:
-    st.info("Configure the settings above and hit **Generate Story**.")
+    st.info("No story generated yet — check back soon.")
 
-# ── Raw context expander ──────────────────────────────────────────────────────
-with st.expander("Raw context sent to AI", expanded=False):
-    try:
-        st.json(_build_story_context(date_from=_date_from, date_to=_date_to))
-    except Exception as e:
-        st.warning(f"Could not build context: {e}")
+# ── Raw context (admin only) ──────────────────────────────────────────────────
+if _is_admin:
+    with st.expander("Raw context sent to AI", expanded=False):
+        try:
+            st.json(_build_story_context(date_from=_date_from, date_to=_date_to))
+        except Exception as e:
+            st.warning(f"Could not build context: {e}")
