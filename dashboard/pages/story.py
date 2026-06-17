@@ -2,8 +2,9 @@
 import sys
 import json
 import re
-from datetime import datetime, timezone, date, timedelta
+from datetime import datetime, date, timedelta
 from pathlib import Path
+from urllib.request import urlopen, Request
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
@@ -12,26 +13,27 @@ import pandas as pd
 
 from dashboard.data import (
     get_overall_leaderboard, get_assignments, get_match_stats,
-    get_tier_map, get_captains,
+    get_tier_map, get_captains, get_prize_pool,
 )
 from dashboard.components.ui import page_header
 
-_ROOT          = Path(__file__).parent.parent.parent
-_FIXTURES_PATH = _ROOT / "data" / "fixtures.csv"
-_RESULTS_PATH  = _ROOT / "data" / "match_results.csv"
-_PLAYERS_PATH  = _ROOT / "data" / "players.csv"
-_CACHE_PATH    = _ROOT / "data" / "story_cache.json"
+_ROOT               = Path(__file__).parent.parent.parent
+_FIXTURES_PATH      = _ROOT / "data" / "fixtures.csv"
+_RESULTS_PATH       = _ROOT / "data" / "match_results.csv"
+_PLAYERS_PATH       = _ROOT / "data" / "players.csv"
+_SCORE_HISTORY_PATH = _ROOT / "data" / "score_history.csv"
+_CACHE_PATH         = _ROOT / "data" / "story_cache.json"
 
 _UPSET_BONUS = {1: 15, 2: 30, 3: 50}
 
-# ── Newspaper colour palette ──────────────────────────────────────────────────
-_BG      = "#F7F3EB"   # aged newsprint
-_INK     = "#1A1008"   # near-black ink
-_RED     = "#8B0000"   # headline red
-_BORDER  = "#2A1A0A"
-_MID     = "#5C4033"
-_LIGHT   = "#9E8B7A"
-_SECTION = "#D4A017"   # gold section rule (matches app)
+# ── Palette ───────────────────────────────────────────────────────────────────
+_BG     = "#F5F0E8"   # aged newsprint cream
+_INK    = "#1A1008"
+_RED    = "#8B0000"
+_BORDER = "#1A1008"
+_MID    = "#5C4033"
+_LIGHT  = "#9E8B7A"
+_GOLD   = "#D4A017"
 
 # ── Flag CDN ──────────────────────────────────────────────────────────────────
 _FLAG: dict[str, str] = {
@@ -52,25 +54,48 @@ def _flag_url(team: str, w: int = 40) -> str:
     c = _FLAG.get(team, "")
     return f"https://flagcdn.com/w{w}/{c}.png" if c else ""
 
-# ── Player image library ──────────────────────────────────────────────────────
+def _flag_img(team: str, h: int = 20) -> str:
+    u = _flag_url(team, 40)
+    if not u:
+        return ""
+    return (f'<img src="{u}" style="height:{h}px;border-radius:2px;'
+            f'vertical-align:middle;margin-right:5px" title="{team}">')
+
+# ── Player images (server-side fetched to bypass hotlink restrictions) ────────
 _PLAYER_IMG: dict[str, str] = {
-    "Lionel Messi":   "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/Lionel-Messi-Argentina-2022-FIFA-World-Cup_%28cropped%29.jpg/400px-Lionel-Messi-Argentina-2022-FIFA-World-Cup_%28cropped%29.jpg",
-    "Messi":          "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/Lionel-Messi-Argentina-2022-FIFA-World-Cup_%28cropped%29.jpg/400px-Lionel-Messi-Argentina-2022-FIFA-World-Cup_%28cropped%29.jpg",
+    "Lionel Messi":      "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/Lionel-Messi-Argentina-2022-FIFA-World-Cup_%28cropped%29.jpg/400px-Lionel-Messi-Argentina-2022-FIFA-World-Cup_%28cropped%29.jpg",
+    "Messi":             "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/Lionel-Messi-Argentina-2022-FIFA-World-Cup_%28cropped%29.jpg/400px-Lionel-Messi-Argentina-2022-FIFA-World-Cup_%28cropped%29.jpg",
     "Cristiano Ronaldo": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/Cristiano_Ronaldo_2018.jpg/400px-Cristiano_Ronaldo_2018.jpg",
-    "Ronaldo":        "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/Cristiano_Ronaldo_2018.jpg/400px-Cristiano_Ronaldo_2018.jpg",
-    "Kylian Mbappé":  "https://upload.wikimedia.org/wikipedia/commons/thumb/5/57/2019-07-17_SG_Dynamo_Dresden_vs_Paris_Saint-Germain_by_Sandro_Halank%E2%80%93165_%28cropped%29.jpg/400px-2019-07-17_SG_Dynamo_Dresden_vs_Paris_Saint-Germain_by_Sandro_Halank%E2%80%93165_%28cropped%29.jpg",
-    "Mbappé":         "https://upload.wikimedia.org/wikipedia/commons/thumb/5/57/2019-07-17_SG_Dynamo_Dresden_vs_Paris_Saint-Germain_by_Sandro_Halank%E2%80%93165_%28cropped%29.jpg/400px-2019-07-17_SG_Dynamo_Dresden_vs_Paris_Saint-Germain_by_Sandro_Halank%E2%80%93165_%28cropped%29.jpg",
-    "Erling Haaland": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/Erling_Haaland_2023_%28cropped%29.jpg/400px-Erling_Haaland_2023_%28cropped%29.jpg",
-    "Haaland":        "https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/Erling_Haaland_2023_%28cropped%29.jpg/400px-Erling_Haaland_2023_%28cropped%29.jpg",
-    "Vinicius Junior":"https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/Vinicius_Jr_2023.jpg/400px-Vinicius_Jr_2023.jpg",
-    "Neymar":         "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bc/Neymar_2022.jpg/400px-Neymar_2022.jpg",
+    "Ronaldo":           "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/Cristiano_Ronaldo_2018.jpg/400px-Cristiano_Ronaldo_2018.jpg",
+    "Kylian Mbappe":     "https://upload.wikimedia.org/wikipedia/commons/thumb/5/57/2019-07-17_SG_Dynamo_Dresden_vs_Paris_Saint-Germain_by_Sandro_Halank%E2%80%93165_%28cropped%29.jpg/400px-2019-07-17_SG_Dynamo_Dresden_vs_Paris_Saint-Germain_by_Sandro_Halank%E2%80%93165_%28cropped%29.jpg",
+    "Mbappe":            "https://upload.wikimedia.org/wikipedia/commons/thumb/5/57/2019-07-17_SG_Dynamo_Dresden_vs_Paris_Saint-Germain_by_Sandro_Halank%E2%80%93165_%28cropped%29.jpg/400px-2019-07-17_SG_Dynamo_Dresden_vs_Paris_Saint-Germain_by_Sandro_Halank%E2%80%93165_%28cropped%29.jpg",
+    "Erling Haaland":    "https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/Erling_Haaland_2023_%28cropped%29.jpg/400px-Erling_Haaland_2023_%28cropped%29.jpg",
+    "Haaland":           "https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/Erling_Haaland_2023_%28cropped%29.jpg/400px-Erling_Haaland_2023_%28cropped%29.jpg",
+    "Vinicius Junior":   "https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/Vinicius_Jr_2023.jpg/400px-Vinicius_Jr_2023.jpg",
+    "Vinicius":          "https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/Vinicius_Jr_2023.jpg/400px-Vinicius_Jr_2023.jpg",
+    "Neymar":            "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bc/Neymar_2022.jpg/400px-Neymar_2022.jpg",
+    "Lamine Yamal":      "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/Lamine_Yamal_2024_%28cropped%29.jpg/400px-Lamine_Yamal_2024_%28cropped%29.jpg",
+    "Yamal":             "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/Lamine_Yamal_2024_%28cropped%29.jpg/400px-Lamine_Yamal_2024_%28cropped%29.jpg",
+    "Jude Bellingham":   "https://upload.wikimedia.org/wikipedia/commons/thumb/9/99/Jude_Bellingham_2023.jpg/400px-Jude_Bellingham_2023.jpg",
+    "Bellingham":        "https://upload.wikimedia.org/wikipedia/commons/thumb/9/99/Jude_Bellingham_2023.jpg/400px-Jude_Bellingham_2023.jpg",
 }
 
-def _player_img_url(name: str) -> str:
-    for key, url in _PLAYER_IMG.items():
-        if key.lower() in name.lower() or name.lower() in key.lower():
-            return url
+def _find_player_url(name: str) -> str:
+    nl = name.lower().strip()
+    for k, v in _PLAYER_IMG.items():
+        if k.lower() in nl or nl in k.lower():
+            return v
     return ""
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def _fetch_img(url: str) -> bytes | None:
+    """Fetch image bytes server-side so Wikipedia hotlink protection is bypassed."""
+    try:
+        req = Request(url, headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64)"})
+        with urlopen(req, timeout=10) as r:
+            return r.read()
+    except Exception:
+        return None
 
 
 # ── Cache ─────────────────────────────────────────────────────────────────────
@@ -87,7 +112,30 @@ def _save_cache(data: dict) -> None:
     _CACHE_PATH.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
-# ── Context builder ───────────────────────────────────────────────────────────
+# ── Best day table ─────────────────────────────────────────────────────────────
+
+def _build_best_day_table() -> list[dict]:
+    if not _SCORE_HISTORY_PATH.exists():
+        return []
+    try:
+        hist = pd.read_csv(_SCORE_HISTORY_PATH, dtype=str)
+        if hist.empty or "Date" not in hist.columns:
+            return []
+        hist["Date"]   = pd.to_datetime(hist["Date"], errors="coerce")
+        hist["Points"] = pd.to_numeric(hist["Points"], errors="coerce").fillna(0)
+        hist = hist.sort_values(["Player", "Date"])
+        hist["prev"] = hist.groupby("Player")["Points"].shift(1)
+        hist["gain"] = (hist["Points"] - hist["prev"]).fillna(0)
+        best = hist[hist["gain"] > 0].nlargest(10, "gain")
+        return [
+            {"player": str(r["Player"]), "date": r["Date"].strftime("%d %b"), "gain": round(float(r["gain"]), 1)}
+            for _, r in best.iterrows()
+        ]
+    except Exception:
+        return []
+
+
+# ── Context builder ────────────────────────────────────────────────────────────
 
 def _build_story_context(date_from: date | None = None, date_to: date | None = None) -> dict:
     fixtures = pd.read_csv(_FIXTURES_PATH, dtype=str)
@@ -108,6 +156,12 @@ def _build_story_context(date_from: date | None = None, date_to: date | None = N
     lb          = get_overall_leaderboard()
     captains_df = get_captains()
     players_df  = pd.read_csv(_PLAYERS_PATH, dtype=str).fillna("") if _PLAYERS_PATH.exists() else pd.DataFrame()
+
+    try:
+        prize_info = get_prize_pool()
+        prize_pool = prize_info.get("total", 0)
+    except Exception:
+        prize_pool = 0
 
     ownership: dict[str, list[str]] = {}
     for player, teams in assignments.items():
@@ -149,8 +203,10 @@ def _build_story_context(date_from: date | None = None, date_to: date | None = N
         match_num  = int(m.get("match_number",0))
 
         entry: dict = {
-            "match": match_num, "date": str(m.get("match_date","")),
-            "group": str(m.get("group","")), "home": home, "away": away,
+            "match": match_num,
+            "date": str(m.get("match_date","")),
+            "group": str(m.get("group","")),
+            "home": home, "away": away,
             "score": f"{hg}–{ag}",
             "home_owners": ownership.get(home,[]),
             "away_owners": ownership.get(away,[]),
@@ -170,6 +226,7 @@ def _build_story_context(date_from: date | None = None, date_to: date | None = N
                     "bonus_pts_each_owner": bonus,
                     "winner_owners": ownership.get(winner,[]),
                     "loser_owners":  ownership.get(loser,[]),
+                    "date": str(m.get("match_date","")),
                 })
                 featured_teams.update([winner, loser])
 
@@ -180,29 +237,33 @@ def _build_story_context(date_from: date | None = None, date_to: date | None = N
             so_ = int(m.get(f"{side}_shirt_off",0))
             gkg = int(m.get(f"{side}_gk_goals",0))
             fe  = int(m.get(f"{side}_first_eliminated",0))
+            opp = away if side=="home" else home
             if ht:
-                hat_tricks.append({"team":team,"match":match_num,
-                    "opponent": away if side=="home" else home,
-                    "score":f"{hg}–{ag}","owners":ownership.get(team,[])})
-                match_events.append(f"{team} hat trick (+10 pts)")
+                hat_tricks.append({"team":team,"match":match_num,"opponent":opp,
+                    "score":f"{hg}–{ag}","owners":ownership.get(team,[]),"date":str(m.get("match_date",""))})
+                match_events.append(f"{team} hat trick vs {opp} (+10 pts)")
                 featured_teams.add(team)
             if rc:
                 special_events.append({"type":"red_card","team":team,"count":rc,
-                    "match":match_num,"owners":ownership.get(team,[])})
-                match_events.append(f"{team} {rc} red card{'s' if rc>1 else ''} (−{rc*5} pts)")
+                    "match":match_num,"owners":ownership.get(team,[]),"opponent":opp,
+                    "score":f"{hg}–{ag}","date":str(m.get("match_date",""))})
+                match_events.append(f"{team} {rc} red card(s) vs {opp} (-{rc*5} pts)")
             if so_:
                 special_events.append({"type":"shirt_removal","team":team,
-                    "match":match_num,"owners":ownership.get(team,[])})
-                match_events.append(f"{team} shirt removal (+25 pts)")
+                    "match":match_num,"owners":ownership.get(team,[]),"opponent":opp,
+                    "score":f"{hg}–{ag}","date":str(m.get("match_date",""))})
+                match_events.append(f"{team} shirt removal vs {opp} (+25 pts)")
             if gkg:
                 special_events.append({"type":"gk_goal","team":team,
-                    "match":match_num,"owners":ownership.get(team,[])})
-                match_events.append(f"{team} GOALKEEPER GOAL (+75 pts!)")
+                    "match":match_num,"owners":ownership.get(team,[]),"opponent":opp,
+                    "score":f"{hg}–{ag}","date":str(m.get("match_date",""))})
+                match_events.append(f"{team} GK GOAL vs {opp} (+75 pts!)")
                 featured_teams.add(team)
             if fe:
                 special_events.append({"type":"first_eliminated","team":team,
-                    "match":match_num,"owners":ownership.get(team,[])})
-                match_events.append(f"{team} FIRST TEAM ELIMINATED (+35 pts to owners)")
+                    "match":match_num,"owners":ownership.get(team,[]),"opponent":opp,
+                    "score":f"{hg}–{ag}","date":str(m.get("match_date",""))})
+                match_events.append(f"{team} FIRST ELIMINATED (+35 pts for owners)")
         if int(m.get("comeback_home",0)):
             match_events.append(f"{home} comeback win (+3 bonus pts)")
         if int(m.get("comeback_away",0)):
@@ -221,27 +282,31 @@ def _build_story_context(date_from: date | None = None, date_to: date | None = N
         for _, row in lb.iterrows():
             p = str(row.get("Player",""))
             standings.append({
-                "rank": int(row.get("Rank",0)), "player": p,
-                "paid": pay_status.get(p,"UNPAID") == "PAID",
-                "total_pts": round(float(row.get("TotalPoints",0)),1),
-                "goals_pts": round(float(row.get("GoalsPoints",0)),1),
-                "upset_pts": round(float(row.get("UpsetPoints",0)),1),
-                "captain_bonus": round(float(row.get("CaptainBonus",0)),1),
-                "captain": pre_captains.get(p,"not set"),
-                "teams": assignments.get(p,[]),
-                "predictions": predictions.get(p,{}),
+                "rank":       int(row.get("Rank",0)),
+                "player":     p,
+                "paid":       pay_status.get(p,"UNPAID") == "PAID",
+                "total_pts":  round(float(row.get("TotalPoints",0)),1),
+                "captain":    pre_captains.get(p,"not set"),
+                "teams":      assignments.get(p,[]),
+                "predictions":predictions.get(p,{}),
             })
 
     top_teams: list[dict] = []
-    if not stats.empty and "GroupGoals" in stats.columns:
-        ts = (stats.assign(_g=pd.to_numeric(stats["GroupGoals"],errors="coerce").fillna(0))
-              .query("_g > 0").sort_values("_g",ascending=False).head(8))
-        for _, row in ts.iterrows():
-            team = str(row["Team"])
-            top_teams.append({"team":team,"group_goals":int(float(row["GroupGoals"])),
-                              "tier":tier_map.get(team,0),"owners":ownership.get(team,[])})
-        if top_teams:
-            featured_teams.add(top_teams[0]["team"])
+    if not stats.empty:
+        goal_col = next((c for c in ["GroupGoals","Goals","TotalGoals"] if c in stats.columns), None)
+        if goal_col:
+            ts = (stats.assign(_g=pd.to_numeric(stats[goal_col],errors="coerce").fillna(0))
+                  .query("_g > 0").sort_values("_g",ascending=False).head(10))
+            for _, row in ts.iterrows():
+                team = str(row["Team"])
+                top_teams.append({
+                    "team":   team,
+                    "goals":  int(float(row.get(goal_col,0))),
+                    "tier":   tier_map.get(team,0),
+                    "owners": ownership.get(team,[]),
+                })
+            if top_teams:
+                featured_teams.add(top_teams[0]["team"])
 
     total_goals = int(played["home_goals"].sum() + played["away_goals"].sum())
     n_matches   = len(played)
@@ -249,40 +314,41 @@ def _build_story_context(date_from: date | None = None, date_to: date | None = N
 
     period_label = "Full tournament so far"
     if date_from and date_to:
-        period_label = f"{date_from.strftime('%d %b')} – {date_to.strftime('%d %b %Y')}"
+        period_label = f"{date_from.strftime('%d %b')} - {date_to.strftime('%d %b %Y')}"
     elif date_from:
         period_label = f"From {date_from.strftime('%d %b %Y')}"
     elif date_to:
         period_label = f"Up to {date_to.strftime('%d %b %Y')}"
 
-    n_players = len(standings)
+    n_players  = len(standings)
     unpaid_top = [s for s in standings if not s["paid"] and s["rank"] <= max(1, n_players//2)]
 
     return {
         "sweepstake_info": (
             "14 friends, each owning 8 teams (2 per tier across 4 FIFA tiers). "
-            "Points: Goal 1pt · Clean sheet 2pt · Win 3pt · "
-            "Upset vs 1 tier higher +15pt, 2 tiers +30pt, 3 tiers +50pt · "
-            "Hat trick 10pt · Shirt removal 25pt · GK goal 75pt · Red card −5pt. "
-            "Captain earns ×1.5 their points. Only PAID players are eligible for prizes."
+            "Points: Goal 1pt, Clean sheet 2pt, Win 3pt, "
+            "Upset vs 1 tier higher +15pt / 2 tiers +30pt / 3 tiers +50pt, "
+            "Hat trick 10pt, Shirt removal 25pt, GK goal 75pt, Red card -5pt. "
+            "Captain earns x1.5 their points. Only PAID players win prizes."
         ),
-        "period": period_label,
-        "matches_in_period": n_matches,
+        "period":               period_label,
+        "matches_in_period":    n_matches,
         "total_matches_played": n_all,
-        "goals_in_period": total_goals,
-        "avg_goals_per_game": round(total_goals/n_matches,2) if n_matches else 0,
-        "current_standings": standings,
+        "goals_in_period":      total_goals,
+        "avg_goals_per_game":   round(total_goals/n_matches,2) if n_matches else 0,
+        "prize_pool":           prize_pool,
+        "current_standings":    standings,
         "unpaid_players_in_top_half": unpaid_top,
-        "match_results": match_narratives,
-        "upsets": upsets,
-        "hat_tricks": hat_tricks,
-        "special_events": special_events,
-        "top_scoring_teams": top_teams,
-        "featured_teams": sorted(featured_teams),
+        "match_results":        match_narratives,
+        "upsets":               upsets,
+        "hat_tricks":           hat_tricks,
+        "special_events":       special_events,
+        "top_scoring_teams":    top_teams,
+        "featured_teams":       sorted(featured_teams),
     }
 
 
-# ── LLM ──────────────────────────────────────────────────────────────────────
+# ── LLM ───────────────────────────────────────────────────────────────────────
 
 def _generate_story(context: dict, api_key: str, topic: str = "", suggestions: str = "") -> dict:
     from groq import Groq
@@ -296,12 +362,13 @@ def _generate_story(context: dict, api_key: str, topic: str = "", suggestions: s
     extras_block = ("\n\n" + "\n\n".join(extras)) if extras else ""
 
     system = (
-        "You are a sharp tabloid football journalist writing the front page of a private World Cup 2026 sweepstake newspaper. "
-        "Your audience is 14 friends. You write like a passionate sports tabloid — vivid, dramatic, specific, occasionally cheeky. "
-        "You always connect on-pitch events to their sweepstake consequences (who owns the team, how many points they earned)."
+        "You are a sharp tabloid football journalist writing the front page of a private "
+        "World Cup 2026 sweepstake newspaper. Your audience is 14 friends. "
+        "You write like a passionate sports tabloid — vivid, dramatic, specific, occasionally cheeky. "
+        "Always connect on-pitch events to their sweepstake consequences (who owns the team, points earned)."
     )
 
-    user = f"""Write a full newspaper edition covering: {context['period']}.
+    user = f"""Write a complete newspaper edition covering: {context['period']}.
 {extras_block}
 
 DATA:
@@ -309,45 +376,45 @@ DATA:
 {json.dumps(context, indent=2)}
 </data>
 
-OUTPUT: a single valid JSON object with exactly these keys:
+OUTPUT — respond ONLY with a single valid JSON object, no markdown fences:
 
 {{
-  "headline": "ALL-CAPS PUNCHY FRONT-PAGE HEADLINE (max 10 words)",
-  "subheadline": "One dramatic sentence expanding on the headline",
-  "lead_paragraph": "The single most dramatic moment, vividly told. 3-4 sentences. Name players and scorelines.",
+  "headline": "ALL-CAPS FRONT-PAGE HEADLINE max 10 words punchy and dramatic",
+  "subheadline": "One dramatic sentence expanding the headline",
+  "lead_paragraph": "The single most dramatic moment. 4-5 sentences. Name scorelines, teams, sweepstake owners.",
   "sections": [
-    {{"title": "SECTION TITLE IN CAPS", "content": "3-4 sentences. Each section covers a distinct theme with no repeated facts from other sections."}},
+    {{"title": "SECTION TITLE IN CAPS", "content": "4-5 sentences covering one distinct theme. Never repeat facts from other sections."}},
+    {{"title": "...", "content": "..."}},
     {{"title": "...", "content": "..."}},
     {{"title": "...", "content": "..."}},
     {{"title": "...", "content": "..."}}
   ],
   "player_spotlight": {{
-    "name": "Full player name",
+    "name": "Full player name that matches someone notable in the data",
     "team": "Their national team",
     "achievement": "One-line stat or moment",
-    "narrative": "2-3 sentences telling their story dramatically"
+    "narrative": "3-4 sentences telling their story dramatically. Name their sweepstake owners."
   }},
-  "featured_players": ["Full player name", ...],
-  "sweepstake_digest": "3-4 sentences: who leads, who's struggling, any unpaid players doing well",
-  "pull_quote": "One vivid sentence — a stat or moment — perfect as a big pull quote",
-  "looking_ahead": "2-3 sentences on what fixtures or moments to watch next"
+  "featured_players": ["Full player name from data", "..."],
+  "sweepstake_digest": "4-5 sentences: who leads, who is climbing, name any unpaid players doing well and suggest they should pay up",
+  "pull_quote": "One vivid sentence that works as a big standalone pull quote",
+  "looking_ahead": "2-3 sentences on upcoming fixtures or moments to watch"
 }}
 
 RULES:
-- Include 4 sections, each with a different theme (e.g. biggest results, upsets, special events, goals, sweepstake drama)
+- 5 sections minimum each covering a DIFFERENT theme e.g. biggest results / upsets / special events / goals / sweepstake standings / dark horse watch
 - Name sweepstake players when their teams do something notable
-- Use real scorelines and team names — never invent facts
-- Each section must cover new ground — no repeated information across sections
-- player_spotlight must be a real player involved in a notable event from the data
-- featured_players is the list of player names to display photos for — only include players with notable events
-- Tone: tabloid football journalist — passionate, vivid, specific
-- Respond ONLY with the JSON object — no markdown fences, no extra text
+- Use real scorelines only never invent facts
+- No repeated information across sections
+- player_spotlight must be a real notable player from the data
+- featured_players only list players you can identify from the data
+- Tone: passionate tabloid football journalist
 """
 
     resp = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[{"role":"system","content":system},{"role":"user","content":user}],
-        max_tokens=2000,
+        max_tokens=2500,
         temperature=0.75,
         response_format={"type":"json_object"},
     )
@@ -363,340 +430,476 @@ RULES:
                 "sweepstake_digest":"","pull_quote":"","looking_ahead":""}
 
 
-# ── Newspaper renderer ────────────────────────────────────────────────────────
+# ── Render helpers ─────────────────────────────────────────────────────────────
 
-def _ink(text: str, size: str = "0.92rem", weight: str = "400", extra: str = "") -> str:
-    return f'<span style="color:{_INK};font-size:{size};font-weight:{weight};{extra}">{text}</span>'
-
-def _score_card(home: str, away: str, hg: int, ag: int) -> str:
-    hf = _flag_url(home, 40)
-    af = _flag_url(away, 40)
-    hf_img = f'<img src="{hf}" style="height:28px;border-radius:2px;vertical-align:middle;margin-right:6px">' if hf else ""
-    af_img = f'<img src="{af}" style="height:28px;border-radius:2px;vertical-align:middle;margin-left:6px">' if af else ""
-    winner_home = "font-weight:800" if hg > ag else "font-weight:400;opacity:0.6"
-    winner_away = "font-weight:800" if ag > hg else "font-weight:400;opacity:0.6"
-    return (
-        f'<div style="display:flex;align-items:center;justify-content:space-between;'
-        f'background:white;border:1px solid {_BORDER}22;border-radius:6px;'
-        f'padding:0.5rem 0.8rem;margin-bottom:0.5rem">'
-        f'<span style="color:{_INK};{winner_home};font-size:0.85rem">{hf_img}{home}</span>'
-        f'<span style="color:{_RED};font-weight:900;font-size:1.1rem;padding:0 0.6rem">{hg}–{ag}</span>'
-        f'<span style="color:{_INK};{winner_away};font-size:0.85rem;text-align:right">{away}{af_img}</span>'
-        f'</div>'
+def _hr() -> None:
+    st.markdown(
+        f'<hr style="border:0;border-top:2px solid {_BORDER};margin:1.2rem 0 0.8rem">',
+        unsafe_allow_html=True,
     )
 
-def _stat_box(value: str, label: str, color: str = _RED) -> str:
+def _thin_rule() -> None:
+    st.markdown(
+        f'<hr style="border:0;border-top:1px solid {_BORDER}55;margin:0.5rem 0">',
+        unsafe_allow_html=True,
+    )
+
+def _section_banner(title: str) -> None:
+    st.markdown(
+        f'<div style="background:{_BORDER};color:white;font-size:0.7rem;font-weight:900;'
+        f'letter-spacing:0.14em;padding:0.35rem 0.8rem;margin-bottom:0.6rem">{title}</div>',
+        unsafe_allow_html=True,
+    )
+
+def _stat_box(value: str, label: str, color: str = "#8B0000") -> str:
     return (
-        f'<div style="background:white;border-top:3px solid {color};'
-        f'border:1px solid {_BORDER}22;border-top:3px solid {color};'
-        f'padding:0.7rem 0.6rem;text-align:center;border-radius:4px">'
+        f'<div style="border-top:3px solid {color};padding:0.7rem 0.5rem;text-align:center;'
+        f'background:white;border-radius:3px;border:1px solid {_BORDER}22;border-top:3px solid {color}">'
         f'<div style="font-size:1.8rem;font-weight:900;color:{color};line-height:1">{value}</div>'
-        f'<div style="font-size:0.68rem;color:{_MID};letter-spacing:0.08em;margin-top:0.15rem;text-transform:uppercase">{label}</div>'
+        f'<div style="font-size:0.65rem;color:{_MID};text-transform:uppercase;'
+        f'letter-spacing:0.08em;margin-top:0.15rem">{label}</div>'
         f'</div>'
     )
 
-def _section_rule(title: str) -> str:
+def _score_card(home: str, away: str, hg: int, ag: int, events: list | None = None) -> str:
+    hf = _flag_img(home, 22)
+    af = _flag_img(away, 22)
+    wh = "font-weight:800" if hg > ag else "opacity:0.55"
+    wa = "font-weight:800" if ag > hg else "opacity:0.55"
+    ev_html = ""
+    if events:
+        ev_html = (f'<div style="font-size:0.63rem;color:{_MID};margin-top:4px;line-height:1.5">'
+                   + "<br>".join(events[:3]) + "</div>")
     return (
-        f'<div style="display:flex;align-items:center;gap:0.6rem;margin:1.4rem 0 0.7rem">'
-        f'<div style="flex:1;height:2px;background:{_BORDER}"></div>'
-        f'<div style="color:{_INK};font-size:0.7rem;font-weight:900;letter-spacing:0.12em;'
-        f'white-space:nowrap">{title}</div>'
-        f'<div style="flex:1;height:2px;background:{_BORDER}"></div>'
+        f'<div style="background:white;border:1px solid {_BORDER}33;border-radius:5px;'
+        f'padding:0.55rem 0.7rem;margin-bottom:0.5rem">'
+        f'<div style="display:flex;align-items:center;justify-content:space-between">'
+        f'<span style="color:{_INK};{wh};font-size:0.82rem">{hf}{home}</span>'
+        f'<span style="color:{_RED};font-weight:900;font-size:1.15rem;padding:0 0.5rem">{hg}–{ag}</span>'
+        f'<span style="color:{_INK};{wa};font-size:0.82rem;text-align:right">{away}{af}</span>'
+        f'</div>{ev_html}</div>'
+    )
+
+def _upset_card(u: dict) -> str:
+    wf = _flag_img(u["winner"], 22)
+    lf = _flag_img(u["loser"], 22)
+    owners = ", ".join(u.get("winner_owners",[]))
+    return (
+        f'<div style="background:#FFF3E0;border-left:4px solid #E65100;'
+        f'border-radius:0 5px 5px 0;padding:0.55rem 0.85rem;margin-bottom:0.5rem">'
+        f'<div style="font-size:0.6rem;font-weight:900;letter-spacing:0.1em;'
+        f'color:#E65100;margin-bottom:0.25rem">UPSET · T{u["winner_tier"]} BEATS T{u["loser_tier"]} · +{u["bonus_pts_each_owner"]}pts</div>'
+        f'<div style="color:{_INK};font-size:0.88rem;font-weight:600">'
+        f'{wf}{u["winner"]} <span style="color:#E65100">{u["score"]}</span> {lf}{u["loser"]}</div>'
+        f'<div style="font-size:0.68rem;color:{_MID};margin-top:0.2rem">'
+        f'Owners: {owners or "—"} · {u.get("date","")}</div>'
         f'</div>'
     )
 
-def _render_newspaper(story: dict, meta: dict, context: dict) -> None:
-    today_str  = datetime.now().strftime("%A, %d %B %Y").upper()
-    ft         = context.get("featured_teams", [])
-    matches    = context.get("match_results", [])
-    upsets     = context.get("upsets", [])
-    specials   = context.get("special_events", [])
-    top_teams  = context.get("top_scoring_teams", [])
-    standings  = context.get("current_standings", [])
-    fp_names   = story.get("featured_players", [])
-    spotlight  = story.get("player_spotlight", {})
+def _special_event_card(ev: dict) -> str:
+    t      = ev.get("type","")
+    team   = ev.get("team","")
+    owners = ", ".join(ev.get("owners",[]))
+    opp    = ev.get("opponent","")
+    score  = ev.get("score","")
+    flag   = _flag_img(team, 20)
 
-    # CSS class applied to all newspaper sections (cream background, ink text)
+    configs = {
+        "red_card":         ("#CC0000","#FFF5F5","🟥","RED CARD",f"-{ev.get('count',1)*5} pts"),
+        "shirt_removal":    ("#B45309","#FFFBF0","🎽","SHIRT OFF!","+25 pts"),
+        "gk_goal":          ("#166534","#F0FFF4","🥅","GK SCORES!","+75 pts"),
+        "hat_trick":        ("#8B0000","#FFF5F5","⚽⚽⚽","HAT TRICK!","+10 pts"),
+        "first_eliminated": ("#5C4033","#F5F0E8","💀","ELIMINATED!","+35 pts"),
+    }
+    cfg = configs.get(t, ("#333","#fff","","EVENT","+0 pts"))
+    border_col, bg_col, emoji, label, pts = cfg
+    return (
+        f'<div style="background:{bg_col};border-left:4px solid {border_col};'
+        f'border-radius:0 5px 5px 0;padding:0.5rem 0.85rem;margin-bottom:0.45rem">'
+        f'<div style="display:flex;justify-content:space-between;align-items:center">'
+        f'<span style="font-size:0.62rem;font-weight:900;letter-spacing:0.1em;color:{border_col}">'
+        f'{emoji} {label}</span>'
+        f'<span style="font-size:0.7rem;font-weight:700;color:{border_col}">{pts}</span>'
+        f'</div>'
+        f'<div style="color:{_INK};font-size:0.85rem;font-weight:600;margin-top:0.2rem">'
+        f'{flag}{team} vs {opp} ({score})</div>'
+        f'<div style="font-size:0.68rem;color:{_MID};margin-top:0.15rem">'
+        f'Owners: {owners or "—"} · {ev.get("date","")}</div>'
+        f'</div>'
+    )
+
+
+# ── Main render ────────────────────────────────────────────────────────────────
+
+def _render_newspaper(story: dict, meta: dict, context: dict, best_days: list) -> None:
+    ft        = context.get("featured_teams", [])
+    upsets    = context.get("upsets", [])
+    specials  = context.get("special_events", [])
+    top_teams = context.get("top_scoring_teams", [])
+    standings = context.get("current_standings", [])
+    matches   = context.get("match_results", [])
+    hat_tricks= context.get("hat_tricks", [])
+    prize     = context.get("prize_pool", 0)
+    fp_names  = story.get("featured_players", [])
+    spotlight = story.get("player_spotlight", {})
+    sections  = story.get("sections", [])
+
+    today_str = datetime.now().strftime("%A, %d %B %Y").upper()
+
+    # ── Full cream background via CSS ──────────────────────────────────────
     st.markdown(
         f"""<style>
-        .np {{background:{_BG};color:{_INK};font-family:Georgia,serif;
-              padding:0.8rem 1rem;border-radius:6px;margin-bottom:0.5rem}}
+        [data-testid="stMain"] > div,
+        [data-testid="stMainBlockContainer"],
+        .block-container {{
+            background-color: {_BG} !important;
+        }}
         </style>""",
         unsafe_allow_html=True,
     )
 
-    # ── Masthead ──
-    flag_strip = ""
-    for t in ft[:10]:
-        u = _flag_url(t, 40)
-        if u:
-            flag_strip += f'<img src="{u}" style="height:22px;border-radius:2px;margin:0 2px;vertical-align:middle" title="{t}">'
-
+    # ── Masthead ───────────────────────────────────────────────────────────
+    flag_strip = "".join(
+        f'<img src="{_flag_url(t,40)}" '
+        f'style="height:20px;border-radius:2px;margin:0 2px;vertical-align:middle" title="{t}">'
+        for t in ft[:12] if _flag_url(t, 40)
+    )
     st.markdown(
-        f'<div class="np" style="padding:0.8rem 1rem 0.4rem">'
-        f'<div style="border-top:3px solid {_BORDER};border-bottom:3px solid {_BORDER};'
-        f'padding:0.5rem 0;margin-bottom:0.4rem">'
-        f'<div style="font-size:clamp(1.6rem,5vw,2.8rem);font-weight:900;text-align:center;'
-        f'letter-spacing:0.06em;color:{_INK};line-height:1.1">THE SWEEPSTAKE GAZETTE</div>'
+        f'<div style="font-family:Georgia,serif">'
+        f'<div style="border-top:4px solid {_BORDER};border-bottom:4px solid {_BORDER};'
+        f'padding:0.6rem 0 0.4rem;text-align:center">'
+        f'<div style="font-size:clamp(1.8rem,5vw,3rem);font-weight:900;color:{_INK};'
+        f'letter-spacing:0.05em;line-height:1">THE SWEEPSTAKE GAZETTE</div>'
+        f'<div style="font-size:0.65rem;color:{_MID};letter-spacing:0.08em;margin-top:0.2rem">'
+        f'WC 2026 · OFFICIAL SWEEPSTAKE RECORD</div>'
         f'</div>'
-        f'<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:0.3rem;'
-        f'font-size:0.65rem;color:{_MID};padding:0.2rem 0">'
-        f'<span>WC 2026 · Private Edition</span>'
-        f'<span style="text-align:center">{flag_strip}</span>'
-        f'<span>{today_str}</span>'
-        f'</div>'
-        f'</div>',
+        f'<div style="display:flex;justify-content:space-between;align-items:center;'
+        f'flex-wrap:wrap;gap:0.3rem;padding:0.3rem 0;border-bottom:1px solid {_BORDER}66">'
+        f'<span style="font-size:0.65rem;color:{_MID}">Edition: {meta.get("period","?")}</span>'
+        f'<span>{flag_strip}</span>'
+        f'<span style="font-size:0.65rem;color:{_MID}">{today_str}</span>'
+        f'</div></div>',
         unsafe_allow_html=True,
     )
 
-    # ── Stat bar ──
-    n_matches = context.get("matches_in_period", 0)
-    n_goals   = context.get("goals_in_period", 0)
-    n_upsets  = len(upsets)
-    n_special = len(specials)
-    avg       = context.get("avg_goals_per_game", 0)
+    # ── Prize pool + Top 3 ─────────────────────────────────────────────────
+    top3   = standings[:3]
+    medals = ["🥇","🥈","🥉"]
+    podium_parts = []
+    for i, s in enumerate(top3):
+        paid_badge = (
+            '<span style="background:#166534;color:white;font-size:0.55rem;'
+            'padding:1px 4px;border-radius:3px;margin-left:3px">PAID</span>'
+            if s.get("paid") else
+            f'<span style="background:{_RED};color:white;font-size:0.55rem;'
+            f'padding:1px 4px;border-radius:3px;margin-left:3px">UNPAID</span>'
+        )
+        podium_parts.append(
+            f'<div style="text-align:center;flex:1;padding:0 0.5rem">'
+            f'<div style="font-size:1.4rem">{medals[i]}</div>'
+            f'<div style="font-size:0.8rem;font-weight:700;color:{_INK}">{s["player"]}{paid_badge}</div>'
+            f'<div style="font-size:0.78rem;color:{_RED};font-weight:900">{s["total_pts"]} pts</div>'
+            f'</div>'
+        )
+    st.markdown(
+        f'<div style="background:white;border:2px solid {_BORDER};border-radius:6px;'
+        f'padding:0.9rem 1rem;margin:0.6rem 0;font-family:Georgia,serif">'
+        f'<div style="display:flex;align-items:center;flex-wrap:wrap;gap:0.8rem">'
+        f'<div style="flex:0 0 auto;text-align:center;padding-right:1rem;'
+        f'border-right:2px solid {_BORDER}33">'
+        f'<div style="font-size:0.6rem;font-weight:700;letter-spacing:0.1em;color:{_MID};margin-bottom:0.2rem">PRIZE POOL</div>'
+        f'<div style="font-size:1.7rem;font-weight:900;color:{_RED}">€{prize}</div>'
+        f'</div>'
+        f'<div style="flex:1;display:flex;justify-content:space-evenly">'
+        f'{"".join(podium_parts)}'
+        f'</div></div></div>',
+        unsafe_allow_html=True,
+    )
 
-    s1, s2, s3, s4 = st.columns(4)
-    s1.markdown(_stat_box(str(n_matches), "Matches Played", _RED),    unsafe_allow_html=True)
-    s2.markdown(_stat_box(str(n_goals),   "Goals Scored",   "#1a5c1a"), unsafe_allow_html=True)
-    s3.markdown(_stat_box(str(n_upsets),  "Upsets",         "#8B4500"), unsafe_allow_html=True)
-    s4.markdown(_stat_box(str(n_special), "Special Events",  "#2A4A8B"), unsafe_allow_html=True)
+    # ── Stat boxes ─────────────────────────────────────────────────────────
+    n_m = context.get("matches_in_period", 0)
+    n_g = context.get("goals_in_period", 0)
+    n_u = len(upsets)
+    n_s = len(specials) + len(hat_tricks)
+    b1, b2, b3, b4 = st.columns(4)
+    b1.markdown(_stat_box(str(n_m), "Matches Played",  "#8B0000"),  unsafe_allow_html=True)
+    b2.markdown(_stat_box(str(n_g), "Goals Scored",    "#166534"),  unsafe_allow_html=True)
+    b3.markdown(_stat_box(str(n_u), "Upsets",          "#B45309"),  unsafe_allow_html=True)
+    b4.markdown(_stat_box(str(n_s), "Special Events",  "#1e3a5f"),  unsafe_allow_html=True)
 
-    # ── Headline ──
+    _hr()
+
+    # ── Headline ───────────────────────────────────────────────────────────
     headline    = story.get("headline","").upper()
     subheadline = story.get("subheadline","")
     st.markdown(
-        f'<div class="np" style="text-align:center;padding:1rem 1rem 0.8rem;'
+        f'<div style="font-family:Georgia,serif;text-align:center;padding:0.6rem 0 0.8rem;'
         f'border-bottom:2px solid {_BORDER}">'
-        f'<div style="font-size:clamp(1.4rem,4vw,2.2rem);font-weight:900;line-height:1.15;'
-        f'color:{_INK};letter-spacing:0.01em">{headline}</div>'
-        f'<div style="color:{_RED};font-size:1rem;margin-top:0.4rem;font-style:italic">{subheadline}</div>'
-        f'<div style="color:{_LIGHT};font-size:0.7rem;margin-top:0.3rem">'
+        f'<div style="font-size:clamp(1.5rem,4vw,2.4rem);font-weight:900;color:{_INK};'
+        f'line-height:1.15;letter-spacing:0.01em">{headline}</div>'
+        f'<div style="color:{_RED};font-size:1rem;font-style:italic;margin-top:0.4rem">{subheadline}</div>'
+        f'<div style="color:{_LIGHT};font-size:0.68rem;margin-top:0.3rem">'
         f'By Your Sweepstake Correspondent'
-        + (f' &nbsp;·&nbsp; {meta.get("topic")}' if meta.get("topic") else "")
-        + f'</div></div>',
+        + (f' · <em>{meta.get("topic","")}</em>' if meta.get("topic") else "") +
+        f'</div></div>',
         unsafe_allow_html=True,
     )
 
-    # ── Lead + pull quote ──
+    # ── Lead + pull quote ───────────────────────────────────────────────────
     lead = story.get("lead_paragraph","")
     pull = story.get("pull_quote","")
-
-    col_lead, col_pull = st.columns([2,1])
-    with col_lead:
+    cl, cp = st.columns([3,2])
+    with cl:
         if lead:
             st.markdown(
-                f'<div class="np" style="padding:0.9rem 1rem 0.5rem">'
-                f'<p style="font-size:1.05rem;line-height:1.85;font-weight:600;'
-                f'color:{_INK};margin:0">{lead}</p></div>',
+                f'<p style="font-family:Georgia,serif;font-size:1.05rem;line-height:1.9;'
+                f'font-weight:600;color:{_INK};margin:0.8rem 0 0">{lead}</p>',
                 unsafe_allow_html=True,
             )
-    with col_pull:
+    with cp:
         if pull:
             st.markdown(
-                f'<div class="np" style="padding:0.9rem 0.9rem 0.9rem 1rem;margin-top:0.5rem;'
-                f'border-left:4px solid {_RED}">'
-                f'<div style="color:{_LIGHT};font-size:0.62rem;letter-spacing:0.1em;margin-bottom:0.4rem">'
-                f'PULL QUOTE</div>'
-                f'<div style="color:{_RED};font-size:1rem;font-style:italic;line-height:1.55">"{pull}"</div>'
+                f'<div style="background:white;border-top:4px solid {_RED};'
+                f'border-bottom:4px solid {_RED};padding:1rem;margin-top:0.8rem">'
+                f'<div style="font-size:0.6rem;font-weight:900;letter-spacing:0.1em;'
+                f'color:{_LIGHT};margin-bottom:0.5rem">PULL QUOTE</div>'
+                f'<div style="font-family:Georgia,serif;font-size:1.05rem;font-style:italic;'
+                f'color:{_INK};line-height:1.65">"{pull}"</div>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
 
-    # ── Sections ──
-    sections = story.get("sections", [])
+    # ── Player images ───────────────────────────────────────────────────────
+    img_pairs = [(n, _find_player_url(n)) for n in fp_names if _find_player_url(n)]
+    # Always include Messi if hat trick data exists
+    if hat_tricks and not any("messi" in n.lower() for n, _ in img_pairs):
+        img_pairs.insert(0, ("Lionel Messi", _PLAYER_IMG["Lionel Messi"]))
+    img_pairs = img_pairs[:4]
+
+    if img_pairs:
+        _hr()
+        _section_banner("PLAYERS IN THE NEWS")
+        img_cols = st.columns(len(img_pairs))
+        for col, (name, url) in zip(img_cols, img_pairs):
+            with col:
+                img_bytes = _fetch_img(url)
+                if img_bytes:
+                    st.image(img_bytes, use_container_width=True)
+                    st.caption(f"**{name}**")
+                else:
+                    pteam = spotlight.get("team","") if name == spotlight.get("name","") else ""
+                    fu = _flag_url(pteam, 80)
+                    if fu:
+                        st.image(fu, width=80)
+                    st.caption(f"**{name}**")
+
+    # ── Story sections ──────────────────────────────────────────────────────
+    _hr()
     for i, sec in enumerate(sections):
         title   = sec.get("title","")
         content = sec.get("content","")
         if not content:
             continue
-
-        st.markdown(_section_rule(title), unsafe_allow_html=True)
-
-        # Intersperse match score cards after "results" sections
-        is_results = any(w in title.upper() for w in ["RESULT","MATCH","SCORE","WIN","GOAL","FIXTURE"])
-        is_upset   = "UPSET" in title.upper()
-
+        if i > 0:
+            _hr()
+        _section_banner(title)
         st.markdown(
-            f'<div class="np"><p style="font-size:0.92rem;line-height:1.8;color:{_INK};margin:0">{content}</p></div>',
+            f'<p style="font-family:Georgia,serif;font-size:0.93rem;'
+            f'line-height:1.85;color:{_INK};margin:0">{content}</p>',
             unsafe_allow_html=True,
         )
-
-        # Show score cards for notable matches after results sections
-        if is_results and matches:
-            notable = [m for m in matches if abs(int(m.get("score","0–0").split("–")[0]) -
-                       int(m.get("score","0–0").split("–")[1])) >= 3
-                       or m.get("notable_events")]
+        # Score cards after results/match sections
+        if any(w in title.upper() for w in ["RESULT","MATCH","SCORE","WIN","FIXTURE","GOAL"]):
+            notable = [m for m in matches
+                       if m.get("notable_events") or
+                       abs(int(m.get("score","0-0").replace("–","-").split("-")[0])
+                           -int(m.get("score","0-0").replace("–","-").split("-")[1]))>=3]
             if notable:
-                st.markdown(_section_rule("NOTABLE SCORELINES"), unsafe_allow_html=True)
                 c1, c2 = st.columns(2)
-                for j, m in enumerate(notable[:6]):
-                    home  = m.get("home","")
-                    away  = m.get("away","")
-                    score = m.get("score","0–0")
-                    parts = score.split("–")
-                    hg_   = int(parts[0]) if len(parts)==2 else 0
-                    ag_   = int(parts[1]) if len(parts)==2 else 0
-                    card  = _score_card(home, away, hg_, ag_)
-                    if j % 2 == 0:
-                        c1.markdown(card, unsafe_allow_html=True)
-                    else:
-                        c2.markdown(card, unsafe_allow_html=True)
+                for j, m in enumerate(notable[:8]):
+                    s = m.get("score","0–0").replace("–","-")
+                    parts = s.split("-")
+                    hg_, ag_ = (int(parts[0]),int(parts[1])) if len(parts)==2 else (0,0)
+                    card = _score_card(m["home"], m["away"], hg_, ag_, m.get("notable_events"))
+                    (c1 if j%2==0 else c2).markdown(card, unsafe_allow_html=True)
 
-        # Upset graphic
-        if is_upset and upsets:
-            for u in upsets:
-                wf = _flag_url(u["winner"], 40)
-                lf = _flag_url(u["loser"],  40)
-                wf_img = f'<img src="{wf}" style="height:24px;border-radius:2px;vertical-align:middle;margin-right:5px">' if wf else ""
-                lf_img = f'<img src="{lf}" style="height:24px;border-radius:2px;vertical-align:middle;margin-right:5px">' if lf else ""
-                st.markdown(
-                    f'<div style="background:#FFF3E0;border:1px solid #E65100;border-left:4px solid #E65100;'
-                    f'border-radius:0 6px 6px 0;padding:0.6rem 0.9rem;margin:0.6rem 0">'
-                    f'<div style="font-size:0.62rem;font-weight:700;letter-spacing:0.1em;'
-                    f'color:#E65100;margin-bottom:0.3rem">⚡ UPSET ALERT — TIER {u["winner_tier"]} BEATS TIER {u["loser_tier"]}</div>'
-                    f'<div style="color:{_INK};font-size:0.9rem">'
-                    f'{wf_img}<strong>{u["winner"]}</strong> {u["score"]} '
-                    f'{lf_img}{u["loser"]} &nbsp;'
-                    f'<span style="color:#E65100;font-weight:700">+{u["bonus_pts_each_owner"]} pts</span>'
-                    f' for owners: {", ".join(u.get("winner_owners",[]))}</div>'
-                    f'</div>',
-                    unsafe_allow_html=True,
-                )
+    # ── Special events ──────────────────────────────────────────────────────
+    all_specials: list[dict] = [
+        {"type":"hat_trick","team":h["team"],"owners":h["owners"],
+         "opponent":h.get("opponent",""),"score":h.get("score",""),"date":h.get("date","")}
+        for h in hat_tricks
+    ] + specials
 
-    # ── Player spotlight ──
+    if all_specials:
+        _hr()
+        _section_banner("SPECIAL EVENTS")
+        ec1, ec2 = st.columns(2)
+        for j, ev in enumerate(all_specials):
+            (ec1 if j%2==0 else ec2).markdown(_special_event_card(ev), unsafe_allow_html=True)
+
+    # ── Upsets ─────────────────────────────────────────────────────────────
+    if upsets:
+        _hr()
+        _section_banner("UPSET WATCH")
+        uc1, uc2 = st.columns(2)
+        for j, u in enumerate(upsets):
+            (uc1 if j%2==0 else uc2).markdown(_upset_card(u), unsafe_allow_html=True)
+
+    # ── Player spotlight ────────────────────────────────────────────────────
     if spotlight and spotlight.get("name"):
         pname    = spotlight.get("name","")
         pteam    = spotlight.get("team","")
         pachieve = spotlight.get("achievement","")
         pnarr    = spotlight.get("narrative","")
-        pimg_url = _player_img_url(pname)
-        pflag    = _flag_url(pteam, 40)
+        pimg_url = _find_player_url(pname)
 
-        st.markdown(_section_rule("PLAYER SPOTLIGHT"), unsafe_allow_html=True)
-
+        _hr()
+        _section_banner("PLAYER SPOTLIGHT")
         pcol_img, pcol_text = st.columns([1,2])
         with pcol_img:
-            if pimg_url:
-                st.markdown(
-                    f'<img src="{pimg_url}" '
-                    f'style="width:100%;max-width:220px;border-radius:6px;'
-                    f'border:2px solid {_BORDER};display:block;margin:0 auto"'
-                    f'onerror="this.style.display=\'none\'">',
-                    unsafe_allow_html=True,
-                )
-            elif pflag:
-                st.markdown(
-                    f'<img src="{pflag}" style="width:80px;border-radius:4px;'
-                    f'display:block;margin:0 auto">',
-                    unsafe_allow_html=True,
-                )
+            img_bytes = _fetch_img(pimg_url) if pimg_url else None
+            if img_bytes:
+                st.image(img_bytes, use_container_width=True)
+            else:
+                fu = _flag_url(pteam, 80)
+                if fu:
+                    st.image(fu, width=80)
         with pcol_text:
-            flag_badge = f'<img src="{pflag}" style="height:16px;vertical-align:middle;border-radius:2px;margin-right:4px">' if pflag else ""
             st.markdown(
-                f'<div class="np">'
-                f'<div style="font-size:1.4rem;font-weight:900;color:{_INK}">{pname}</div>'
+                f'<div style="font-family:Georgia,serif">'
+                f'<div style="font-size:1.5rem;font-weight:900;color:{_INK}">{pname}</div>'
                 f'<div style="font-size:0.78rem;color:{_MID};margin:0.2rem 0 0.6rem">'
-                f'{flag_badge}{pteam} &nbsp;·&nbsp; <em>{pachieve}</em></div>'
-                f'<p style="font-size:0.9rem;line-height:1.75;color:{_INK};margin:0">{pnarr}</p>'
+                f'{_flag_img(pteam,18)}{pteam} · <em>{pachieve}</em></div>'
+                f'<p style="font-size:0.92rem;line-height:1.8;color:{_INK};margin:0">{pnarr}</p>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
 
-    # ── Sweepstake digest + top scorers (side by side) ──
-    digest    = story.get("sweepstake_digest","")
-    looking   = story.get("looking_ahead","")
+    # ── Hottest single day ──────────────────────────────────────────────────
+    if best_days:
+        _hr()
+        _section_banner("HOTTEST SINGLE DAY — MOST POINTS EARNED IN ONE DAY")
+        fire = ["🔥🔥🔥","🔥🔥🔥","🔥🔥","🔥🔥","🔥🔥","🔥","🔥","🔥","🔥","🔥"]
+        rows_html = ""
+        for i, d in enumerate(best_days):
+            bg = f"background-color:{_RED}10;" if i == 0 else ""
+            rows_html += (
+                f'<tr style="{bg}">'
+                f'<td style="padding:0.4rem 0.6rem;font-size:1rem;text-align:center">{fire[min(i,9)]}</td>'
+                f'<td style="padding:0.4rem 0.6rem;font-size:0.78rem;font-weight:700;color:{_MID}">{i+1}</td>'
+                f'<td style="padding:0.4rem 0.6rem;font-size:0.9rem;font-weight:700;color:{_INK}">{d["player"]}</td>'
+                f'<td style="padding:0.4rem 0.6rem;font-size:0.78rem;color:{_MID}">{d["date"]}</td>'
+                f'<td style="padding:0.4rem 0.6rem;font-size:1rem;font-weight:900;color:{_RED};text-align:right">+{d["gain"]}</td>'
+                f'</tr>'
+            )
+        st.markdown(
+            f'<div style="background:white;border:1px solid {_BORDER}33;border-radius:5px;overflow:hidden;'
+            f'font-family:Georgia,serif">'
+            f'<table style="width:100%;border-collapse:collapse">'
+            f'<thead><tr style="background:{_BORDER};color:white">'
+            f'<th style="padding:0.35rem 0.6rem;text-align:center;font-size:0.65rem;letter-spacing:0.08em"></th>'
+            f'<th style="padding:0.35rem 0.6rem;text-align:left;font-size:0.65rem;letter-spacing:0.08em">#</th>'
+            f'<th style="padding:0.35rem 0.6rem;text-align:left;font-size:0.65rem;letter-spacing:0.08em">PLAYER</th>'
+            f'<th style="padding:0.35rem 0.6rem;text-align:left;font-size:0.65rem;letter-spacing:0.08em">DATE</th>'
+            f'<th style="padding:0.35rem 0.6rem;text-align:right;font-size:0.65rem;letter-spacing:0.08em">PTS GAINED</th>'
+            f'</tr></thead><tbody>{rows_html}</tbody></table></div>',
+            unsafe_allow_html=True,
+        )
 
-    st.markdown(_section_rule("SWEEPSTAKE DIGEST"), unsafe_allow_html=True)
+    # ── Top goalscorers + Sweepstake digest ────────────────────────────────
+    _hr()
+    tc1, tc2 = st.columns([3,2])
 
-    dcol, tcol = st.columns([3,2])
-    with dcol:
+    with tc1:
+        _section_banner("TOP GOALSCORERS BY TEAM")
+        if top_teams:
+            max_g = top_teams[0]["goals"] if top_teams else 1
+            bar_rows = ""
+            for t in top_teams[:8]:
+                tf  = _flag_img(t["team"], 18)
+                pct = round(t["goals"] / max_g * 100)
+                ow  = ", ".join(t.get("owners",[]))
+                tier_label = f"T{t['tier']}" if t.get("tier") else ""
+                bar_rows += (
+                    f'<div style="margin-bottom:0.55rem">'
+                    f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">'
+                    f'<span style="font-size:0.82rem;color:{_INK};font-weight:600">{tf}{t["team"]}'
+                    f'<span style="font-size:0.6rem;color:{_LIGHT};margin-left:4px">{tier_label}</span></span>'
+                    f'<span style="font-size:0.9rem;font-weight:900;color:{_RED}">{t["goals"]} ⚽</span>'
+                    f'</div>'
+                    f'<div style="background:{_BORDER}22;border-radius:2px;height:7px">'
+                    f'<div style="background:{_RED};width:{pct}%;height:7px;border-radius:2px"></div></div>'
+                    f'<div style="font-size:0.62rem;color:{_LIGHT};margin-top:1px">Owners: {ow}</div>'
+                    f'</div>'
+                )
+            st.markdown(
+                f'<div style="background:white;border:1px solid {_BORDER}22;'
+                f'border-radius:5px;padding:0.8rem;font-family:Georgia,serif">{bar_rows}</div>',
+                unsafe_allow_html=True,
+            )
+
+    with tc2:
+        _section_banner("SWEEPSTAKE DIGEST")
+        digest = story.get("sweepstake_digest","")
         if digest:
             st.markdown(
-                f'<div class="np"><p style="font-size:0.9rem;line-height:1.8;color:{_INK};margin:0">{digest}</p></div>',
+                f'<p style="font-family:Georgia,serif;font-size:0.88rem;line-height:1.8;'
+                f'color:{_INK};margin:0 0 0.8rem">{digest}</p>',
                 unsafe_allow_html=True,
             )
-        # Top 5 leaderboard mini-table
-        if standings:
-            rows_html = ""
-            for s in standings[:5]:
-                paid_badge = (
-                    f'<span style="background:#1a5c1a;color:white;font-size:0.58rem;'
-                    f'padding:1px 4px;border-radius:3px;margin-left:4px">PAID</span>'
-                    if s.get("paid") else
-                    f'<span style="background:{_RED};color:white;font-size:0.58rem;'
-                    f'padding:1px 4px;border-radius:3px;margin-left:4px">UNPAID</span>'
-                )
-                rows_html += (
-                    f'<tr>'
-                    f'<td style="color:{_MID};font-size:0.75rem;padding:0.25rem 0.4rem;'
-                    f'text-align:center;border-bottom:1px solid {_BORDER}22">{s["rank"]}</td>'
-                    f'<td style="color:{_INK};font-size:0.8rem;font-weight:600;padding:0.25rem 0.4rem;'
-                    f'border-bottom:1px solid {_BORDER}22">{s["player"]}{paid_badge}</td>'
-                    f'<td style="color:{_RED};font-size:0.8rem;font-weight:700;padding:0.25rem 0.4rem;'
-                    f'text-align:right;border-bottom:1px solid {_BORDER}22">{s["total_pts"]}</td>'
-                    f'</tr>'
-                )
-            st.markdown(
-                f'<div class="np" style="margin-top:0.4rem">'
-                f'<div style="font-size:0.62rem;font-weight:700;letter-spacing:0.1em;'
-                f'color:{_MID};margin-bottom:0.4rem">CURRENT STANDINGS (TOP 5)</div>'
-                f'<table style="width:100%;border-collapse:collapse">'
-                f'<thead><tr>'
-                f'<th style="color:{_LIGHT};font-size:0.62rem;padding:0.2rem 0.4rem;text-align:center">#</th>'
-                f'<th style="color:{_LIGHT};font-size:0.62rem;padding:0.2rem 0.4rem;text-align:left">Player</th>'
-                f'<th style="color:{_LIGHT};font-size:0.62rem;padding:0.2rem 0.4rem;text-align:right">Pts</th>'
-                f'</tr></thead><tbody>{rows_html}</tbody></table>'
-                f'</div>',
-                unsafe_allow_html=True,
+        _thin_rule()
+        rows_html = ""
+        for s in standings[:7]:
+            paid_badge = (
+                '<span style="background:#166534;color:white;font-size:0.52rem;'
+                'padding:1px 3px;border-radius:2px;margin-left:3px">✓</span>'
+                if s.get("paid") else
+                f'<span style="background:{_RED};color:white;font-size:0.52rem;'
+                f'padding:1px 3px;border-radius:2px;margin-left:3px">!</span>'
             )
-    with tcol:
-        if top_teams:
-            bars_html = ""
-            max_g = top_teams[0]["group_goals"] if top_teams else 1
-            for t in top_teams[:6]:
-                tf  = _flag_url(t["team"], 40)
-                tf_img = f'<img src="{tf}" style="height:16px;border-radius:2px;vertical-align:middle;margin-right:4px">' if tf else ""
-                pct = round(t["group_goals"] / max_g * 100)
-                bars_html += (
-                    f'<div style="margin-bottom:0.35rem">'
-                    f'<div style="display:flex;justify-content:space-between;'
-                    f'font-size:0.75rem;color:{_INK};margin-bottom:2px">'
-                    f'<span>{tf_img}{t["team"]}</span>'
-                    f'<span style="font-weight:700;color:{_RED}">{t["group_goals"]} ⚽</span></div>'
-                    f'<div style="background:{_BORDER}22;border-radius:2px;height:6px">'
-                    f'<div style="background:{_RED};width:{pct}%;height:6px;border-radius:2px"></div>'
-                    f'</div></div>'
-                )
-            st.markdown(
-                f'<div class="np" style="border-radius:6px;padding:0.8rem">'
-                f'<div style="font-size:0.62rem;font-weight:700;letter-spacing:0.1em;'
-                f'color:{_MID};margin-bottom:0.6rem">TOP SCORERS BY TEAM</div>'
-                f'{bars_html}</div>',
-                unsafe_allow_html=True,
+            rows_html += (
+                f'<tr>'
+                f'<td style="color:{_LIGHT};font-size:0.72rem;padding:0.25rem 0.3rem;'
+                f'text-align:center;border-bottom:1px solid {_BORDER}18">{s["rank"]}</td>'
+                f'<td style="color:{_INK};font-size:0.78rem;font-weight:600;padding:0.25rem 0.3rem;'
+                f'border-bottom:1px solid {_BORDER}18">{s["player"]}{paid_badge}</td>'
+                f'<td style="color:{_RED};font-size:0.82rem;font-weight:900;padding:0.25rem 0.3rem;'
+                f'text-align:right;border-bottom:1px solid {_BORDER}18">{s["total_pts"]}</td>'
+                f'</tr>'
             )
-
-    # ── Looking ahead ──
-    if looking:
         st.markdown(
-            f'<div class="np" style="border-top:2px solid {_BORDER};padding-top:0.7rem">'
-            f'<span style="font-size:0.62rem;font-weight:900;letter-spacing:0.12em;color:{_RED}">'
+            f'<table style="width:100%;border-collapse:collapse;font-family:Georgia,serif">'
+            f'<thead><tr>'
+            f'<th style="color:{_LIGHT};font-size:0.6rem;padding:0.2rem 0.3rem;text-align:center">#</th>'
+            f'<th style="color:{_LIGHT};font-size:0.6rem;padding:0.2rem 0.3rem;text-align:left">PLAYER</th>'
+            f'<th style="color:{_LIGHT};font-size:0.6rem;padding:0.2rem 0.3rem;text-align:right">PTS</th>'
+            f'</tr></thead><tbody>{rows_html}</tbody></table>',
+            unsafe_allow_html=True,
+        )
+
+    # ── Looking ahead ───────────────────────────────────────────────────────
+    looking = story.get("looking_ahead","")
+    if looking:
+        _hr()
+        st.markdown(
+            f'<div style="font-family:Georgia,serif;background:white;'
+            f'border-top:3px solid {_INK};padding:0.75rem 1rem">'
+            f'<span style="font-size:0.62rem;font-weight:900;letter-spacing:0.14em;color:{_RED}">'
             f'LOOKING AHEAD &nbsp;</span>'
-            f'<span style="font-size:0.88rem;color:{_MID}">{looking}</span>'
+            f'<span style="font-size:0.9rem;color:{_MID}">{looking}</span>'
             f'</div>',
             unsafe_allow_html=True,
         )
 
-    # ── Footer ──
+    # ── Footer ──────────────────────────────────────────────────────────────
     st.markdown(
-        f'<div class="np" style="text-align:center;padding:0.5rem 1rem;'
-        f'border-top:1px solid {_BORDER}33;font-size:0.62rem;color:{_LIGHT}">'
-        f'Generated {meta.get("generated_at","?")} &nbsp;·&nbsp; '
-        f'{meta.get("matches_covered","?")} matches covered &nbsp;·&nbsp; '
+        f'<div style="font-family:Georgia,serif;text-align:center;padding:0.6rem 0 0.2rem;'
+        f'border-top:1px solid {_BORDER}44;font-size:0.62rem;color:{_LIGHT};margin-top:0.8rem">'
+        f'Generated {meta.get("generated_at","?")} · '
+        f'{meta.get("matches_covered","?")} matches covered · '
         f'The Sweepstake Gazette © 2026</div>',
         unsafe_allow_html=True,
     )
-
 
 
 # ── Page ──────────────────────────────────────────────────────────────────────
@@ -728,17 +931,16 @@ with st.sidebar:
 # ── Admin newsroom ─────────────────────────────────────────────────────────────
 _date_from: date | None = None
 _date_to:   date | None = None
-_topic       = ""
-_suggestions = ""
+_topic            = ""
+_suggestions      = ""
 _generate_clicked = False
 
 if _is_admin:
     st.markdown(
-        f'<div style="color:{_SECTION};font-weight:700;font-size:1rem;'
+        f'<div style="color:{_GOLD};font-weight:700;font-size:1rem;'
         f'letter-spacing:0.05em;margin-bottom:0.25rem">📰 NEWSROOM</div>',
         unsafe_allow_html=True,
     )
-
     _today = date.today()
     _rc1, _rc2, _rc3 = st.columns([2,1,1])
     with _rc1:
@@ -764,15 +966,15 @@ if _is_admin:
             "Generate" if not _cache else "Regenerate",
             type="primary", use_container_width=True,
             disabled=not _api_key,
-            help="Add GROQ_API_KEY to secrets" if not _api_key else "",
+            help="Add GROQ_API_KEY to Streamlit secrets" if not _api_key else "",
         )
 
     _suggestions = st.text_area(
         "Specific points / players to include (one per line)",
         placeholder=(
-            "Messi scored the hat trick for Argentina vs Algeria\n"
-            "Focus on unpaid players doing well\n"
-            "Highlight the red card chaos in match 1"
+            "Messi scored the hat trick for Argentina vs Algeria (match 19)\n"
+            "Highlight unpaid players doing well and push them to pay up\n"
+            "Focus on the biggest upsets"
         ),
         height=100, key="story_suggestions",
     )
@@ -784,44 +986,48 @@ if _is_admin:
             f"Period: {_cache.get('period','?')}"
             + (f" · _{_cache.get('topic','')}_" if _cache.get("topic") else "")
         )
-
     st.divider()
 
-# ── Generation ────────────────────────────────────────────────────────────────
+# ── Generation ─────────────────────────────────────────────────────────────────
 if _generate_clicked:
-    with st.spinner("Building context and writing the story…"):
+    with st.spinner("Crunching data and writing the story…"):
         try:
-            ctx   = _build_story_context(date_from=_date_from, date_to=_date_to)
-            story = _generate_story(ctx, _api_key, topic=_topic, suggestions=_suggestions)
+            ctx       = _build_story_context(date_from=_date_from, date_to=_date_to)
+            best_days = _build_best_day_table()
+            story_out = _generate_story(ctx, _api_key, topic=_topic, suggestions=_suggestions)
             _cache = {
                 "generated_at":    datetime.now().strftime("%d %b %Y at %H:%M"),
                 "matches_covered": ctx["total_matches_played"],
                 "period":          ctx["period"],
                 "topic":           _topic.strip(),
-                "story":           story,
+                "story":           story_out,
                 "context":         ctx,
+                "best_days":       best_days,
             }
             _save_cache(_cache)
             st.rerun()
         except Exception as exc:
             st.error(f"Generation failed: {exc}")
 
-# ── Display ───────────────────────────────────────────────────────────────────
+# ── Display ────────────────────────────────────────────────────────────────────
 if _cache and "story" in _cache and "context" in _cache:
     _render_newspaper(
-        story  = _cache["story"],
-        meta   = _cache,
-        context= _cache["context"],
+        story     = _cache["story"],
+        meta      = _cache,
+        context   = _cache["context"],
+        best_days = _cache.get("best_days") or _build_best_day_table(),
     )
 elif _cache and "story" in _cache:
-    # Legacy cache without context — rebuild it for rendering
     try:
-        _ctx = _build_story_context()
-        _render_newspaper(story=_cache["story"], meta=_cache, context=_ctx)
+        ctx = _build_story_context()
+        _render_newspaper(
+            story=_cache["story"], meta=_cache,
+            context=ctx, best_days=_build_best_day_table(),
+        )
     except Exception:
-        st.markdown(_cache["story"])
+        st.markdown(str(_cache["story"]))
 else:
     if _is_admin:
-        st.info("Configure settings above and hit **Generate**.")
+        st.info("Configure settings above and hit **Generate** to publish the first edition.")
     else:
-        st.info("No story published yet — check back soon.")
+        st.info("The first edition hasn't been published yet — check back soon.")
