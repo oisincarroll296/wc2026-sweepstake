@@ -416,11 +416,12 @@ def _render_newspaper(story: dict, meta: dict, context: dict) -> None:
     fp_names   = story.get("featured_players", [])
     spotlight  = story.get("player_spotlight", {})
 
-    # Wrapper: cream newspaper background
+    # CSS class applied to all newspaper sections (cream background, ink text)
     st.markdown(
-        f'<div style="background:{_BG};color:{_INK};font-family:Georgia,serif;'
-        f'border-radius:8px;padding:1.2rem 1rem 1.5rem;'
-        f'box-shadow:0 4px 24px #0006;max-width:900px;margin:0 auto">',
+        f"""<style>
+        .np {{background:{_BG};color:{_INK};font-family:Georgia,serif;
+              padding:0.8rem 1rem;border-radius:6px;margin-bottom:0.5rem}}
+        </style>""",
         unsafe_allow_html=True,
     )
 
@@ -432,17 +433,18 @@ def _render_newspaper(story: dict, meta: dict, context: dict) -> None:
             flag_strip += f'<img src="{u}" style="height:22px;border-radius:2px;margin:0 2px;vertical-align:middle" title="{t}">'
 
     st.markdown(
+        f'<div class="np" style="padding:0.8rem 1rem 0.4rem">'
         f'<div style="border-top:3px solid {_BORDER};border-bottom:3px solid {_BORDER};'
-        f'padding:0.5rem 0;margin-bottom:0.1rem">'
+        f'padding:0.5rem 0;margin-bottom:0.4rem">'
         f'<div style="font-size:clamp(1.6rem,5vw,2.8rem);font-weight:900;text-align:center;'
         f'letter-spacing:0.06em;color:{_INK};line-height:1.1">THE SWEEPSTAKE GAZETTE</div>'
         f'</div>'
         f'<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:0.3rem;'
-        f'font-size:0.65rem;color:{_MID};padding:0.3rem 0;border-bottom:1px solid {_BORDER}55;'
-        f'margin-bottom:0.6rem">'
+        f'font-size:0.65rem;color:{_MID};padding:0.2rem 0">'
         f'<span>WC 2026 · Private Edition</span>'
         f'<span style="text-align:center">{flag_strip}</span>'
         f'<span>{today_str}</span>'
+        f'</div>'
         f'</div>',
         unsafe_allow_html=True,
     )
@@ -464,7 +466,7 @@ def _render_newspaper(story: dict, meta: dict, context: dict) -> None:
     headline    = story.get("headline","").upper()
     subheadline = story.get("subheadline","")
     st.markdown(
-        f'<div style="text-align:center;padding:1rem 0 0.8rem;'
+        f'<div class="np" style="text-align:center;padding:1rem 1rem 0.8rem;'
         f'border-bottom:2px solid {_BORDER}">'
         f'<div style="font-size:clamp(1.4rem,4vw,2.2rem);font-weight:900;line-height:1.15;'
         f'color:{_INK};letter-spacing:0.01em">{headline}</div>'
@@ -484,15 +486,16 @@ def _render_newspaper(story: dict, meta: dict, context: dict) -> None:
     with col_lead:
         if lead:
             st.markdown(
+                f'<div class="np" style="padding:0.9rem 1rem 0.5rem">'
                 f'<p style="font-size:1.05rem;line-height:1.85;font-weight:600;'
-                f'color:{_INK};margin:0.9rem 0 0">{lead}</p>',
+                f'color:{_INK};margin:0">{lead}</p></div>',
                 unsafe_allow_html=True,
             )
     with col_pull:
         if pull:
             st.markdown(
-                f'<div style="background:{_RED}11;border-left:4px solid {_RED};'
-                f'padding:0.9rem 0.9rem 0.9rem 1rem;margin-top:0.9rem;border-radius:0 4px 4px 0">'
+                f'<div class="np" style="padding:0.9rem 0.9rem 0.9rem 1rem;margin-top:0.5rem;'
+                f'border-left:4px solid {_RED}">'
                 f'<div style="color:{_LIGHT};font-size:0.62rem;letter-spacing:0.1em;margin-bottom:0.4rem">'
                 f'PULL QUOTE</div>'
                 f'<div style="color:{_RED};font-size:1rem;font-style:italic;line-height:1.55">"{pull}"</div>'
@@ -515,7 +518,7 @@ def _render_newspaper(story: dict, meta: dict, context: dict) -> None:
         is_upset   = "UPSET" in title.upper()
 
         st.markdown(
-            f'<p style="font-size:0.92rem;line-height:1.8;color:{_INK};margin:0">{content}</p>',
+            f'<div class="np"><p style="font-size:0.92rem;line-height:1.8;color:{_INK};margin:0">{content}</p></div>',
             unsafe_allow_html=True,
         )
 
@@ -591,7 +594,7 @@ def _render_newspaper(story: dict, meta: dict, context: dict) -> None:
         with pcol_text:
             flag_badge = f'<img src="{pflag}" style="height:16px;vertical-align:middle;border-radius:2px;margin-right:4px">' if pflag else ""
             st.markdown(
-                f'<div style="padding:0.4rem 0">'
+                f'<div class="np">'
                 f'<div style="font-size:1.4rem;font-weight:900;color:{_INK}">{pname}</div>'
                 f'<div style="font-size:0.78rem;color:{_MID};margin:0.2rem 0 0.6rem">'
                 f'{flag_badge}{pteam} &nbsp;·&nbsp; <em>{pachieve}</em></div>'
@@ -610,7 +613,7 @@ def _render_newspaper(story: dict, meta: dict, context: dict) -> None:
     with dcol:
         if digest:
             st.markdown(
-                f'<p style="font-size:0.9rem;line-height:1.8;color:{_INK};margin:0">{digest}</p>',
+                f'<div class="np"><p style="font-size:0.9rem;line-height:1.8;color:{_INK};margin:0">{digest}</p></div>',
                 unsafe_allow_html=True,
             )
         # Top 5 leaderboard mini-table
@@ -635,7 +638,7 @@ def _render_newspaper(story: dict, meta: dict, context: dict) -> None:
                     f'</tr>'
                 )
             st.markdown(
-                f'<div style="margin-top:0.8rem">'
+                f'<div class="np" style="margin-top:0.4rem">'
                 f'<div style="font-size:0.62rem;font-weight:700;letter-spacing:0.1em;'
                 f'color:{_MID};margin-bottom:0.4rem">CURRENT STANDINGS (TOP 5)</div>'
                 f'<table style="width:100%;border-collapse:collapse">'
@@ -666,8 +669,7 @@ def _render_newspaper(story: dict, meta: dict, context: dict) -> None:
                     f'</div></div>'
                 )
             st.markdown(
-                f'<div style="background:white;border:1px solid {_BORDER}22;border-radius:6px;'
-                f'padding:0.8rem">'
+                f'<div class="np" style="border-radius:6px;padding:0.8rem">'
                 f'<div style="font-size:0.62rem;font-weight:700;letter-spacing:0.1em;'
                 f'color:{_MID};margin-bottom:0.6rem">TOP SCORERS BY TEAM</div>'
                 f'{bars_html}</div>',
@@ -677,7 +679,7 @@ def _render_newspaper(story: dict, meta: dict, context: dict) -> None:
     # ── Looking ahead ──
     if looking:
         st.markdown(
-            f'<div style="border-top:2px solid {_BORDER};margin-top:1.2rem;padding-top:0.7rem">'
+            f'<div class="np" style="border-top:2px solid {_BORDER};padding-top:0.7rem">'
             f'<span style="font-size:0.62rem;font-weight:900;letter-spacing:0.12em;color:{_RED}">'
             f'LOOKING AHEAD &nbsp;</span>'
             f'<span style="font-size:0.88rem;color:{_MID}">{looking}</span>'
@@ -687,7 +689,7 @@ def _render_newspaper(story: dict, meta: dict, context: dict) -> None:
 
     # ── Footer ──
     st.markdown(
-        f'<div style="text-align:center;margin-top:1.2rem;padding-top:0.6rem;'
+        f'<div class="np" style="text-align:center;padding:0.5rem 1rem;'
         f'border-top:1px solid {_BORDER}33;font-size:0.62rem;color:{_LIGHT}">'
         f'Generated {meta.get("generated_at","?")} &nbsp;·&nbsp; '
         f'{meta.get("matches_covered","?")} matches covered &nbsp;·&nbsp; '
@@ -695,8 +697,6 @@ def _render_newspaper(story: dict, meta: dict, context: dict) -> None:
         unsafe_allow_html=True,
     )
 
-    # Close wrapper div
-    st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ── Page ──────────────────────────────────────────────────────────────────────
@@ -734,13 +734,8 @@ _generate_clicked = False
 
 if _is_admin:
     st.markdown(
-        f'<div style="background:#0D1B2A;border:1px solid {_SECTION};'
-        f'border-radius:10px;padding:1.25rem 1.5rem 1.2rem;margin-bottom:1.5rem">',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
         f'<div style="color:{_SECTION};font-weight:700;font-size:1rem;'
-        f'letter-spacing:0.05em;margin-bottom:1rem">📰 NEWSROOM</div>',
+        f'letter-spacing:0.05em;margin-bottom:0.25rem">📰 NEWSROOM</div>',
         unsafe_allow_html=True,
     )
 
@@ -790,7 +785,7 @@ if _is_admin:
             + (f" · _{_cache.get('topic','')}_" if _cache.get("topic") else "")
         )
 
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.divider()
 
 # ── Generation ────────────────────────────────────────────────────────────────
 if _generate_clicked:
