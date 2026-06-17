@@ -820,18 +820,18 @@ with tabs[4]:
 
             st.markdown("**Group Stage**")
             ca1, ca2, ca3, ca4, ca5 = st.columns(5)
-            with ca1: g_goals  = st.number_input("Goals",      0, 50, _ev("GroupGoals"))
-            with ca2: g_cs     = st.number_input("Cl. Sheets", 0, 10, _ev("GroupCleanSheets"))
-            with ca3: g_pw     = st.number_input("Pen. Wins",  0,  5, _ev("GroupPenaltyWins"))
-            with ca4: g_cw     = st.number_input("CB Wins",    0,  5, _ev("GroupComebackWins"))
+            with ca1: g_goals  = st.number_input("Goals",      0, 50, _ev("GroupGoals"),       key="adv_g_goals")
+            with ca2: g_cs     = st.number_input("Cl. Sheets", 0, 10, _ev("GroupCleanSheets"), key="adv_g_cs")
+            with ca3: g_pw     = st.number_input("Pen. Wins",  0,  5, _ev("GroupPenaltyWins"), key="adv_g_pw")
+            with ca4: g_cw     = st.number_input("CB Wins",    0,  5, _ev("GroupComebackWins"),key="adv_g_cw")
             with ca5: g_winner = st.checkbox("Group Winner", value=bool(_ev("GroupWinner")))
 
             st.markdown("**Knockout**")
             cb1, cb2, cb3, cb4 = st.columns(4)
-            with cb1: ko_goals = st.number_input("Goals",      0, 50, _ev("KnockoutGoals"))
-            with cb2: ko_cs    = st.number_input("Cl. Sheets", 0, 10, _ev("KnockoutCleanSheets"))
-            with cb3: ko_pw    = st.number_input("Pen. Wins",  0,  5, _ev("KnockoutPenaltyWins"))
-            with cb4: ko_cw    = st.number_input("CB Wins",    0,  5, _ev("KnockoutComebackWins"))
+            with cb1: ko_goals = st.number_input("Goals",      0, 50, _ev("KnockoutGoals"),       key="adv_ko_goals")
+            with cb2: ko_cs    = st.number_input("Cl. Sheets", 0, 10, _ev("KnockoutCleanSheets"), key="adv_ko_cs")
+            with cb3: ko_pw    = st.number_input("Pen. Wins",  0,  5, _ev("KnockoutPenaltyWins"), key="adv_ko_pw")
+            with cb4: ko_cw    = st.number_input("CB Wins",    0,  5, _ev("KnockoutComebackWins"),key="adv_ko_cw")
             rounds  = ["", "GroupStage", "R32", "R16", "QF", "SF", "Final", "Winner"]
             cur_rnd = _es("RoundReached")
             rnd     = st.selectbox("Round Reached", rounds,
