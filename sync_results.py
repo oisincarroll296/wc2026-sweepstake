@@ -39,15 +39,18 @@ def push_repo(path: Path, msg: str) -> bool:
     print(f"\n{'='*50}")
     print(f"  {path.name}")
     print(f"{'='*50}")
-    result = subprocess.run(
-        ["git", "status", "--porcelain"],
+    run(["git", "add", "data/"], path)
+    staged = subprocess.run(
+        ["git", "diff", "--cached", "--name-only"],
         cwd=path, capture_output=True, text=True,
     )
-    if not result.stdout.strip():
-        print("Nothing to commit — already up to date.")
+    if not staged.stdout.strip():
+        print("No data changes to commit — already up to date.")
         return True
-    run(["git", "add", "data/"], path)
-    run(["git", "commit", "-m", msg], path)
+    print("Staged:", staged.stdout.strip().replace("\n", ", "))
+    if not run(["git", "commit", "-m", msg], path):
+        print("ERROR: commit failed.")
+        return False
     print("Pulling...")
     if not run(["git", "pull", "--no-rebase", "-X", "ours"], path):
         print("ERROR: pull failed — resolve conflicts manually.")
