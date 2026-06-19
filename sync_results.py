@@ -60,8 +60,22 @@ def push_repo(path: Path, msg: str) -> bool:
     return True
 
 
+# ── Step 0: recalculate WC stats from match_results.csv ────────────────────
+print("Recalculating WC stats...")
+wc_recalc = subprocess.run(
+    [sys.executable, str(WC / "recalc_stats.py")],
+    capture_output=True, text=True,
+)
+if wc_recalc.stdout.strip():
+    for line in wc_recalc.stdout.strip().splitlines():
+        print(" ", line)
+if wc_recalc.returncode != 0:
+    print(f"  WARNING: recalc_stats.py failed (rc={wc_recalc.returncode})")
+    if wc_recalc.stderr.strip():
+        print(" ", wc_recalc.stderr.strip())
+
 # ── Step 1: sync match data files WC → WCW ─────────────────────────────────
-print("Syncing match data: World Cup -> World Cup Work")
+print("\nSyncing match data: World Cup -> World Cup Work")
 print("-" * 50)
 synced = []
 for rel in SYNC_FILES:
