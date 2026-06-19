@@ -1,14 +1,16 @@
 """Rules — official competition rules and scoring system."""
 import sys
+import json
 from pathlib import Path
+from datetime import datetime, timezone
 _p = str(Path(__file__).resolve().parent.parent.parent); sys.path.insert(0, _p) if _p not in sys.path else None
 
 import streamlit as st
 
 from dashboard.components.ui import page_header
 
-_GRP = "#F59E0B"  # amber — must buy before group stage closes
-_KO  = "#22D3EE"  # cyan  — must buy before knockout stage
+_GRP = "#F59E0B"  # amber
+_KO  = "#22D3EE"  # cyan
 
 
 def _badge(color: str, label: str) -> str:
@@ -19,8 +21,30 @@ def _badge(color: str, label: str) -> str:
     )
 
 
-_GRP_BADGE = _badge(_GRP, "⏰ Before group stage closes")
-_KO_BADGE  = _badge(_KO,  "⏰ Before knockout stage")
+def _fmt_deadline(iso: str) -> str:
+    try:
+        dt = datetime.fromisoformat(iso)
+        return dt.strftime("%d %b, %H:%M").lstrip("0") + " BST"
+    except Exception:
+        return iso
+
+
+_dl_path = Path(__file__).resolve().parent.parent.parent / "data" / "deadlines.json"
+try:
+    _dl = json.loads(_dl_path.read_text(encoding="utf-8"))
+except Exception:
+    _dl = {}
+
+_buy_in_str     = _fmt_deadline(_dl.get("buy_in_deadline", ""))
+_pred_str       = _fmt_deadline(_dl.get("prediction_lock", ""))
+_ninth_str      = _fmt_deadline(_dl.get("ninth_team_draw", ""))
+_res_str        = _fmt_deadline(_dl.get("resurrection_window_close", ""))
+_ko_cap_str     = _fmt_deadline(_dl.get("knockout_captain_deadline", ""))
+_pre_cap_str    = _fmt_deadline(_dl.get("pre_tournament_captain", ""))
+
+_GRP_BADGE = _badge(_GRP, f"⏰ Deadline: {_buy_in_str}")
+_PRED_BADGE = _badge(_GRP, f"⏰ Deadline: {_pred_str}")
+_KO_BADGE  = _badge(_KO,  f"⏰ Deadline: {_ninth_str}")
 
 page_header("Rules", "Official competition rules and scoring system")
 
@@ -130,12 +154,12 @@ with tab_purchases:
         )
         st.markdown(
             f'<div class="card"><div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.1rem">'
-            f'<h4 style="color:#D4A017;margin:0">Prediction Pack — €5</h4>{_GRP_BADGE}</div>'
+            f'<h4 style="color:#D4A017;margin:0">Prediction Pack — €5</h4>{_PRED_BADGE}</div>'
             '<p style="color:#9CA3AF;font-size:0.88rem;margin:0">'
             'Unlocks six predictions: World Cup Winner (+30), Runner-Up (+20), '
             'Bronze Medal (+15), Golden Boot (+25), Dark Horse (up to +135 cumulative), '
-            'and First Knocked Out (+20). '
-            '<strong style="color:#D4A017">Lock: 19 June</strong> (before first group stage games kick off).</p></div>',
+            f'and First Knocked Out (+20). '
+            f'<strong style="color:#D4A017">Predictions lock: {_pred_str}</strong>.</p></div>',
             unsafe_allow_html=True,
         )
         st.markdown(
@@ -174,16 +198,19 @@ with tab_purchases:
             '<p style="color:#9CA3AF;font-size:0.88rem;margin:0">'
             'After the Group Stage, receive one random surviving team you don\'t already own. '
             'Added to your roster for knockout rounds only. '
-            'Can be selected as Knockout Captain.</p></div>',
+            f'Can be selected as Knockout Captain. '
+            f'<strong style="color:#D4A017">Draw: {_ninth_str}</strong>.</p></div>',
             unsafe_allow_html=True,
         )
         st.markdown(
             f'<div class="card"><div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.1rem">'
-            f'<h4 style="color:#D4A017;margin:0">Resurrection — €5</h4>{_KO_BADGE}</div>'
+            f'<h4 style="color:#D4A017;margin:0">Resurrection — €5</h4>'
+            f'{_badge(_KO, f"⏰ Deadline: {_res_str}")}</div>'
             '<p style="color:#9CA3AF;font-size:0.88rem;margin:0">'
             'You <strong>choose which of your eliminated teams</strong> gets swapped out, '
             '<strong>and you also choose the replacement</strong> from surviving same-tier teams you don\'t own. '
-            'Replacement earns knockout points only. Maximum one per player.</p></div>',
+            f'Replacement earns knockout points only. Maximum one per player. '
+            f'<strong style="color:#D4A017">Window closes: {_res_str}</strong>.</p></div>',
             unsafe_allow_html=True,
         )
 
@@ -209,8 +236,8 @@ with tab_captains:
     with col1:
         st.markdown(
             '<div class="card-gold"><h4 style="color:#D4A017;margin:0">Pre-Tournament Captain</h4>'
-            '<p style="color:#9CA3AF;font-size:0.88rem;margin:0.5rem 0 0">Free · Must be one of your original 8 teams · '
-            'Selected before the opening match</p>'
+            f'<p style="color:#9CA3AF;font-size:0.88rem;margin:0.5rem 0 0">Free · Must be one of your original 8 teams · '
+            f'<strong style="color:#D4A017">Deadline: {_pre_cap_str}</strong></p>'
             '<p style="color:#F5F5F5;margin:0.5rem 0 0">'
             'That team earns <strong>1.5× every point it scores</strong> across the entire tournament — '
             'goals, clean sheets, wins, hat tricks, penalty/comeback wins, upset bonuses, '
@@ -221,8 +248,8 @@ with tab_captains:
     with col2:
         st.markdown(
             '<div class="card-gold"><h4 style="color:#D4A017;margin:0">Knockout Captain</h4>'
-            '<p style="color:#9CA3AF;font-size:0.88rem;margin:0.5rem 0 0">Free · Any surviving team you own · '
-            'Selected before the Round of 32</p>'
+            f'<p style="color:#9CA3AF;font-size:0.88rem;margin:0.5rem 0 0">Free · Any surviving team you own · '
+            f'<strong style="color:#D4A017">Deadline: {_ko_cap_str}</strong></p>'
             '<p style="color:#F5F5F5;margin:0.5rem 0 0">'
             'That team earns <strong>1.5× every point it scores in the knockout rounds</strong> (Round of 32 onward) — '
             'goals, clean sheets, wins, hat tricks, penalty/comeback wins, upset bonuses, and '
