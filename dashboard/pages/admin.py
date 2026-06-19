@@ -47,6 +47,8 @@ def _push(local, repo_path: str, msg: str) -> None:
 
 def _save_purchases(df: pd.DataFrame, msg: str = "Update purchases"):
     from src.competition import save_purchases_to_players, load_player_status
+    df.to_csv(DATA / "purchases.csv", index=False)
+    _push(DATA / "purchases.csv", "data/purchases.csv", msg)
     _pl = load_player_status()
     _pl = save_purchases_to_players(df, _pl)
     _save_statuses(_pl, msg)
