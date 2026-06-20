@@ -1073,6 +1073,7 @@ if _is_admin:
 if _generate_clicked:
     with st.spinner("Crunching data and writing the story…"):
         try:
+            st.cache_data.clear()   # ensure leaderboard + stats are fresh from disk
             ctx       = _build_story_context(date_from=_date_from, date_to=_date_to)
             story_out = _generate_story(ctx, _api_key, topic=_topic, suggestions=_suggestions)
             _cache = {
