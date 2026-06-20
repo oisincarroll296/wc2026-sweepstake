@@ -96,28 +96,25 @@ def _save_cache(data: dict) -> None:
 def _build_best_day_table() -> list[dict]:
     if not _SCORE_HISTORY_PATH.exists():
         return []
-    try:
-        hist = pd.read_csv(_SCORE_HISTORY_PATH, dtype=str)
-        if hist.empty or "Date" not in hist.columns:
-            return []
-        # Filter to players that belong to THIS competition only
-        if _PLAYERS_PATH.exists():
-            current = set(pd.read_csv(_PLAYERS_PATH, dtype=str)["Player"].dropna().tolist())
-            hist = hist[hist["Player"].isin(current)]
-        if hist.empty:
-            return []
-        hist["Date"]   = pd.to_datetime(hist["Date"], errors="coerce")
-        hist["Points"] = pd.to_numeric(hist["Points"], errors="coerce").fillna(0)
-        hist = hist.sort_values(["Player", "Date"])
-        hist["prev"] = hist.groupby("Player")["Points"].shift(1)
-        hist["gain"] = (hist["Points"] - hist["prev"]).fillna(0)
-        best = hist[hist["gain"] > 0].nlargest(10, "gain")
-        return [
-            {"player": str(r["Player"]), "date": r["Date"].strftime("%d %b"), "gain": round(float(r["gain"]), 1)}
-            for _, r in best.iterrows()
-        ]
-    except Exception:
+    hist = pd.read_csv(_SCORE_HISTORY_PATH, dtype=str)
+    if hist.empty or "Date" not in hist.columns:
         return []
+    # Filter to players that belong to THIS competition only
+    if _PLAYERS_PATH.exists():
+        current = set(pd.read_csv(_PLAYERS_PATH, dtype=str)["Player"].dropna().tolist())
+        hist = hist[hist["Player"].isin(current)]
+    if hist.empty:
+        return []
+    hist["Date"]   = pd.to_datetime(hist["Date"], errors="coerce")
+    hist["Points"] = pd.to_numeric(hist["Points"], errors="coerce").fillna(0)
+    hist = hist.sort_values(["Player", "Date"])
+    hist["prev"] = hist.groupby("Player")["Points"].shift(1)
+    hist["gain"] = (hist["Points"] - hist["prev"]).fillna(0)
+    best = hist[hist["gain"] > 0].nlargest(10, "gain")
+    return [
+        {"player": str(r["Player"]), "date": r["Date"].strftime("%d %b"), "gain": round(float(r["gain"]), 1)}
+        for _, r in best.iterrows()
+    ]
 
 
 # ── Context builder ────────────────────────────────────────────────────────────
@@ -1099,7 +1096,8 @@ elif _cache and "story" in _cache:
             story=_cache["story"], meta=_cache,
             context=ctx, best_days=_build_best_day_table(),
         )
-    except Exception:
+    except Exception as _e:
+        st.warning(f"Story render error: {_e}")
         st.markdown(str(_cache["story"]))
 else:
     if _is_admin:
