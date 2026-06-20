@@ -495,16 +495,14 @@ with col_extras:
             pp_ru     = str(pred_row.get("RunnerUp",       "") or "").strip() or "—"
             pp_bronze = str(pred_row.get("BronzeMedal",    "") or "").strip() or "—"
             pp_golden = str(pred_row.get("GoldenBoot",     "") or "").strip() or "—"
-            pp_fko    = str(pred_row.get("FirstKnockedOut","") or "").strip() or "—"
             pp_dark   = str(pred_row.get("DarkHorse",      "") or "").strip() or "—"
         else:
-            pp_winner = pp_ru = pp_bronze = pp_golden = pp_fko = pp_dark = "—"
+            pp_winner = pp_ru = pp_bronze = pp_golden = pp_dark = "—"
 
         winner_bonus = pred_info.get("winner_bonus", 0.0)
         ru_bonus     = pred_info.get("runner_up_bonus", 0.0)
         bz_bonus     = pred_info.get("bronze_bonus", 0.0)
         gb_bonus     = pred_info.get("golden_boot_bonus", 0.0)
-        fko_bonus    = pred_info.get("first_knocked_out_bonus", 0.0)
         dh_bonus     = pred_info.get("dark_horse_bonus", 0.0)
 
         # Dark horse current round
@@ -514,13 +512,12 @@ with col_extras:
 
         DARK_HORSE_NEXT = {"": "QF (+15)", "QF": "SF (+30)", "SF": "Final (+40)", "Final": "Win (+50)"}
 
-        # Fixed predictions (winner, runner-up, bronze, golden boot, first KO)
+        # Fixed predictions (winner, runner-up, bronze, golden boot)
         for label, pick, earned, max_pts in [
             ("World Cup Winner", pp_winner, winner_bonus, 30),
             ("Runner-Up",        pp_ru,     ru_bonus,     20),
             ("Bronze Medal",     pp_bronze, bz_bonus,     15),
             ("Golden Boot",      pp_golden, gb_bonus,     25),
-            ("First Knocked Out",pp_fko,    fko_bonus,    20),
         ]:
             col_pts = "#6EE7B7" if earned > 0 else "#9CA3AF"
             status  = f"+{earned:.0f} ✓" if earned > 0 else f"0 / {max_pts}"

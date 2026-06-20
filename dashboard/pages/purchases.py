@@ -188,8 +188,8 @@ with tab_shop:
                    "Entry into the competition. Required to receive prizes. "
                    "You still appear on the Overall Leaderboard without it, but are excluded from prize money.")
         _shop_card("PredictionPack", "Prediction Pack", 5, _GRP,
-                   "Unlocks six predictions: World Cup Winner (+30), Runner-Up (+20), Bronze Medal (+15), "
-                   "Golden Boot (+25), Dark Horse (up to +135 cumulative), and First Knocked Out (+20). "
+                   "Unlocks five predictions: World Cup Winner (+30), Runner-Up (+20), Bronze Medal (+15), "
+                   "Golden Boot (+25), and Dark Horse (up to +135 cumulative). "
                    "<strong style='color:#D4A017'>Lock: 19 June</strong> before first kick-off.")
         _shop_card("Mulligan", "Mulligan", 3, _GRP,
                    "Complete redraw of your 8 teams before the tournament starts. "
@@ -379,7 +379,7 @@ with tab_shop:
         _ppdf   = pd.read_csv(_DATA / "players.csv", dtype=str).fillna("") if (_DATA / "players.csv").exists() else pd.DataFrame()
         _all_pick_cols = ["PreTournamentCaptain", "KnockoutCaptain",
                           "WorldCupWinner", "RunnerUp", "BronzeMedal",
-                          "GoldenBoot", "DarkHorse", "FirstKnockedOut"]
+                          "GoldenBoot", "DarkHorse"]
         for _c in _all_pick_cols:
             if not _ppdf.empty and _c not in _ppdf.columns:
                 _ppdf[_c] = ""
@@ -460,7 +460,7 @@ with tab_shop:
                         _new_bm = st.selectbox("Any team", _topts_sh,
                                                 index=_topts_sh.index(_bm_c) if _bm_c in _topts_sh else 0,
                                                 key="sh_bm", label_visibility="collapsed")
-                    _sh_d4, _sh_d5, _sh_d6 = st.columns(3)
+                    _sh_d4, _sh_d5 = st.columns(2)
                     with _sh_d4:
                         st.markdown("**Golden Boot**")
                         _new_gb = st.text_input("Player name", value=_vsh("GoldenBoot"),
@@ -474,12 +474,6 @@ with tab_shop:
                         _new_dh = st.selectbox("Tier 3/4, not owned", _dh_opts_sh,
                                                 index=_dh_opts_sh.index(_dh_c) if _dh_c in _dh_opts_sh else 0,
                                                 key="sh_dh", label_visibility="collapsed")
-                    with _sh_d6:
-                        st.markdown("**First Knocked Out**")
-                        _fko_c = _vsh("FirstKnockedOut")
-                        _new_fko = st.selectbox("Any team", _topts_sh,
-                                                 index=_topts_sh.index(_fko_c) if _fko_c in _topts_sh else 0,
-                                                 key="sh_fko", label_visibility="collapsed")
 
                     if st.form_submit_button("Save Picks", type="primary"):
                         try:
@@ -490,7 +484,6 @@ with tab_shop:
                                     ("BronzeMedal",    _new_bm),
                                     ("GoldenBoot",     _new_gb),
                                     ("DarkHorse",      _new_dh),
-                                    ("FirstKnockedOut", _new_fko),
                                 ]:
                                     _ppdf.loc[_rmask_sh, _col_sh] = _val_sh
                                 _save_players(_ppdf, f"Picks: {_sv}")

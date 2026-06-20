@@ -24,7 +24,6 @@ PREDICTION_WINNER_BONUS = 30
 PREDICTION_GOLDEN_BOOT_BONUS = 25
 PREDICTION_RUNNER_UP_BONUS = 20
 PREDICTION_BRONZE_BONUS = 15
-PREDICTION_FIRST_KNOCKED_OUT_BONUS = 20
 
 # Regular match result bonuses
 WIN_BONUS = 3                     # any win (normal time, extra time, or penalties)
@@ -89,11 +88,11 @@ def load_predictions(path: Optional[Path | str] = None) -> pd.DataFrame:
     if not p.exists():
         return pd.DataFrame(columns=[
             "Player", "WorldCupWinner", "RunnerUp", "BronzeMedal",
-            "GoldenBoot", "DarkHorse", "FirstKnockedOut",
+            "GoldenBoot", "DarkHorse",
         ])
     df = pd.read_csv(p, dtype=str).fillna("")
     cols = ["Player", "WorldCupWinner", "RunnerUp", "BronzeMedal",
-            "GoldenBoot", "DarkHorse", "FirstKnockedOut"]
+            "GoldenBoot", "DarkHorse"]
     return df[[c for c in cols if c in df.columns]].copy()
 
 
@@ -410,10 +409,9 @@ def calculate_prediction_points(
     """
     result = {
         "world_cup_winner": None, "runner_up": None, "bronze_winner": None,
-        "golden_boot": None, "dark_horse": None, "first_knocked_out": None,
+        "golden_boot": None, "dark_horse": None,
         "winner_bonus": 0.0, "runner_up_bonus": 0.0, "bronze_bonus": 0.0,
         "golden_boot_bonus": 0.0, "dark_horse_bonus": 0.0,
-        "first_knocked_out_bonus": 0.0,
         "total": 0.0,
     }
     if predictions.empty or not tournament_results:
@@ -456,14 +454,6 @@ def calculate_prediction_points(
     if predicted_gb and predicted_gb == actual_gb:
         result["golden_boot_bonus"] = float(PREDICTION_GOLDEN_BOOT_BONUS)
         result["total"] += result["golden_boot_bonus"]
-
-    # First Knocked Out (+20)
-    predicted_fko = str(pred.get("FirstKnockedOut", "") or "").strip()
-    result["first_knocked_out"] = predicted_fko or None
-    actual_fko = str(tournament_results.get("first_knocked_out", "") or "").strip()
-    if predicted_fko and predicted_fko == actual_fko:
-        result["first_knocked_out_bonus"] = float(PREDICTION_FIRST_KNOCKED_OUT_BONUS)
-        result["total"] += result["first_knocked_out_bonus"]
 
     # Dark Horse — cumulative per qualifying round reached
     predicted_dh = str(pred.get("DarkHorse", "") or "").strip()
@@ -574,14 +564,6 @@ def calculate_leaderboard(
             str(row["Team"]): str(row.get("RoundReached", "") or "")
             for _, row in match_stats.iterrows()
         }
-    # Auto-derive first_knocked_out from FirstEliminated flag in match_stats
-    if "first_knocked_out" not in tr and not match_stats.empty:
-        fe_col = "FirstEliminated"
-        if fe_col in match_stats.columns:
-            fe_rows = match_stats[pd.to_numeric(match_stats[fe_col], errors="coerce").fillna(0).astype(int) == 1]
-            if not fe_rows.empty:
-                tr["first_knocked_out"] = str(fe_rows.iloc[0]["Team"])
-
     rows = []
     for player in participants:
         info = calculate_player_points(
@@ -756,7 +738,6 @@ def generate_player_summary(
             "BronzeMedalPick":      pred["bronze_winner"] or "",
             "GoldenBootPick":       pred["golden_boot"] or "",
             "DarkHorsePick":        pred["dark_horse"] or "",
-            "FirstKnockedOutPick":  pred["first_knocked_out"] or "",
             "InsuranceStatus":      "Yes" if has_insurance else "No",
             "NinthTeam":            ninth,
             "ResurrectionTeam":     resurrection,

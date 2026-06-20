@@ -63,7 +63,7 @@ else:
         )
 
     _pick_check_cols = ["WorldCupWinner", "GoldenBoot", "DarkHorse",
-                        "RunnerUp", "BronzeMedal", "FirstKnockedOut"]
+                        "RunnerUp", "BronzeMedal"]
 
     def _has_picks(player: str) -> bool:
         if preds_df.empty:
@@ -120,7 +120,7 @@ else:
 
             _pick_cols_pv = ["PreTournamentCaptain", "KnockoutCaptain",
                               "WorldCupWinner", "RunnerUp", "BronzeMedal",
-                              "GoldenBoot", "DarkHorse", "FirstKnockedOut"]
+                              "GoldenBoot", "DarkHorse"]
             for _col in _pick_cols_pv:
                 if _col not in _ppdf.columns:
                     _ppdf[_col] = ""
@@ -169,7 +169,7 @@ else:
                                             index=_topts.index(_bm_cur) if _bm_cur in _topts else 0,
                                             key="pv_bm", label_visibility="collapsed")
 
-                _pd4, _pd5, _pd6 = st.columns(3)
+                _pd4, _pd5 = st.columns(2)
                 with _pd4:
                     st.markdown("**Golden Boot**")
                     _new_gb = st.text_input("Player name", value=_vp("GoldenBoot"),
@@ -183,13 +183,6 @@ else:
                     _new_dh  = st.selectbox("Tier 3/4, not owned", _dh_opts,
                                              index=_dh_opts.index(_dh_cur) if _dh_cur in _dh_opts else 0,
                                              key="pv_dh", label_visibility="collapsed")
-                with _pd6:
-                    st.markdown("**First Knocked Out**")
-                    st.caption("First team eliminated from the tournament")
-                    _fko_cur = _vp("FirstKnockedOut")
-                    _new_fko = st.selectbox("Any team", _topts,
-                                             index=_topts.index(_fko_cur) if _fko_cur in _topts else 0,
-                                             key="pv_fko", label_visibility="collapsed")
 
                 if st.form_submit_button("Save Picks", type="primary"):
                     try:
@@ -202,7 +195,6 @@ else:
                                 ("BronzeMedal",          _new_bm),
                                 ("GoldenBoot",           _new_gb),
                                 ("DarkHorse",            _new_dh),
-                                ("FirstKnockedOut",      _new_fko),
                             ]:
                                 _ppdf.loc[_rmask, _col] = _val
                             _ppdf.to_csv(_PD / "players.csv", index=False)
@@ -265,16 +257,15 @@ _pick_card(col3, "Bronze Medal",     "🥉", data.get("bronze_winner", {}),    "
 st.divider()
 
 # Row 2: individual & special
-col4, col5, col6 = st.columns(3)
-_pick_card(col4, "Golden Boot",       "👟", data.get("golden_boot", {}),      "+25 pts")
-_pick_card(col5, "Dark Horse",        "🌟", data.get("dark_horse", {}),       "+15/30/40/50 pts")
-_pick_card(col6, "First Knocked Out", "💀", data.get("first_knocked_out", {}), "+20 pts")
+col4, col5 = st.columns(2)
+_pick_card(col4, "Golden Boot", "👟", data.get("golden_boot", {}), "+25 pts")
+_pick_card(col5, "Dark Horse",  "🌟", data.get("dark_horse", {}),  "+15/30/40/50 pts")
 
 st.divider()
 st.subheader("All Picks")
 if not preds_df.empty:
     _display_cols = [c for c in [
         "Player", "WorldCupWinner", "RunnerUp", "BronzeMedal",
-        "GoldenBoot", "DarkHorse", "FirstKnockedOut",
+        "GoldenBoot", "DarkHorse",
     ] if c in preds_df.columns]
     st.dataframe(preds_df[_display_cols], use_container_width=True, hide_index=True)

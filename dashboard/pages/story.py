@@ -163,7 +163,7 @@ def _build_story_context(date_from: date | None = None, date_to: date | None = N
     predictions: dict[str, dict] = {}
     pay_status: dict[str, str] = {}
     if not players_df.empty:
-        pcols = ["WorldCupWinner","RunnerUp","BronzeMedal","GoldenBoot","DarkHorse","FirstKnockedOut"]
+        pcols = ["WorldCupWinner","RunnerUp","BronzeMedal","GoldenBoot","DarkHorse"]
         for _, row in players_df.iterrows():
             p = str(row.get("Player",""))
             pay_status[p] = str(row.get("Status","UNPAID"))

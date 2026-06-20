@@ -369,7 +369,7 @@ with tabs[2]:
         _pick_cols = [
             "PreTournamentCaptain", "KnockoutCaptain",
             "WorldCupWinner", "RunnerUp", "BronzeMedal",
-            "GoldenBoot", "DarkHorse", "FirstKnockedOut",
+            "GoldenBoot", "DarkHorse",
         ]
         for col in _pick_cols:
             if col not in _picks_df.columns:
@@ -437,7 +437,7 @@ with tabs[2]:
                 new_bm = st.selectbox("Any team", [""] + _all_teams, index=bm_idx,
                                       key="bm", label_visibility="collapsed")
 
-            pd4, pd5, pd6 = st.columns(3)
+            pd4, pd5 = st.columns(2)
             with pd4:
                 st.markdown("**Golden Boot**")
                 new_gb = st.text_input("Player name (free text)",
@@ -452,13 +452,6 @@ with tabs[2]:
                 new_dh = st.selectbox("Tier 3 or 4, not already owned",
                                       [""] + _low_tier, index=dh_idx,
                                       key="dh", label_visibility="collapsed")
-            with pd6:
-                st.markdown("**First Knocked Out**")
-                st.caption("Any team — first eliminated from the tournament")
-                cur_fko = _v("FirstKnockedOut")
-                fko_idx = ([""] + _all_teams).index(cur_fko) if cur_fko in ([""] + _all_teams) else 0
-                new_fko = st.selectbox("Any team", [""] + _all_teams, index=fko_idx,
-                                       key="fko", label_visibility="collapsed")
 
             if st.form_submit_button("Save picks", type="primary"):
                 # Validate same-captain rule
@@ -472,7 +465,6 @@ with tabs[2]:
                     _picks_df.loc[_row_mask, "BronzeMedal"]          = new_bm
                     _picks_df.loc[_row_mask, "GoldenBoot"]           = new_gb
                     _picks_df.loc[_row_mask, "DarkHorse"]            = new_dh
-                    _picks_df.loc[_row_mask, "FirstKnockedOut"]      = new_fko
                     _picks_df.to_csv(_players_path, index=False)
                     _push(_players_path, "data/players.csv", f"Picks saved for {_player_sel}")
                     st.success(f"Picks saved for {_player_sel}.")
@@ -962,8 +954,7 @@ with tabs[6]:
     st.subheader("Tournament Results")
     st.caption(
         "Set the final outcomes used for prediction bonus calculations. "
-        "Leave fields blank until the result is known. "
-        "First Knocked Out is auto-derived from the Special Events tab."
+        "Leave fields blank until the result is known."
     )
 
     _tr_path = DATA / "tournament_results.json"
