@@ -874,6 +874,14 @@ def _render_newspaper(story: dict, meta: dict, context: dict, best_days: list) -
             f'</tr></thead><tbody>{rows_html}</tbody></table></div>',
             unsafe_allow_html=True,
         )
+        # Show latest score snapshot date so any staleness is immediately visible
+        try:
+            _sh = pd.read_csv(_SCORE_HISTORY_PATH, dtype=str)
+            _latest_sh = pd.to_datetime(_sh["Date"], errors="coerce").max()
+            if pd.notna(_latest_sh):
+                st.caption(f"Score history through {_latest_sh.strftime('%d %b')}")
+        except Exception:
+            pass
 
     # ── Top goalscorers + Sweepstake digest ────────────────────────────────
     _hr()
