@@ -259,13 +259,19 @@ st.subheader("📈 Points Over Time")
 _ROOT = Path(__file__).parent.parent.parent
 _hist_path = _ROOT / "data" / "score_history.csv"
 
-_MILESTONE_LABELS = {
-    "2026-06-11": "After MD1",
-    "2026-06-18": "After MD2",
-    "2026-06-25": "After MD3",
-    "2026-07-01": "After R32/R16",
-    "2026-07-09": "After QF",
+_MILESTONE_DATES = {
+    "2026-06-11": "MD1",
+    "2026-06-18": "MD2",
+    "2026-06-25": "MD3",
+    "2026-07-01": "R32/R16",
+    "2026-07-09": "QF",
+    "2026-07-14": "SF",
+    "2026-07-19": "Final",
 }
+
+def _fmt_date(d: str) -> str:
+    dt = pd.to_datetime(d)
+    return dt.strftime("%b %d").replace(" 0", " ")
 
 if _hist_path.exists():
     try:
@@ -273,13 +279,31 @@ if _hist_path.exists():
         _hist["Date"] = _hist["Date"].astype(str)
         _players_hist = sorted(_hist["Player"].unique())
 
+        # Forward-fill so every calendar day has a data point (no gaps for rest days)
+        _all_dates = sorted(_hist["Date"].unique())
+        _full_dates = (
+            pd.date_range(_all_dates[0], _all_dates[-1], freq="D")
+            .strftime("%Y-%m-%d").tolist()
+        )
+        _filled = []
+        for _p in _players_hist:
+            _pd0 = _hist[_hist["Player"] == _p][["Date", "Points"]].set_index("Date")
+            _pd0 = _pd0.reindex(_full_dates).ffill().reset_index()
+            _pd0.columns = ["Date", "Points"]
+            _pd0["Player"] = _p
+            _filled.append(_pd0)
+        _hist = pd.concat(_filled, ignore_index=True)
+
+        # Map each raw date → display label ("Jun 11", "Jun 12", …)
+        _date_label = {d: _fmt_date(d) for d in _full_dates}
+
         # Use Plotly qualitative palette — enough colours for 13 players
         _palette = px.colors.qualitative.Light24
         _fig_line = go.Figure()
 
         for _idx, _pl in enumerate(_players_hist):
             _pdata = _hist[_hist["Player"] == _pl].sort_values("Date")
-            _x_labels = [_MILESTONE_LABELS.get(d, d) for d in _pdata["Date"].tolist()]
+            _x_labels = [_date_label.get(d, d) for d in _pdata["Date"].tolist()]
             _fig_line.add_trace(go.Scatter(
                 x=_x_labels,
                 y=_pdata["Points"].tolist(),
@@ -290,17 +314,30 @@ if _hist_path.exists():
                 hovertemplate=f"<b>{_pl}</b><br>%{{x}}: %{{y:.0f}} pts<extra></extra>",
             ))
 
+        # Milestone vertical lines
+        _all_x_labels = [_date_label.get(d, d) for d in _full_dates]
+        for _md, _mlabel in _MILESTONE_DATES.items():
+            _ml = _date_label.get(_md)
+            if _ml and _ml in _all_x_labels:
+                _fig_line.add_vline(
+                    x=_ml,
+                    line_dash="dot", line_color="rgba(212,160,23,0.45)", line_width=1,
+                    annotation_text=_mlabel,
+                    annotation_position="top",
+                    annotation_font=dict(size=10, color="#D4A017"),
+                )
+
         _line_layout = {**PLOTLY_LAYOUT}
         _line_layout.update(
-            title="Cumulative Points by Gameweek",
+            title="Cumulative Points Over Time",
             height=420,
-            xaxis_title="Tournament Stage",
+            xaxis_title="Date",
             yaxis_title="Points",
             legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(size=11), x=1.01, y=1),
         )
         _fig_line.update_layout(**_line_layout)
         st.plotly_chart(_fig_line, use_container_width=True)
-        st.caption("Chart shows cumulative points at each tournament milestone. Updated as results are entered.")
+        st.caption("Cumulative points per player updated daily. Dashed lines mark end of each matchday/round.")
 
         # ── Rank trajectory ───────────────────────────────────────────────
         st.subheader("📉 Rank Over Time")
@@ -311,7 +348,7 @@ if _hist_path.exists():
             for _r, _row in _snap.iterrows():
                 _rank_rows.append({
                     "Date": _d,
-                    "Label": _MILESTONE_LABELS.get(_d, _d),
+                    "Label": _date_label.get(_d, _d),
                     "Player": _row["Player"],
                     "Rank": _r + 1,
                 })
@@ -329,11 +366,22 @@ if _hist_path.exists():
                     marker=dict(size=6),
                     hovertemplate=f"<b>{_pl}</b><br>%{{x}}: rank %{{y}}<extra></extra>",
                 ))
+            for _md, _mlabel in _MILESTONE_DATES.items():
+                _ml = _date_label.get(_md)
+                _rank_labels = _rank_df["Label"].unique().tolist()
+                if _ml and _ml in _rank_labels:
+                    _fig_rank.add_vline(
+                        x=_ml,
+                        line_dash="dot", line_color="rgba(212,160,23,0.45)", line_width=1,
+                        annotation_text=_mlabel,
+                        annotation_position="top",
+                        annotation_font=dict(size=10, color="#D4A017"),
+                    )
             _rank_layout = {**PLOTLY_LAYOUT}
             _rank_layout.update(
-                title="Rank Position by Gameweek (lower = better)",
+                title="Rank Position Over Time (lower = better)",
                 height=420,
-                xaxis_title="Tournament Stage",
+                xaxis_title="Date",
                 yaxis_title="Position",
                 yaxis=dict(autorange="reversed", dtick=1, gridcolor="#2A3A4A"),
                 legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(size=11), x=1.01, y=1),
