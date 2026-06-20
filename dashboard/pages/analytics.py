@@ -314,19 +314,6 @@ if _hist_path.exists():
                 hovertemplate=f"<b>{_pl}</b><br>%{{x}}: %{{y:.0f}} pts<extra></extra>",
             ))
 
-        # Milestone vertical lines
-        _all_x_labels = [_date_label.get(d, d) for d in _full_dates]
-        for _md, _mlabel in _MILESTONE_DATES.items():
-            _ml = _date_label.get(_md)
-            if _ml and _ml in _all_x_labels:
-                _fig_line.add_vline(
-                    x=_ml,
-                    line_dash="dot", line_color="rgba(212,160,23,0.45)", line_width=1,
-                    annotation_text=_mlabel,
-                    annotation_position="top",
-                    annotation_font=dict(size=10, color="#D4A017"),
-                )
-
         _line_layout = {**PLOTLY_LAYOUT}
         _line_layout.update(
             title="Cumulative Points Over Time",
@@ -337,7 +324,9 @@ if _hist_path.exists():
         )
         _fig_line.update_layout(**_line_layout)
         st.plotly_chart(_fig_line, use_container_width=True)
-        st.caption("Cumulative points per player updated daily. Dashed lines mark end of each matchday/round.")
+        _ms_visible = {_fmt_date(d): lbl for d, lbl in _MILESTONE_DATES.items() if _fmt_date(d) in _date_label.values()}
+        _ms_caption = "  ·  ".join(f"{lbl}: {d}" for d, lbl in _ms_visible.items()) if _ms_visible else ""
+        st.caption(f"Cumulative points per player, updated daily.{('  |  ' + _ms_caption) if _ms_caption else ''}")
 
         # ── Rank trajectory ───────────────────────────────────────────────
         st.subheader("📉 Rank Over Time")
@@ -366,17 +355,6 @@ if _hist_path.exists():
                     marker=dict(size=6),
                     hovertemplate=f"<b>{_pl}</b><br>%{{x}}: rank %{{y}}<extra></extra>",
                 ))
-            for _md, _mlabel in _MILESTONE_DATES.items():
-                _ml = _date_label.get(_md)
-                _rank_labels = _rank_df["Label"].unique().tolist()
-                if _ml and _ml in _rank_labels:
-                    _fig_rank.add_vline(
-                        x=_ml,
-                        line_dash="dot", line_color="rgba(212,160,23,0.45)", line_width=1,
-                        annotation_text=_mlabel,
-                        annotation_position="top",
-                        annotation_font=dict(size=10, color="#D4A017"),
-                    )
             _rank_layout = {**PLOTLY_LAYOUT}
             _rank_layout.update(
                 title="Rank Position Over Time (lower = better)",
