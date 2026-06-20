@@ -425,7 +425,7 @@ else:
         ))
         _form_layout = {**PLOTLY_LAYOUT}
         _form_layout.update(
-            title=f"Points Gained — {_MILESTONE_LABELS.get(_latest_gw, _latest_gw)}",
+            title=f"Points Gained — {_MILESTONE_DATES.get(_latest_gw, _fmt_date(_latest_gw) if _latest_gw else '')}",
             height=320,
             yaxis_title="Points Gained",
         )
