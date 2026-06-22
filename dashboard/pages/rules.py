@@ -75,16 +75,16 @@ with tab_scoring:
     st.markdown("""
 | Round | Tier 1 | Tier 2 | Tier 3 | Tier 4 |
 |---|---|---|---|---|
-| Round of 32 | +1 | +2 | +5 | +8 |
-| Round of 16 | +2 | +4 | +8 | +12 |
-| Quarter Final | +4 | +8 | +15 | +25 |
-| Semi Final | +8 | +12 | +20 | +30 |
-| Final | +12 | +18 | +32 | +45 |
-| Winner | +20 | +28 | +46 | +65 |
+| Round of 32 | +2 | +4 | +10 | +16 |
+| Round of 16 | +4 | +8 | +16 | +24 |
+| Quarter Final | +8 | +16 | +30 | +50 |
+| Semi Final | +16 | +24 | +40 | +60 |
+| Final | +24 | +36 | +64 | +90 |
+| Winner | +30 | +42 | +69 | +98 |
 """)
 
     with st.expander("Example: Tier 3 team wins the World Cup"):
-        st.markdown("5 + 8 + 15 + 20 + 32 + 46 = **126 progression points**, plus all match stats on top.")
+        st.markdown("10 + 16 + 30 + 40 + 64 + 69 = **229 progression points**, plus all match stats on top.")
 
     st.subheader("Upset Win Bonuses")
     st.caption("Awarded per win against a team in a higher tier — auto-calculated from results.")
@@ -217,8 +217,8 @@ with tab_purchases:
             f'<div class="card"><div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.1rem">'
             f'<h4 style="color:#D4A017;margin:0">Team Swap — €8</h4>{_SWAP_BADGE}</div>'
             '<p style="color:#9CA3AF;font-size:0.88rem;margin:0">'
-            'Two players exchange one team each. The player who <strong>chose</strong> the swap pays €8. '
-            'Each team can only be swapped once — first come, first served. '
+            'Two players exchange their entire roster — all 8 teams swap. The player who <strong>chose</strong> the swap pays €8. '
+            'Each player can only be part of one swap. '
             'Your Ninth Team and Resurrection follow your updated roster.'
             f'<strong style="color:#D4A017"> Deadline: {_swap_str}</strong>.</p></div>',
             unsafe_allow_html=True,

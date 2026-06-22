@@ -210,8 +210,9 @@ with tab_shop:
                    "replacement from surviving same-tier teams you don't own. "
                    "Replacement earns knockout points only. Maximum one per player.")
         _shop_card("TeamSwap", "Team Swap", 8, _KO,
-                   "Two players swap one team each. The player who chose the swap pays €8. "
-                   "Each team can only be swapped once — first come, first served. "
+                   "Two players swap their entire roster — all 8 teams are exchanged. "
+                   "The player who chose the swap pays €8. "
+                   "Each player can only be part of one swap. "
                    "Ninth Team and Resurrection follow your updated roster.")
 
     # ── Self-service purchasing ────────────────────────────────────────────────

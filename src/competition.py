@@ -140,12 +140,11 @@ def load_purchases(path: Optional[Path | str] = None) -> pd.DataFrame:
     if not swaps.empty:
         for _, row in swaps.iterrows():
             init = str(row.get("Initiator", "")).strip()
-            i_team = str(row.get("InitiatorTeam", "")).strip()
-            c_team = str(row.get("CounterpartTeam", "")).strip()
-            ts = str(row.get("Timestamp", "")).strip()
+            ctrp = str(row.get("Counterpart", "")).strip()
+            ts   = str(row.get("Timestamp", "")).strip()
             if init:
                 rows.append({"Player": init, "PurchaseType": "TeamSwap",
-                              "Selection": f"{i_team}<->{c_team}",
+                              "Selection": ctrp,
                               "Reference": "", "Timestamp": ts})
     return pd.DataFrame(rows, columns=_COLS) if rows else pd.DataFrame(columns=_COLS)
 
@@ -181,7 +180,7 @@ def save_purchases_to_players(purchases: pd.DataFrame, players: pd.DataFrame) ->
 
 def load_swaps(path: Optional[Path | str] = None) -> pd.DataFrame:
     p = Path(path) if path else SWAPS_PATH
-    _COLS = ["Initiator", "InitiatorTeam", "Counterpart", "CounterpartTeam", "Timestamp"]
+    _COLS = ["Initiator", "Counterpart", "Timestamp"]
     if not p.exists():
         return pd.DataFrame(columns=_COLS)
     df = pd.read_csv(p, dtype=str).fillna("")
@@ -191,40 +190,37 @@ def load_swaps(path: Optional[Path | str] = None) -> pd.DataFrame:
     return df[_COLS].copy()
 
 
-def get_swapped_teams(swaps: pd.DataFrame) -> set[str]:
-    """Return the set of teams that have already been part of a swap."""
+def get_swapped_players(swaps: pd.DataFrame) -> set[str]:
+    """Return the set of players who have already been part of a full-roster swap."""
     if swaps.empty:
         return set()
-    teams: set[str] = set()
-    for col in ("InitiatorTeam", "CounterpartTeam"):
+    players: set[str] = set()
+    for col in ("Initiator", "Counterpart"):
         if col in swaps.columns:
-            teams |= set(swaps[col].dropna().str.strip())
-    teams.discard("")
-    return teams
+            players |= set(swaps[col].dropna().str.strip())
+    players.discard("")
+    return players
 
 
 def execute_team_swap(
     initiator: str,
-    initiator_team: str,
     counterpart: str,
-    counterpart_team: str,
     allocation_path: Path,
     swaps: pd.DataFrame,
     audit_log: pd.DataFrame,
     timestamp: Optional[str] = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame, list[str]]:
-    """Swap one team from each player, modifying allocation.csv in place.
+    """Swap ALL teams between two players, modifying allocation.csv in place.
 
     Returns (updated_swaps, updated_audit_log, errors).
-    allocation_path is written to directly on success.
     """
     errors: list[str] = []
 
-    already_swapped = get_swapped_teams(swaps)
-    if initiator_team in already_swapped:
-        errors.append(f"{initiator_team!r} has already been swapped once and cannot be swapped again")
-    if counterpart_team in already_swapped:
-        errors.append(f"{counterpart_team!r} has already been swapped once and cannot be swapped again")
+    already_swapped = get_swapped_players(swaps)
+    if initiator in already_swapped:
+        errors.append(f"{initiator!r} has already done a swap and cannot swap again")
+    if counterpart in already_swapped:
+        errors.append(f"{counterpart!r} has already done a swap and cannot swap again")
     if errors:
         return swaps, audit_log, errors
 
@@ -232,29 +228,26 @@ def execute_team_swap(
         return swaps, audit_log, ["allocation.csv not found"]
 
     alloc = pd.read_csv(allocation_path, dtype=str).fillna("")
-    mask_i = (alloc["Player"] == initiator) & (alloc["Team"] == initiator_team)
-    mask_c = (alloc["Player"] == counterpart) & (alloc["Team"] == counterpart_team)
+    mask_i = alloc["Player"] == initiator
+    mask_c = alloc["Player"] == counterpart
     if not mask_i.any():
-        errors.append(f"{initiator_team!r} is not in {initiator}'s allocation")
+        errors.append(f"{initiator!r} has no teams in allocation.csv")
     if not mask_c.any():
-        errors.append(f"{counterpart_team!r} is not in {counterpart}'s allocation")
+        errors.append(f"{counterpart!r} has no teams in allocation.csv")
     if errors:
         return swaps, audit_log, errors
 
-    alloc.loc[mask_i, "Player"] = counterpart
+    alloc.loc[mask_i, "Player"] = "__TEMP__"
     alloc.loc[mask_c, "Player"] = initiator
+    alloc.loc[alloc["Player"] == "__TEMP__", "Player"] = counterpart
     alloc.to_csv(allocation_path, index=False)
 
     ts = timestamp or _now_iso()
-    new_swap = {
-        "Initiator": initiator, "InitiatorTeam": initiator_team,
-        "Counterpart": counterpart, "CounterpartTeam": counterpart_team,
-        "Timestamp": ts,
-    }
+    new_swap = {"Initiator": initiator, "Counterpart": counterpart, "Timestamp": ts}
     swaps = pd.concat([swaps, pd.DataFrame([new_swap])], ignore_index=True)
     audit_log = log_action(
         "TEAM_SWAP", initiator,
-        f"SWAP {initiator}.{initiator_team} ↔ {counterpart}.{counterpart_team}",
+        f"FULL ROSTER SWAP {initiator} ↔ {counterpart}",
         "allocation.csv updated", audit_log, ts,
     )
     return swaps, audit_log, []
