@@ -218,7 +218,7 @@ with tab_purchases:
             f'<h4 style="color:#D4A017;margin:0">Team Swap — €8</h4>{_SWAP_BADGE}</div>'
             '<p style="color:#9CA3AF;font-size:0.88rem;margin:0">'
             'Two players exchange their entire roster — all 8 teams swap. The player who <strong>chose</strong> the swap pays €8. '
-            'Each player can only be part of one swap. '
+            'Each set of 8 teams can only be swapped once — first come, first served. Send Oisin a message to lock in. '
             'Your Ninth Team and Resurrection follow your updated roster.'
             f'<strong style="color:#D4A017"> Deadline: {_swap_str}</strong>.</p></div>',
             unsafe_allow_html=True,
