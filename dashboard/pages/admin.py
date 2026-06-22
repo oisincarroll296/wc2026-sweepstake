@@ -342,6 +342,93 @@ with tabs[1]:
             except Exception as _del_exc:
                 st.error(f"Error: {_del_exc}")
 
+    # ── Team Swaps ────────────────────────────────────────────────────────────
+    st.divider()
+    st.subheader("Team Swaps")
+    st.caption(
+        "Execute a paid team swap between two players. "
+        "The initiator (the player who chose the swap) pays €8. "
+        "Each team can only be swapped once — first come, first served."
+    )
+
+    from src.competition import (
+        load_swaps as _load_swaps, get_swapped_teams as _get_swapped_teams,
+        execute_team_swap as _execute_team_swap, SWAPS_PATH as _SWAPS_PATH,
+    )
+    from src.event_engine import load_allocation as _la_swap
+
+    _sw_alloc   = _la_swap()
+    _sw_players = sorted(_sw_alloc.assignments.keys())
+    _sw_df      = _load_swaps()
+    _sw_already = _get_swapped_teams(_sw_df)
+
+    _sw_init = st.selectbox("Initiator (pays €8)", ["—"] + _sw_players, key="sw_init")
+    _sw_ctrp = st.selectbox("Counterpart", ["—"] + _sw_players, key="sw_ctrp")
+
+    _sw_i_teams = sorted(
+        t for t in _sw_alloc.assignments.get(_sw_init, []) if t not in _sw_already
+    ) if _sw_init != "—" else []
+    _sw_c_teams = sorted(
+        t for t in _sw_alloc.assignments.get(_sw_ctrp, []) if t not in _sw_already
+    ) if _sw_ctrp != "—" else []
+
+    _sw_i_team = st.selectbox(
+        f"{_sw_init}'s team to give away" if _sw_init != "—" else "Initiator's team",
+        ["—"] + _sw_i_teams, key="sw_i_team",
+    )
+    _sw_c_team = st.selectbox(
+        f"{_sw_ctrp}'s team to give away" if _sw_ctrp != "—" else "Counterpart's team",
+        ["—"] + _sw_c_teams, key="sw_c_team",
+    )
+
+    if _sw_i_team != "—" and _sw_c_team != "—" and _sw_init != "—" and _sw_ctrp != "—":
+        st.info(
+            f"After swap: **{_sw_init}** loses {_sw_i_team}, gains {_sw_c_team}  ·  "
+            f"**{_sw_ctrp}** loses {_sw_c_team}, gains {_sw_i_team}"
+        )
+
+    _sw_confirm = st.checkbox("I've confirmed payment of €8 from the initiator", key="sw_confirm")
+    if st.button("Execute Swap", type="primary", key="sw_submit", disabled=not _sw_confirm):
+        if _sw_init == "—" or _sw_ctrp == "—":
+            st.error("Select both players.")
+        elif _sw_init == _sw_ctrp:
+            st.error("Players must be different.")
+        elif _sw_i_team == "—" or _sw_c_team == "—":
+            st.error("Select both teams to swap.")
+        else:
+            try:
+                from src.competition import load_audit_log as _lal_sw
+                _sw_audit = _lal_sw()
+                _sw_new, _sw_audit_new, _sw_errs = _execute_team_swap(
+                    initiator=_sw_init, initiator_team=_sw_i_team,
+                    counterpart=_sw_ctrp, counterpart_team=_sw_c_team,
+                    allocation_path=DATA / "allocation.csv",
+                    swaps=_sw_df, audit_log=_sw_audit,
+                )
+                if _sw_errs:
+                    for _e in _sw_errs:
+                        st.error(_e)
+                else:
+                    _sw_new.to_csv(_SWAPS_PATH, index=False)
+                    _push(_SWAPS_PATH, "data/swaps.csv",
+                          f"TeamSwap: {_sw_init}.{_sw_i_team} ↔ {_sw_ctrp}.{_sw_c_team}")
+                    _sw_audit_new.to_csv(DATA / "audit_log.csv", index=False)
+                    _push(DATA / "audit_log.csv", "data/audit_log.csv", "Audit: team swap")
+                    _push(DATA / "allocation.csv", "data/allocation.csv",
+                          f"Allocation: {_sw_init}.{_sw_i_team} ↔ {_sw_ctrp}.{_sw_c_team}")
+                    _refresh()
+                    st.success(
+                        f"✓ Swap complete: {_sw_init} gives {_sw_i_team} → "
+                        f"{_sw_ctrp} gives {_sw_c_team}"
+                    )
+                    st.rerun()
+            except Exception as _sw_exc:
+                st.error(f"Error: {_sw_exc}")
+
+    if not _sw_df.empty:
+        st.markdown("**Swap history:**")
+        st.dataframe(_sw_df, use_container_width=True, hide_index=True)
+
 # ─────────────────────────────────────────────
 # Tab 2: Picks (captains + predictions)
 # ─────────────────────────────────────────────
@@ -369,7 +456,7 @@ with tabs[2]:
         _pick_cols = [
             "PreTournamentCaptain", "KnockoutCaptain",
             "WorldCupWinner", "RunnerUp", "BronzeMedal",
-            "GoldenBoot", "DarkHorse",
+            "GoldenBoot", "DarkHorse", "FirstKnockedOut",
         ]
         for col in _pick_cols:
             if col not in _picks_df.columns:
@@ -437,7 +524,7 @@ with tabs[2]:
                 new_bm = st.selectbox("Any team", [""] + _all_teams, index=bm_idx,
                                       key="bm", label_visibility="collapsed")
 
-            pd4, pd5 = st.columns(2)
+            pd4, pd5, pd6 = st.columns(3)
             with pd4:
                 st.markdown("**Golden Boot**")
                 new_gb = st.text_input("Player name (free text)",
@@ -445,6 +532,12 @@ with tabs[2]:
                                        label_visibility="collapsed",
                                        placeholder="e.g. Mbappé")
             with pd5:
+                st.markdown("**First Knocked Out**")
+                cur_fko = _v("FirstKnockedOut")
+                fko_idx = ([""] + _all_teams).index(cur_fko) if cur_fko in ([""] + _all_teams) else 0
+                new_fko = st.selectbox("Any team", [""] + _all_teams, index=fko_idx,
+                                       key="fko", label_visibility="collapsed")
+            with pd6:
                 st.markdown("**Dark Horse**")
                 st.caption("Tier 3/4 team they don't own")
                 cur_dh = _v("DarkHorse")
@@ -464,6 +557,7 @@ with tabs[2]:
                     _picks_df.loc[_row_mask, "RunnerUp"]             = new_ru
                     _picks_df.loc[_row_mask, "BronzeMedal"]          = new_bm
                     _picks_df.loc[_row_mask, "GoldenBoot"]           = new_gb
+                    _picks_df.loc[_row_mask, "FirstKnockedOut"]      = new_fko
                     _picks_df.loc[_row_mask, "DarkHorse"]            = new_dh
                     _picks_df.to_csv(_players_path, index=False)
                     _push(_players_path, "data/players.csv", f"Picks saved for {_player_sel}")

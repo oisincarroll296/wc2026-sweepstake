@@ -21,6 +21,7 @@ from src.team_database  import load_teams
 from src.scoring_engine import load_match_stats, load_predictions, load_captains
 from src.competition    import (
     load_player_status, load_purchases, load_events, load_audit_log,
+    load_swaps,
     prize_leaderboard, overall_leaderboard,
     get_team_ownership, get_predictions_centre, PRICES,
 )
@@ -77,6 +78,11 @@ def get_captains() -> pd.DataFrame:
 @st.cache_data(ttl=30)
 def get_assignments() -> dict[str, list[str]]:
     return load_allocation().assignments
+
+
+@st.cache_data(ttl=30)
+def get_swaps() -> pd.DataFrame:
+    return load_swaps()
 
 
 # ── Derived loaders ─────────────────────────────────────────────────────────

@@ -25,6 +25,7 @@ EXPORTS_DIR = _ROOT / "exports"
 PLAYER_STATUS_PATH = DATA_DIR / "players.csv"
 EVENTS_PATH        = DATA_DIR / "events.csv"
 AUDIT_LOG_PATH     = DATA_DIR / "audit_log.csv"
+SWAPS_PATH         = DATA_DIR / "swaps.csv"
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -32,7 +33,7 @@ AUDIT_LOG_PATH     = DATA_DIR / "audit_log.csv"
 PLAYER_STATUSES    = frozenset({"UNPAID", "PAID"})
 PURCHASE_TYPES     = frozenset({
     "BuyIn", "PredictionPack", "Mulligan", "CompleteRedraw",
-    "NinthTeam", "Resurrection", "Insurance",
+    "NinthTeam", "Resurrection", "Insurance", "TeamSwap",
 })
 PURCHASE_STATUSES  = frozenset({"PENDING", "PROCESSED", "CANCELLED"})
 EVENT_TYPES        = frozenset({
@@ -49,7 +50,8 @@ PRICES: dict[str, float] = {
     "CompleteRedraw": 6.0,
     "NinthTeam":      3.0,
     "Resurrection":   5.0,
-    "Insurance":    2.0,
+    "Insurance":      2.0,
+    "TeamSwap":       8.0,
 }
 
 PRIZE_SHARES = (0.50, 0.30, 0.20)   # 1st, 2nd, 3rd
@@ -115,25 +117,36 @@ _SELECTION_COLS = {"NinthTeam": "NinthTeamSelection", "Resurrection": "Resurrect
 
 
 def load_purchases(path: Optional[Path | str] = None) -> pd.DataFrame:
-    """Derive the purchases DataFrame from players.csv flag columns.
+    """Derive the purchases DataFrame from players.csv flag columns plus swaps.csv.
 
     The path argument is accepted for backward compatibility but ignored.
     Scoring engine and event engine receive the same DataFrame shape as before.
     """
     players = load_player_status()
     _COLS = ["Player", "PurchaseType", "Selection", "Reference", "Timestamp"]
-    if players.empty:
-        return pd.DataFrame(columns=_COLS)
-    rows = []
-    for _, row in players.iterrows():
-        p = str(row.get("Player", ""))
-        if not p:
-            continue
-        for col in _PURCHASE_FLAG_COLS:
-            if str(row.get(col, "0")).strip() in ("1", "True", "true"):
-                sel = str(row.get(_SELECTION_COLS[col], "") or "") if col in _SELECTION_COLS else ""
-                rows.append({"Player": p, "PurchaseType": col, "Selection": sel,
-                              "Reference": "", "Timestamp": ""})
+    rows: list[dict] = []
+    if not players.empty:
+        for _, row in players.iterrows():
+            p = str(row.get("Player", ""))
+            if not p:
+                continue
+            for col in _PURCHASE_FLAG_COLS:
+                if str(row.get(col, "0")).strip() in ("1", "True", "true"):
+                    sel = str(row.get(_SELECTION_COLS[col], "") or "") if col in _SELECTION_COLS else ""
+                    rows.append({"Player": p, "PurchaseType": col, "Selection": sel,
+                                  "Reference": "", "Timestamp": ""})
+    # Include TeamSwap entries from swaps.csv (initiator pays €8)
+    swaps = load_swaps()
+    if not swaps.empty:
+        for _, row in swaps.iterrows():
+            init = str(row.get("Initiator", "")).strip()
+            i_team = str(row.get("InitiatorTeam", "")).strip()
+            c_team = str(row.get("CounterpartTeam", "")).strip()
+            ts = str(row.get("Timestamp", "")).strip()
+            if init:
+                rows.append({"Player": init, "PurchaseType": "TeamSwap",
+                              "Selection": f"{i_team}<->{c_team}",
+                              "Reference": "", "Timestamp": ts})
     return pd.DataFrame(rows, columns=_COLS) if rows else pd.DataFrame(columns=_COLS)
 
 
@@ -164,6 +177,87 @@ def save_purchases_to_players(purchases: pd.DataFrame, players: pd.DataFrame) ->
             if ptype in _SELECTION_COLS:
                 players.loc[mask, _SELECTION_COLS[ptype]] = sel
     return players
+
+
+def load_swaps(path: Optional[Path | str] = None) -> pd.DataFrame:
+    p = Path(path) if path else SWAPS_PATH
+    _COLS = ["Initiator", "InitiatorTeam", "Counterpart", "CounterpartTeam", "Timestamp"]
+    if not p.exists():
+        return pd.DataFrame(columns=_COLS)
+    df = pd.read_csv(p, dtype=str).fillna("")
+    for col in _COLS:
+        if col not in df.columns:
+            df[col] = ""
+    return df[_COLS].copy()
+
+
+def get_swapped_teams(swaps: pd.DataFrame) -> set[str]:
+    """Return the set of teams that have already been part of a swap."""
+    if swaps.empty:
+        return set()
+    teams: set[str] = set()
+    for col in ("InitiatorTeam", "CounterpartTeam"):
+        if col in swaps.columns:
+            teams |= set(swaps[col].dropna().str.strip())
+    teams.discard("")
+    return teams
+
+
+def execute_team_swap(
+    initiator: str,
+    initiator_team: str,
+    counterpart: str,
+    counterpart_team: str,
+    allocation_path: Path,
+    swaps: pd.DataFrame,
+    audit_log: pd.DataFrame,
+    timestamp: Optional[str] = None,
+) -> tuple[pd.DataFrame, pd.DataFrame, list[str]]:
+    """Swap one team from each player, modifying allocation.csv in place.
+
+    Returns (updated_swaps, updated_audit_log, errors).
+    allocation_path is written to directly on success.
+    """
+    errors: list[str] = []
+
+    already_swapped = get_swapped_teams(swaps)
+    if initiator_team in already_swapped:
+        errors.append(f"{initiator_team!r} has already been swapped once and cannot be swapped again")
+    if counterpart_team in already_swapped:
+        errors.append(f"{counterpart_team!r} has already been swapped once and cannot be swapped again")
+    if errors:
+        return swaps, audit_log, errors
+
+    if not allocation_path.exists():
+        return swaps, audit_log, ["allocation.csv not found"]
+
+    alloc = pd.read_csv(allocation_path, dtype=str).fillna("")
+    mask_i = (alloc["Player"] == initiator) & (alloc["Team"] == initiator_team)
+    mask_c = (alloc["Player"] == counterpart) & (alloc["Team"] == counterpart_team)
+    if not mask_i.any():
+        errors.append(f"{initiator_team!r} is not in {initiator}'s allocation")
+    if not mask_c.any():
+        errors.append(f"{counterpart_team!r} is not in {counterpart}'s allocation")
+    if errors:
+        return swaps, audit_log, errors
+
+    alloc.loc[mask_i, "Player"] = counterpart
+    alloc.loc[mask_c, "Player"] = initiator
+    alloc.to_csv(allocation_path, index=False)
+
+    ts = timestamp or _now_iso()
+    new_swap = {
+        "Initiator": initiator, "InitiatorTeam": initiator_team,
+        "Counterpart": counterpart, "CounterpartTeam": counterpart_team,
+        "Timestamp": ts,
+    }
+    swaps = pd.concat([swaps, pd.DataFrame([new_swap])], ignore_index=True)
+    audit_log = log_action(
+        "TEAM_SWAP", initiator,
+        f"SWAP {initiator}.{initiator_team} ↔ {counterpart}.{counterpart_team}",
+        "allocation.csv updated", audit_log, ts,
+    )
+    return swaps, audit_log, []
 
 
 def load_events(path: Optional[Path | str] = None) -> pd.DataFrame:
@@ -811,6 +905,7 @@ def get_predictions_centre(predictions: pd.DataFrame) -> dict:
         "runner_up": {},
         "bronze_winner": {},
         "golden_boot": {},
+        "first_knocked_out": {},
         "dark_horse": {},
     }
     if predictions.empty:
@@ -821,6 +916,7 @@ def get_predictions_centre(predictions: pd.DataFrame) -> dict:
         "RunnerUp":        "runner_up",
         "BronzeMedal":     "bronze_winner",
         "GoldenBoot":      "golden_boot",
+        "FirstKnockedOut": "first_knocked_out",
         "DarkHorse":       "dark_horse",
     }
     for _, row in predictions.iterrows():

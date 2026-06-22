@@ -41,10 +41,12 @@ _ninth_str      = _fmt_deadline(_dl.get("ninth_team_draw", ""))
 _res_str        = _fmt_deadline(_dl.get("resurrection_window_close", ""))
 _ko_cap_str     = _fmt_deadline(_dl.get("knockout_captain_deadline", ""))
 _pre_cap_str    = _fmt_deadline(_dl.get("pre_tournament_captain", ""))
+_swap_str       = _fmt_deadline(_dl.get("team_swap_deadline", ""))
 
-_GRP_BADGE = _badge(_GRP, f"⏰ Deadline: {_buy_in_str}")
+_GRP_BADGE  = _badge(_GRP, f"⏰ Deadline: {_buy_in_str}")
 _PRED_BADGE = _badge(_GRP, f"⏰ Deadline: {_pred_str}")
-_KO_BADGE  = _badge(_KO,  f"⏰ Deadline: {_ninth_str}")
+_KO_BADGE   = _badge(_KO,  f"⏰ Deadline: {_ninth_str}")
+_SWAP_BADGE = _badge(_KO,  f"⏰ Deadline: {_swap_str}")
 
 page_header("Rules", "Official competition rules and scoring system")
 
@@ -113,6 +115,7 @@ with tab_scoring:
 | Runner-Up (2nd place) correct | +20 |
 | Bronze Medal (3rd place) correct | +15 |
 | Golden Boot correct | +25 |
+| First Knocked Out correct | +20 |
 | Dark Horse reaches QF | +15 |
 | Dark Horse reaches SF | +30 |
 | Dark Horse reaches Final | +40 |
@@ -155,9 +158,9 @@ with tab_purchases:
             f'<div class="card"><div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.1rem">'
             f'<h4 style="color:#D4A017;margin:0">Prediction Pack — €5</h4>{_PRED_BADGE}</div>'
             '<p style="color:#9CA3AF;font-size:0.88rem;margin:0">'
-            'Unlocks five predictions: World Cup Winner (+30), Runner-Up (+20), '
-            'Bronze Medal (+15), Golden Boot (+25), and Dark Horse (up to +135 cumulative). '
-            f'<strong style="color:#D4A017">Predictions lock: {_pred_str}</strong>.</p></div>',
+            'Unlocks six predictions: World Cup Winner (+30), Runner-Up (+20), '
+            'Bronze Medal (+15), Golden Boot (+25), First Knocked Out (+20), and Dark Horse (up to +135 cumulative). '
+            f'<strong style="color:#D4A017">Predictions lock: {_pred_str}</strong> (before knockout stage).</p></div>',
             unsafe_allow_html=True,
         )
         st.markdown(
@@ -209,6 +212,16 @@ with tab_purchases:
             '<strong>and you also choose the replacement</strong> from surviving same-tier teams you don\'t own. '
             f'Replacement earns knockout points only. Maximum one per player. '
             f'<strong style="color:#D4A017">Window closes: {_res_str}</strong>.</p></div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            f'<div class="card"><div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.1rem">'
+            f'<h4 style="color:#D4A017;margin:0">Team Swap — €8</h4>{_SWAP_BADGE}</div>'
+            '<p style="color:#9CA3AF;font-size:0.88rem;margin:0">'
+            'Two players exchange one team each. The player who <strong>chose</strong> the swap pays €8. '
+            'Each team can only be swapped once — first come, first served. '
+            'Your Ninth Team and Resurrection follow your updated roster.'
+            f'<strong style="color:#D4A017"> Deadline: {_swap_str}</strong>.</p></div>',
             unsafe_allow_html=True,
         )
 

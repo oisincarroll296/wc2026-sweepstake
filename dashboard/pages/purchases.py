@@ -25,10 +25,11 @@ _deadline_key: dict[str, str] = {
     "Insurance":      "group_stage_closes",
     "NinthTeam":      "ninth_team_draw",
     "Resurrection":   "resurrection_window_close",
+    "TeamSwap":       "team_swap_deadline",
 }
 _deadline_colour: dict[str, str] = {
     "BuyIn": _GRP, "PredictionPack": _GRP, "Mulligan": _GRP, "Insurance": _GRP,
-    "NinthTeam": _KO, "Resurrection": _KO,
+    "NinthTeam": _KO, "Resurrection": _KO, "TeamSwap": _KO,
 }
 
 
@@ -129,6 +130,7 @@ with tab_shop:
             ("Buy In", 5, _GRP), ("Prediction Pack", 5, _GRP),
             ("Insurance", 2, _GRP), ("Mulligan", 3, _GRP),
             ("Ninth Team", 3, _KO), ("Resurrection", 5, _KO),
+            ("Team Swap", 8, _KO),
         ]
     )
     _legend = (
@@ -188,9 +190,9 @@ with tab_shop:
                    "Entry into the competition. Required to receive prizes. "
                    "You still appear on the Overall Leaderboard without it, but are excluded from prize money.")
         _shop_card("PredictionPack", "Prediction Pack", 5, _GRP,
-                   "Unlocks five predictions: World Cup Winner (+30), Runner-Up (+20), Bronze Medal (+15), "
-                   "Golden Boot (+25), and Dark Horse (up to +135 cumulative). "
-                   "<strong style='color:#D4A017'>Lock: 19 June</strong> before first kick-off.")
+                   "Unlocks six predictions: World Cup Winner (+30), Runner-Up (+20), Bronze Medal (+15), "
+                   "Golden Boot (+25), First Knocked Out (+20), and Dark Horse (up to +135 cumulative). "
+                   "<strong style='color:#D4A017'>Lock: 28 Jun</strong> before knockout stage.")
         _shop_card("Mulligan", "Mulligan", 3, _GRP,
                    "Complete redraw of your 8 teams before the tournament starts. "
                    "Must satisfy all allocation rules. Multiple allowed.")
@@ -207,6 +209,10 @@ with tab_shop:
                    "You choose which of your eliminated teams gets swapped out, and you choose the "
                    "replacement from surviving same-tier teams you don't own. "
                    "Replacement earns knockout points only. Maximum one per player.")
+        _shop_card("TeamSwap", "Team Swap", 8, _KO,
+                   "Two players swap one team each. The player who chose the swap pays €8. "
+                   "Each team can only be swapped once — first come, first served. "
+                   "Ninth Team and Resurrection follow your updated roster.")
 
     # ── Self-service purchasing ────────────────────────────────────────────────
     st.divider()
