@@ -456,7 +456,7 @@ with tabs[2]:
         _pick_cols = [
             "PreTournamentCaptain", "KnockoutCaptain",
             "WorldCupWinner", "RunnerUp", "BronzeMedal",
-            "GoldenBoot", "DarkHorse", "FirstKnockedOut",
+            "GoldenBoot", "DarkHorse",
         ]
         for col in _pick_cols:
             if col not in _picks_df.columns:
@@ -524,7 +524,7 @@ with tabs[2]:
                 new_bm = st.selectbox("Any team", [""] + _all_teams, index=bm_idx,
                                       key="bm", label_visibility="collapsed")
 
-            pd4, pd5, pd6 = st.columns(3)
+            pd4, pd5 = st.columns(2)
             with pd4:
                 st.markdown("**Golden Boot**")
                 new_gb = st.text_input("Player name (free text)",
@@ -532,12 +532,6 @@ with tabs[2]:
                                        label_visibility="collapsed",
                                        placeholder="e.g. Mbappé")
             with pd5:
-                st.markdown("**First Knocked Out**")
-                cur_fko = _v("FirstKnockedOut")
-                fko_idx = ([""] + _all_teams).index(cur_fko) if cur_fko in ([""] + _all_teams) else 0
-                new_fko = st.selectbox("Any team", [""] + _all_teams, index=fko_idx,
-                                       key="fko", label_visibility="collapsed")
-            with pd6:
                 st.markdown("**Dark Horse**")
                 st.caption("Tier 3/4 team they don't own")
                 cur_dh = _v("DarkHorse")
@@ -557,7 +551,6 @@ with tabs[2]:
                     _picks_df.loc[_row_mask, "RunnerUp"]             = new_ru
                     _picks_df.loc[_row_mask, "BronzeMedal"]          = new_bm
                     _picks_df.loc[_row_mask, "GoldenBoot"]           = new_gb
-                    _picks_df.loc[_row_mask, "FirstKnockedOut"]      = new_fko
                     _picks_df.loc[_row_mask, "DarkHorse"]            = new_dh
                     _picks_df.to_csv(_players_path, index=False)
                     _push(_players_path, "data/players.csv", f"Picks saved for {_player_sel}")

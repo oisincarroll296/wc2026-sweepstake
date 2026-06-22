@@ -824,7 +824,7 @@ class TestPredictionsCentre:
         centre = get_predictions_centre(_empty_predictions())
         assert set(centre.keys()) == {
             "world_cup_winner", "golden_boot", "dark_horse",
-            "runner_up", "bronze_winner", "first_knocked_out",
+            "runner_up", "bronze_winner",
         }
 
 # ---------------------------------------------------------------------------

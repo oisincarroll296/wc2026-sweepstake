@@ -190,8 +190,8 @@ with tab_shop:
                    "Entry into the competition. Required to receive prizes. "
                    "You still appear on the Overall Leaderboard without it, but are excluded from prize money.")
         _shop_card("PredictionPack", "Prediction Pack", 5, _GRP,
-                   "Unlocks six predictions: World Cup Winner (+30), Runner-Up (+20), Bronze Medal (+15), "
-                   "Golden Boot (+25), First Knocked Out (+20), and Dark Horse (up to +135 cumulative). "
+                   "Unlocks five predictions: World Cup Winner (+30), Runner-Up (+20), Bronze Medal (+15), "
+                   "Golden Boot (+25), and Dark Horse (up to +135 cumulative). "
                    "<strong style='color:#D4A017'>Lock: 28 Jun</strong> before knockout stage.")
         _shop_card("Mulligan", "Mulligan", 3, _GRP,
                    "Complete redraw of your 8 teams before the tournament starts. "

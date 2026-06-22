@@ -645,6 +645,76 @@ def get_remaining_potential() -> dict[str, float]:
 
 
 @st.cache_data(ttl=30)
+def get_r16_potential() -> dict[str, dict]:
+    """Per-player points if all surviving (non-eliminated) teams reach R16.
+
+    Returns { player: {current_score, r16_additional, r16_total} }.
+    'Surviving' = RoundReached not in {GroupStage, R32} (eliminated rounds).
+    For teams still in groups (no round yet): awards R32+R16 progression bonuses.
+    For teams already past R16: 0 additional from R16 target.
+    """
+    from src.scoring_engine import PROGRESSION_BONUSES, ROUND_ORDER, KNOCKOUT_ROUNDS
+    from src.competition import purchases_to_scoring_format
+    from src.scoring_engine import get_effective_teams
+
+    assignments = get_assignments()
+    match_stats = get_match_stats()
+    tier_map    = get_tier_map()
+    lb          = get_overall_leaderboard()
+    purchases   = get_purchases()
+
+    score_map: dict[str, float] = {}
+    if not lb.empty and "TotalPoints" in lb.columns:
+        score_map = dict(zip(lb["Player"], lb["TotalPoints"].astype(float)))
+
+    scoring_purch = purchases_to_scoring_format(purchases) if not purchases.empty else pd.DataFrame(
+        columns=["Player", "PurchaseType", "Selection", "Timestamp"]
+    )
+
+    ELIMINATED = {"GroupStage", "R32"}
+    R16_TARGET = "R16"
+    r16_idx = ROUND_ORDER.index(R16_TARGET)
+
+    result: dict = {}
+    for player, _ in assignments.items():
+        current_score = score_map.get(player, 0.0)
+        eff = get_effective_teams(player, assignments, scoring_purch)
+        all_teams = list(set(eff["group_stage"]) | set(eff["knockout"]))
+
+        r16_additional = 0.0
+        for team in all_teams:
+            tier = tier_map.get(team, 1)
+            bonuses = PROGRESSION_BONUSES.get(tier, {})
+            rnd = ""
+            if not match_stats.empty:
+                row = match_stats[match_stats["Team"] == team]
+                if not row.empty:
+                    rnd = str(row.iloc[0].get("RoundReached", "") or "").strip()
+
+            if rnd in ELIMINATED:
+                continue  # already knocked out
+            if rnd in ROUND_ORDER and ROUND_ORDER.index(rnd) >= r16_idx:
+                continue  # already at or past R16
+
+            # Calculate progression bonuses from current position up to R16
+            current_idx = ROUND_ORDER.index(rnd) if rnd in ROUND_ORDER else -1
+            team_r16 = sum(
+                float(bonuses.get(ko_rnd, 0))
+                for ko_rnd in KNOCKOUT_ROUNDS
+                if ROUND_ORDER.index(ko_rnd) > current_idx
+                and ROUND_ORDER.index(ko_rnd) <= r16_idx
+            )
+            r16_additional += team_r16
+
+        result[player] = {
+            "current_score":  current_score,
+            "r16_additional": r16_additional,
+            "r16_total":      current_score + r16_additional,
+        }
+    return result
+
+
+@st.cache_data(ttl=30)
 def get_remaining_potential_detail() -> dict:
     """Per-player, per-team remaining potential with current score context.
 

@@ -13,6 +13,7 @@ from dashboard.data import (
     get_tier_map, get_team_ownership_data, get_predictions_centre_data,
     get_captains, get_purchases, get_statuses, is_predictions_locked,
     get_remaining_potential, get_remaining_potential_detail,
+    get_r16_potential,
     get_goals_conceded_map, get_score_history,
     get_assignments, get_insurance_overview,
 )
@@ -459,6 +460,59 @@ if _pot_detail:
         "Gold = current points. Blue = maximum remaining if every surviving team wins the tournament. "
         "Minimum remaining is 0 — any alive team can be knocked out next game."
     )
+
+st.divider()
+
+# ── 8b. R16 Potential ─────────────────────────────────────────────────────
+st.subheader("🎯 Points if All Surviving Teams Reach R16")
+st.caption(
+    "Shows each player's current score (gold) plus the additional progression points "
+    "they would earn if every one of their surviving teams made it to the Round of 16."
+)
+_r16_data = get_r16_potential()
+if _r16_data:
+    _r16_players = sorted(_r16_data.keys(), key=lambda p: -_r16_data[p]["r16_total"])
+    _r16_current = [_r16_data[p]["current_score"] for p in _r16_players]
+    _r16_extra   = [_r16_data[p]["r16_additional"] for p in _r16_players]
+    _r16_totals  = [_r16_data[p]["r16_total"] for p in _r16_players]
+
+    _fig_r16 = go.Figure()
+    _fig_r16.add_trace(go.Bar(
+        name="Current Score",
+        x=_r16_players,
+        y=_r16_current,
+        marker_color=COLORS["gold"],
+        hovertemplate="%{x}: %{y:.0f} pts current<extra></extra>",
+    ))
+    _fig_r16.add_trace(go.Bar(
+        name="R16 Progression Bonus",
+        x=_r16_players,
+        y=_r16_extra,
+        marker_color="rgba(34,211,238,0.6)",
+        hovertemplate="%{x}: +%{y:.0f} pts if all reach R16<extra></extra>",
+    ))
+    _r16_layout = {**PLOTLY_LAYOUT}
+    _r16_layout.update(
+        barmode="stack",
+        title="Current Score + R16 Potential (progression bonuses only)",
+        height=360,
+        yaxis_title="Points",
+        legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(size=11), orientation="h", y=-0.15),
+    )
+    _fig_r16.update_layout(**_r16_layout)
+    st.plotly_chart(_fig_r16, use_container_width=True)
+
+    # Table summary
+    _r16_rows = [
+        {
+            "Player": p,
+            "Current": f"{_r16_data[p]['current_score']:.0f}",
+            "+ If All Reach R16": f"+{_r16_data[p]['r16_additional']:.0f}",
+            "Total": f"{_r16_data[p]['r16_total']:.0f}",
+        }
+        for p in _r16_players
+    ]
+    st.dataframe(pd.DataFrame(_r16_rows), use_container_width=True, hide_index=True)
 
 st.divider()
 

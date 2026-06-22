@@ -905,7 +905,6 @@ def get_predictions_centre(predictions: pd.DataFrame) -> dict:
         "runner_up": {},
         "bronze_winner": {},
         "golden_boot": {},
-        "first_knocked_out": {},
         "dark_horse": {},
     }
     if predictions.empty:
@@ -916,7 +915,6 @@ def get_predictions_centre(predictions: pd.DataFrame) -> dict:
         "RunnerUp":        "runner_up",
         "BronzeMedal":     "bronze_winner",
         "GoldenBoot":      "golden_boot",
-        "FirstKnockedOut": "first_knocked_out",
         "DarkHorse":       "dark_horse",
     }
     for _, row in predictions.iterrows():

@@ -586,9 +586,9 @@ class TestCalculatePredictionPoints:
         result = calculate_prediction_points("Alice", _EMPTY_PREDICTIONS, {})
         expected = {
             "world_cup_winner", "golden_boot", "dark_horse",
-            "runner_up", "bronze_winner", "first_knocked_out",
+            "runner_up", "bronze_winner",
             "winner_bonus", "golden_boot_bonus", "dark_horse_bonus",
-            "runner_up_bonus", "bronze_bonus", "first_knocked_out_bonus",
+            "runner_up_bonus", "bronze_bonus",
             "total",
         }
         assert set(result.keys()) == expected
