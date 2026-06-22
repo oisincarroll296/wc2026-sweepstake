@@ -127,10 +127,10 @@ Special events count toward Pre-Tournament Captain bonus but NOT Knockout Captai
 
 | Tier | R32 | R16 | QF | SF | Final | Winner |
 |------|-----|-----|----|----|-------|--------|
-| T1   | 1   | 2   | 4  | 8  | 12    | 20     |
-| T2   | 2   | 4   | 8  | 12 | 18    | 28     |
-| T3   | 5   | 8   | 15 | 20 | 32    | 46     |
-| T4   | 8   | 12  | 25 | 30 | 45    | 65     |
+| T1   | 2   | 4   | 8  | 16 | 24    | 30     |
+| T2   | 4   | 8   | 16 | 24 | 36    | 42     |
+| T3   | 10  | 16  | 30 | 40 | 64    | 69     |
+| T4   | 16  | 24  | 50 | 60 | 90    | 98     |
 
 ### Captain bonuses
 - **Pre-Tournament captain**: +0.5 × team's total points (all stages incl. special events)
