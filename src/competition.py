@@ -1,5 +1,5 @@
 """Competition logic layer for World Cup 2026 Sweepstake."""
-
+# v2 — includes load_swaps, execute_team_swap
 import random
 from datetime import datetime, timezone
 from pathlib import Path
