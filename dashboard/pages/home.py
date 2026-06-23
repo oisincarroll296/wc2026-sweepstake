@@ -188,6 +188,7 @@ _PRICES_LOOKUP = {
     "NinthTeam": 3, "Resurrection": 3, "Insurance": 2, "TeamSwap": 5,
 }
 _ELIM_RNDS = {"GroupStage", "R16", "QF", "SF", "Final"}
+_TC = {1: "#105AAC", 2: "#15803D", 3: "#A16207", 4: "#B91C1C"}
 
 _ms_home    = get_match_stats()
 _tmap_home  = get_tier_map()
@@ -211,7 +212,6 @@ if lb.empty:
 else:
     _leader_pts = float(lb.iloc[0]["TotalPoints"]) if "TotalPoints" in lb.columns else 0.0
     _sum_rows: list[dict] = []
-    _sum_meta: list[dict] = []
 
     for _, _lrow in lb.iterrows():
         _rank   = int(_lrow.get("Rank", 0))
@@ -222,72 +222,110 @@ else:
         _gap    = f"−{_leader_pts - _pts:.0f}" if _rank > 1 else "—"
         _played = _player_played.get(_player, 0)
         _teams  = _assignments.get(_player, [])
-        _t1 = sum(1 for t in _teams if _tmap_home.get(t, 0) == 1 and _alive_home(t))
-        _t2 = sum(1 for t in _teams if _tmap_home.get(t, 0) == 2 and _alive_home(t))
-        _t3 = sum(1 for t in _teams if _tmap_home.get(t, 0) == 3 and _alive_home(t))
-        _t4 = sum(1 for t in _teams if _tmap_home.get(t, 0) == 4 and _alive_home(t))
-        _ph    = _pp_home.get(_player, set())
-        _spent = sum(_PRICES_LOOKUP.get(p, 0) for p in _ph)
+        _ph     = _pp_home.get(_player, set())
+        _spent  = sum(_PRICES_LOOKUP.get(p, 0) for p in _ph)
         _sum_rows.append({
-            "":       _medal,
-            "Player": _player,
-            "Pts":    int(_pts),
-            "Gap":    _gap,
-            "Played": _played,
-            "T1 ●":  _t1,
-            "T2 ●":  _t2,
-            "T3 ●":  _t3,
-            "T4 ●":  _t4,
-            "Pack":   "✓" if "PredictionPack" in _ph else "·",
-            "9th":    "✓" if "NinthTeam"      in _ph else "·",
-            "Res":    "✓" if "Resurrection"   in _ph else "·",
-            "Swap":   "✓" if "TeamSwap"       in _ph else "·",
-            "Spent":  f"€{_spent}",
+            "rank": _rank, "medal": _medal, "player": _player,
+            "pts": int(_pts), "gap": _gap, "played": _played,
+            "t1": sum(1 for t in _teams if _tmap_home.get(t,0)==1 and _alive_home(t)),
+            "t2": sum(1 for t in _teams if _tmap_home.get(t,0)==2 and _alive_home(t)),
+            "t3": sum(1 for t in _teams if _tmap_home.get(t,0)==3 and _alive_home(t)),
+            "t4": sum(1 for t in _teams if _tmap_home.get(t,0)==4 and _alive_home(t)),
+            "spent": _spent,
+            "pack": "PredictionPack" in _ph, "ninth": "NinthTeam" in _ph,
+            "res": "Resurrection" in _ph,    "swap": "TeamSwap"   in _ph,
+            "status": _status,
         })
-        _sum_meta.append({"status": _status, "rank": _rank})
 
-    _sum_df = pd.DataFrame(_sum_rows)
+    # ── HTML table ────────────────────────────────────────────────────────
+    _HS = "padding:0.32rem 0.6rem;font-size:0.71rem;font-weight:700;white-space:nowrap;text-align:center"
+    _CS = "padding:0.38rem 0.6rem;font-size:0.83rem;text-align:center;border-bottom:1px solid #131f2e"
+    _SEP = "border-right:1px solid #2A3A4A"
 
-    def _sum_style(row):
-        m   = _sum_meta[row.name]
-        st_ = m["status"]
-        rk  = m["rank"]
-        out = []
-        for col in row.index:
-            if st_ == "UNPAID":
-                out.append("color:#6B7280")
-            elif col in ("T1 ●", "T2 ●", "T3 ●", "T4 ●"):
-                try:
-                    v = int(row[col])
-                except (ValueError, TypeError):
-                    v = 0
-                if v == 0:   out.append("color:#EF4444;font-weight:700")
-                elif v == 1: out.append("color:#F59E0B;font-weight:700")
-                else:        out.append("color:#6EE7B7;font-weight:700")
-            elif col in ("Pack", "9th", "Res", "Swap"):
-                out.append("color:#6EE7B7;font-weight:700" if row[col] == "✓" else "color:#374151")
-            elif col == "Gap":
-                out.append("color:#EF4444" if row[col] != "—" else "color:#D4A017")
-            elif col == "Pts":
-                out.append("color:#D4A017;font-weight:800" if rk == 1 else "font-weight:600")
-            elif col == "Spent":
-                out.append("color:#9CA3AF")
-            elif col == "":
-                out.append("font-weight:700")
+    def _th(txt, c="#9CA3AF", bg="transparent", extra="", rs=1, cs=1):
+        return (
+            f'<th rowspan="{rs}" colspan="{cs}" '
+            f'style="{_HS};color:{c};background:{bg};{extra}">{txt}</th>'
+        )
+
+    h1 = (
+        _th("",             c="#6B7280",  rs=2, extra="width:2.2rem")
+        + _th("Player",     c="#F5F5F5",  rs=2, extra="text-align:left;min-width:90px")
+        + _th("Pts",        c="#D4A017",  rs=2)
+        + _th("Gap",        c="#9CA3AF",  rs=2)
+        + _th("Played",     c="#9CA3AF",  rs=2, extra=_SEP)
+        + _th("Teams Still In", c="#9CA3AF", cs=4,
+              extra="border-bottom:1px solid #2A3A4A;" + _SEP)
+        + _th("💵 Spent",   c="#6EE7B7",  rs=2, extra=_SEP)
+        + _th("Purchases",  c="#9CA3AF",  cs=4,
+              extra="border-bottom:1px solid #2A3A4A")
+    )
+    h2 = (
+        _th("T1", c=_TC[1], bg=f"{_TC[1]}20")
+        + _th("T2", c=_TC[2], bg=f"{_TC[2]}20")
+        + _th("T3", c=_TC[3], bg=f"{_TC[3]}20")
+        + _th("T4", c=_TC[4], bg=f"{_TC[4]}20", extra=_SEP)
+        + _th("Pack",  c="#9CA3AF")
+        + _th("9th",   c="#9CA3AF")
+        + _th("Res",   c="#9CA3AF")
+        + _th("Swap",  c="#9CA3AF")
+    )
+
+    def _td(val, extra=""):
+        return f'<td style="{_CS};{extra}">{val}</td>'
+
+    body = ""
+    for r in _sum_rows:
+        faded  = r["status"] == "UNPAID"
+        leader = r["rank"] == 1 and not faded
+        op     = "opacity:0.38;" if faded else ""
+        row_bg = "background:rgba(212,160,23,0.07)" if leader else ""
+
+        cells  = _td(r["medal"], f"{op}font-weight:700")
+        pcolor = "#D4A017" if leader else "#F5F5F5"
+        pw     = "800" if leader else "600"
+        cells += f'<td style="{_CS};text-align:left;{op}color:{pcolor};font-weight:{pw}">{r["player"]}</td>'
+        cells += _td(r["pts"],    f"{op}color:{'#D4A017' if leader else '#F5F5F5'};font-weight:{'800' if leader else '600'}")
+        gap_c  = "#EF4444" if r["gap"] != "—" else "#D4A017"
+        cells += _td(r["gap"],   f"{op}color:{gap_c}")
+        cells += _td(r["played"],f"{op}{_SEP}")
+
+        for n, tc in ((1,_TC[1]),(2,_TC[2]),(3,_TC[3]),(4,_TC[4])):
+            v   = r[f"t{n}"]
+            sep = _SEP if n == 4 else ""
+            if faded:
+                style = f"{op}{sep}"
+            elif v == 0:
+                style = f"color:#2A3A4A;font-weight:700;{sep}"
+            elif v == 1:
+                style = f"color:{tc};font-weight:700;opacity:0.6;{sep}"
             else:
-                out.append("font-weight:700" if rk == 1 else "")
-        return out
+                style = f"color:{tc};font-weight:800;{sep}"
+            cells += _td(v, style)
+
+        cells += _td(f"💵 €{r['spent']}", f"{op}color:#6EE7B7;font-weight:700;{_SEP}")
+
+        for key in ("pack","ninth","res","swap"):
+            v = r[key]
+            cells += _td("✓" if v else "·",
+                         f"{op}color:{'#6EE7B7' if v else '#2A3A4A'};font-weight:{'700' if v else '400'}")
+
+        body += f'<tr style="{row_bg}">{cells}</tr>'
 
     st.markdown(
-        '<div style="font-size:0.72rem;color:#9CA3AF;margin-bottom:0.35rem">'
-        'T1●–T4● = teams still alive per tier (out of 2) &nbsp;·&nbsp; '
-        'Pack / 9th / Res / Swap = purchases &nbsp;·&nbsp; '
-        'Unpaid players shown in grey</div>',
+        f'<div style="overflow-x:auto">'
+        f'<table style="width:100%;border-collapse:collapse;background:#0D1B2A;'
+        f'border-radius:8px;overflow:hidden;font-family:inherit">'
+        f'<thead>'
+        f'<tr style="background:#1A2535;border-bottom:1px solid #2A3A4A">{h1}</tr>'
+        f'<tr style="background:#1A2535;border-bottom:2px solid #2A3A4A">{h2}</tr>'
+        f'</thead>'
+        f'<tbody>{body}</tbody>'
+        f'</table></div>'
+        f'<div style="font-size:0.69rem;color:#4B5563;margin-top:0.3rem">'
+        f'T1–T4 = teams still in the tournament per tier (2 per tier at start) &nbsp;·&nbsp; '
+        f'Unpaid players faded</div>',
         unsafe_allow_html=True,
-    )
-    st.dataframe(
-        _sum_df.style.apply(_sum_style, axis=1),
-        use_container_width=True, hide_index=True,
     )
 
 st.divider()
