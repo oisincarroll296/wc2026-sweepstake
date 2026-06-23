@@ -2,10 +2,14 @@
 import sys
 from pathlib import Path
 
-# Ensure project root is importable
+# Ensure project root is first on sys.path and src.* modules are always
+# reloaded from this project (prevents stale sys.modules across hot-reloads).
 _ROOT = Path(__file__).parent.parent
-if str(_ROOT) not in sys.path:
-    sys.path.insert(0, str(_ROOT))
+_root_str = str(_ROOT)
+if _root_str not in sys.path:
+    sys.path.insert(0, _root_str)
+for _k in [k for k in sys.modules if k == "src" or k.startswith("src.")]:
+    del sys.modules[_k]
 
 import streamlit as st
 
