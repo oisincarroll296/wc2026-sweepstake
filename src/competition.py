@@ -51,7 +51,7 @@ PRICES: dict[str, float] = {
     "Mulligan":       3.0,
     "CompleteRedraw": 6.0,
     "NinthTeam":      3.0,
-    "Resurrection":   5.0,
+    "Resurrection":   3.0,
     "Insurance":      2.0,
     "TeamSwap":       5.0,
 }

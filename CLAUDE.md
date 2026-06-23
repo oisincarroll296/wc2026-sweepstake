@@ -173,7 +173,7 @@ Special events count toward Pre-Tournament Captain bonus but NOT Knockout Captai
 | `Mulligan` | €3 | (empty) — redraw for that player only |
 | `CompleteRedraw` | €6 | (empty) — redraw for all players; before first game only |
 | `NinthTeam` | €3 | Team name e.g. `"Japan"` |
-| `Resurrection` | €5 | Eliminated team player wants to swap out e.g. `"Spain"` (replacement randomly drawn) |
+| `Resurrection` | €3 | Eliminated team player wants to swap out e.g. `"Spain"` (replacement randomly drawn) |
 | `Insurance` | €2 | (empty) |
 
 > **Important**: PurchaseType casing must match exactly — the scoring engine does case-sensitive lookups.
@@ -212,7 +212,7 @@ Special events count toward Pre-Tournament Captain bonus but NOT Knockout Captai
 | Mulligan | €3 |
 | Complete Redraw | €6 |
 | Ninth Team | €3 |
-| Resurrection | €5 |
+| Resurrection | €3 |
 | Insurance | €2 |
 | Team Swap | €5 |
 

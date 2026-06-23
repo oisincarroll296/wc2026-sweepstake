@@ -88,7 +88,7 @@ PTYPES = [
     ("Insurance",     "Insurance",   2,  _GRP),
     ("Mulligan",      "Mulligan",    3,  _GRP),
     ("NinthTeam",     "Ninth",       3,  _KO),
-    ("Resurrection",  "Resurrection",5,  _KO),
+    ("Resurrection",  "Resurrection",3,  _KO),
 ]
 COSTS = {pt: cost for pt, _, cost, _ in PTYPES}
 
@@ -129,8 +129,8 @@ with tab_shop:
         for lbl, cost, c in [
             ("Buy In", 5, _GRP), ("Prediction Pack", 5, _GRP),
             ("Insurance", 2, _GRP), ("Mulligan", 3, _GRP),
-            ("Ninth Team", 3, _KO), ("Resurrection", 5, _KO),
-            ("Team Swap", 8, _KO),
+            ("Ninth Team", 3, _KO), ("Resurrection", 3, _KO),
+            ("Team Swap", 5, _KO),
         ]
     )
     _legend = (
@@ -205,7 +205,7 @@ with tab_shop:
         _shop_card("NinthTeam", "Ninth Team", 3, _KO,
                    "After the Group Stage, receive one randomly drawn surviving team you don't already own. "
                    "Added to your roster for knockout rounds only. Can be your Knockout Captain.")
-        _shop_card("Resurrection", "Resurrection", 5, _KO,
+        _shop_card("Resurrection", "Resurrection", 3, _KO,
                    "You choose which of your eliminated teams gets swapped out, and you choose the "
                    "replacement from surviving same-tier teams you don't own. "
                    "Replacement earns knockout points only. Maximum one per player.")

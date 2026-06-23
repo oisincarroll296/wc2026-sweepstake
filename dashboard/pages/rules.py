@@ -204,7 +204,7 @@ with tab_purchases:
         )
         st.markdown(
             f'<div class="card"><div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.1rem">'
-            f'<h4 style="color:#D4A017;margin:0">Resurrection — €5</h4>'
+            f'<h4 style="color:#D4A017;margin:0">Resurrection — €3</h4>'
             f'{_badge(_KO, f"⏰ Deadline: {_res_str}")}</div>'
             '<p style="color:#9CA3AF;font-size:0.88rem;margin:0">'
             'You <strong>choose which of your eliminated teams</strong> gets swapped out, '
