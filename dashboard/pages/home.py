@@ -13,7 +13,7 @@ from dashboard.data import (
     get_prize_pool, get_overall_leaderboard, get_top_team,
     get_paid_count, get_pack_count, get_audit_log, get_events,
     get_assignments, get_participants, get_deadlines, countdown, DEADLINE_LABELS,
-    get_fixtures, get_match_results,
+    get_fixtures, get_match_results, get_match_stats, get_tier_map, get_purchases,
 )
 from dashboard.components.ui import page_header, empty_state
 
@@ -43,7 +43,6 @@ def _last_updated() -> str:
         df = pd.read_csv(p, dtype=str).fillna("")
         if df.empty or "match_number" not in df.columns:
             return "No results yet"
-        # Use row count as proxy — most recent result = last row
         return f"{len(df)} result{'s' if len(df) != 1 else ''} entered"
     except Exception:
         return "—"
@@ -149,7 +148,7 @@ top_t, top_pts = get_top_team()
 lb       = get_overall_leaderboard()
 _assignments = get_assignments()
 
-# Compute total matches played per player (sum across all owned teams)
+# Matches played per player (sum across all owned teams)
 try:
     _mr = get_match_results()
     _played_teams: dict[str, int] = {}
@@ -183,52 +182,120 @@ with r2c2:
 
 st.divider()
 
-# ── Two-column layout ──────────────────────────────────────────────────────
-col_left, col_right = st.columns([3, 2], gap="large")
+# ── Player Summary Table ───────────────────────────────────────────────────
+_PRICES_LOOKUP = {
+    "BuyIn": 5, "PredictionPack": 5, "Mulligan": 3,
+    "NinthTeam": 3, "Resurrection": 3, "Insurance": 2, "TeamSwap": 5,
+}
+_ELIM_RNDS = {"GroupStage", "R16", "QF", "SF", "Final"}
+
+_ms_home    = get_match_stats()
+_tmap_home  = get_tier_map()
+_purch_home = get_purchases()
+
+_rr_home: dict[str, str] = {}
+if not _ms_home.empty:
+    for _, _msr in _ms_home.iterrows():
+        _rr_home[str(_msr["Team"])] = str(_msr.get("RoundReached", "") or "")
+
+def _alive_home(t: str) -> bool:
+    return _rr_home.get(t, "") not in _ELIM_RNDS
+
+_pp_home: dict[str, set] = {}
+if not _purch_home.empty:
+    for _, _pr in _purch_home.iterrows():
+        _pp_home.setdefault(str(_pr["Player"]), set()).add(str(_pr["PurchaseType"]))
+
+if lb.empty:
+    empty_state("No scores yet — draw pending.")
+else:
+    _leader_pts = float(lb.iloc[0]["TotalPoints"]) if "TotalPoints" in lb.columns else 0.0
+    _sum_rows: list[dict] = []
+    _sum_meta: list[dict] = []
+
+    for _, _lrow in lb.iterrows():
+        _rank   = int(_lrow.get("Rank", 0))
+        _pts    = float(_lrow.get("TotalPoints", 0))
+        _player = str(_lrow.get("Player", ""))
+        _status = str(_lrow.get("PaymentStatus", "UNPAID"))
+        _medal  = {1: "🥇", 2: "🥈", 3: "🥉"}.get(_rank, f"#{_rank}")
+        _gap    = f"−{_leader_pts - _pts:.0f}" if _rank > 1 else "—"
+        _played = _player_played.get(_player, 0)
+        _teams  = _assignments.get(_player, [])
+        _t1 = sum(1 for t in _teams if _tmap_home.get(t, 0) == 1 and _alive_home(t))
+        _t2 = sum(1 for t in _teams if _tmap_home.get(t, 0) == 2 and _alive_home(t))
+        _t3 = sum(1 for t in _teams if _tmap_home.get(t, 0) == 3 and _alive_home(t))
+        _t4 = sum(1 for t in _teams if _tmap_home.get(t, 0) == 4 and _alive_home(t))
+        _ph    = _pp_home.get(_player, set())
+        _spent = sum(_PRICES_LOOKUP.get(p, 0) for p in _ph)
+        _sum_rows.append({
+            "":       _medal,
+            "Player": _player,
+            "Pts":    int(_pts),
+            "Gap":    _gap,
+            "Played": _played,
+            "T1 ●":  _t1,
+            "T2 ●":  _t2,
+            "T3 ●":  _t3,
+            "T4 ●":  _t4,
+            "Pack":   "✓" if "PredictionPack" in _ph else "·",
+            "9th":    "✓" if "NinthTeam"      in _ph else "·",
+            "Res":    "✓" if "Resurrection"   in _ph else "·",
+            "Swap":   "✓" if "TeamSwap"       in _ph else "·",
+            "Spent":  f"€{_spent}",
+        })
+        _sum_meta.append({"status": _status, "rank": _rank})
+
+    _sum_df = pd.DataFrame(_sum_rows)
+
+    def _sum_style(row):
+        m   = _sum_meta[row.name]
+        st_ = m["status"]
+        rk  = m["rank"]
+        out = []
+        for col in row.index:
+            if st_ == "UNPAID":
+                out.append("color:#6B7280")
+            elif col in ("T1 ●", "T2 ●", "T3 ●", "T4 ●"):
+                try:
+                    v = int(row[col])
+                except (ValueError, TypeError):
+                    v = 0
+                if v == 0:   out.append("color:#EF4444;font-weight:700")
+                elif v == 1: out.append("color:#F59E0B;font-weight:700")
+                else:        out.append("color:#6EE7B7;font-weight:700")
+            elif col in ("Pack", "9th", "Res", "Swap"):
+                out.append("color:#6EE7B7;font-weight:700" if row[col] == "✓" else "color:#374151")
+            elif col == "Gap":
+                out.append("color:#EF4444" if row[col] != "—" else "color:#D4A017")
+            elif col == "Pts":
+                out.append("color:#D4A017;font-weight:800" if rk == 1 else "font-weight:600")
+            elif col == "Spent":
+                out.append("color:#9CA3AF")
+            elif col == "":
+                out.append("font-weight:700")
+            else:
+                out.append("font-weight:700" if rk == 1 else "")
+        return out
+
+    st.markdown(
+        '<div style="font-size:0.72rem;color:#9CA3AF;margin-bottom:0.35rem">'
+        'T1●–T4● = teams still alive per tier (out of 2) &nbsp;·&nbsp; '
+        'Pack / 9th / Res / Swap = purchases &nbsp;·&nbsp; '
+        'Unpaid players shown in grey</div>',
+        unsafe_allow_html=True,
+    )
+    st.dataframe(
+        _sum_df.style.apply(_sum_style, axis=1),
+        use_container_width=True, hide_index=True,
+    )
+
+st.divider()
+
+# ── Prize Split + Fixtures ─────────────────────────────────────────────────
+col_left, col_right = st.columns([2, 3], gap="large")
 
 with col_left:
-    st.subheader("Current Standings")
-    if lb.empty:
-        empty_state("No scores yet — draw pending.")
-    else:
-        leader_pts = float(lb.iloc[0]["TotalPoints"]) if "TotalPoints" in lb.columns else 0.0
-
-        rows = []
-        for _, row in lb.iterrows():
-            rank   = int(row.get("Rank", 0))
-            pts    = float(row.get("TotalPoints", 0))
-            status = row.get("PaymentStatus", "UNPAID")
-            player = row.get("Player", "")
-            medal  = {1: "🥇", 2: "🥈", 3: "🥉"}.get(rank, f"#{rank}")
-            gap    = f"{pts - leader_pts:+.0f}" if rank > 1 else "—"
-            played = _player_played.get(player, 0)
-            rows.append({
-                "":        medal,
-                "Player":  player,
-                "Points":  f"{pts:.0f}",
-                "Gap":     gap,
-                "Played":  str(played) if played else "0",
-                "Status":  status,
-            })
-
-        display = pd.DataFrame(rows)
-        lb_status = lb["PaymentStatus"].tolist() if "PaymentStatus" in lb.columns else ["PAID"] * len(lb)
-
-        def _row_style(row):
-            status = lb_status[row.name]
-            if status == "UNPAID":
-                return ["color: #6B7280"] * len(row)
-            if row.name == 0:
-                return ["background-color: rgba(212,160,23,0.15); font-weight:700"] * len(row)
-            return [""] * len(row)
-
-        st.dataframe(
-            display.style.apply(_row_style, axis=1),
-            use_container_width=True, hide_index=True,
-        )
-
-with col_right:
-    # Prize Split
     st.subheader("Prize Split")
     pool_val = pool.get("current_pot", 0)
     splits = [
@@ -247,6 +314,7 @@ with col_right:
             unsafe_allow_html=True,
         )
 
+with col_right:
     # Today's Fixtures
     st.subheader("Today's Fixtures")
     try:
