@@ -10,6 +10,7 @@ import pandas as pd
 from src.allocation_engine import repick_participant, validate_allocations, Allocation
 from src.scoring_engine import (
     calculate_leaderboard as _score_leaderboard,
+    calculate_team_points as _calc_team_pts,
     get_effective_teams,
     INSURANCE_BONUS,
 )
@@ -26,6 +27,7 @@ PLAYER_STATUS_PATH = DATA_DIR / "players.csv"
 EVENTS_PATH        = DATA_DIR / "events.csv"
 AUDIT_LOG_PATH     = DATA_DIR / "audit_log.csv"
 SWAPS_PATH         = DATA_DIR / "swaps.csv"
+SWAP_OFFSETS_PATH  = DATA_DIR / "swap_offsets.csv"
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -51,7 +53,7 @@ PRICES: dict[str, float] = {
     "NinthTeam":      3.0,
     "Resurrection":   5.0,
     "Insurance":      2.0,
-    "TeamSwap":       8.0,
+    "TeamSwap":       5.0,
 }
 
 PRIZE_SHARES = (0.50, 0.30, 0.20)   # 1st, 2nd, 3rd
@@ -190,6 +192,22 @@ def load_swaps(path: Optional[Path | str] = None) -> pd.DataFrame:
     return df[_COLS].copy()
 
 
+def load_swap_offsets(path: Optional[Path | str] = None) -> pd.DataFrame:
+    p = Path(path) if path else SWAP_OFFSETS_PATH
+    _COLS = ["OriginalOwner", "NewOwner", "Team",
+             "GroupStagePoints", "KnockoutPoints", "SpecialPoints", "TotalPoints",
+             "SwapTimestamp"]
+    if not p.exists():
+        return pd.DataFrame(columns=_COLS)
+    df = pd.read_csv(p, dtype=str).fillna("0")
+    for col in _COLS:
+        if col not in df.columns:
+            df[col] = "0"
+    for col in ("GroupStagePoints", "KnockoutPoints", "SpecialPoints", "TotalPoints"):
+        df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0.0)
+    return df[_COLS].copy()
+
+
 def get_swapped_players(swaps: pd.DataFrame) -> set[str]:
     """Return the set of players who have already been part of a full-roster swap."""
     if swaps.empty:
@@ -208,11 +226,17 @@ def execute_team_swap(
     allocation_path: Path,
     swaps: pd.DataFrame,
     audit_log: pd.DataFrame,
+    swap_offsets: Optional[pd.DataFrame] = None,
     timestamp: Optional[str] = None,
-) -> tuple[pd.DataFrame, pd.DataFrame, list[str]]:
+    match_stats: Optional[pd.DataFrame] = None,
+    tier_map: Optional[dict[str, int]] = None,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, list[str]]:
     """Swap ALL teams between two players, modifying allocation.csv in place.
 
-    Returns (updated_swaps, updated_audit_log, errors).
+    Snapshots each team's current points into swap_offsets so scoring can
+    exclude pre-swap points from the new owner's total.
+
+    Returns (updated_swaps, updated_swap_offsets, updated_audit_log, errors).
     """
     errors: list[str] = []
 
@@ -222,10 +246,12 @@ def execute_team_swap(
     if counterpart in already_swapped:
         errors.append(f"{counterpart!r} has already done a swap and cannot swap again")
     if errors:
-        return swaps, audit_log, errors
+        empty_offsets = swap_offsets if swap_offsets is not None else load_swap_offsets()
+        return swaps, empty_offsets, audit_log, errors
 
     if not allocation_path.exists():
-        return swaps, audit_log, ["allocation.csv not found"]
+        empty_offsets = swap_offsets if swap_offsets is not None else load_swap_offsets()
+        return swaps, empty_offsets, audit_log, ["allocation.csv not found"]
 
     alloc = pd.read_csv(allocation_path, dtype=str).fillna("")
     mask_i = alloc["Player"] == initiator
@@ -235,14 +261,43 @@ def execute_team_swap(
     if not mask_c.any():
         errors.append(f"{counterpart!r} has no teams in allocation.csv")
     if errors:
-        return swaps, audit_log, errors
+        empty_offsets = swap_offsets if swap_offsets is not None else load_swap_offsets()
+        return swaps, empty_offsets, audit_log, errors
+
+    # Snapshot current points for each team before the swap
+    ts = timestamp or _now_iso()
+    if swap_offsets is None:
+        swap_offsets = load_swap_offsets()
+
+    if match_stats is not None and tier_map is not None:
+        initiator_teams  = alloc.loc[mask_i, "Team"].tolist()
+        counterpart_teams = alloc.loc[mask_c, "Team"].tolist()
+        offset_rows = []
+        for team in initiator_teams:
+            pts = _calc_team_pts(team, match_stats, tier_map.get(team, 1))
+            offset_rows.append({
+                "OriginalOwner": initiator, "NewOwner": counterpart, "Team": team,
+                "GroupStagePoints": pts["group_stage"], "KnockoutPoints": pts["knockout"],
+                "SpecialPoints": pts["special"], "TotalPoints": pts["total"],
+                "SwapTimestamp": ts,
+            })
+        for team in counterpart_teams:
+            pts = _calc_team_pts(team, match_stats, tier_map.get(team, 1))
+            offset_rows.append({
+                "OriginalOwner": counterpart, "NewOwner": initiator, "Team": team,
+                "GroupStagePoints": pts["group_stage"], "KnockoutPoints": pts["knockout"],
+                "SpecialPoints": pts["special"], "TotalPoints": pts["total"],
+                "SwapTimestamp": ts,
+            })
+        swap_offsets = pd.concat(
+            [swap_offsets, pd.DataFrame(offset_rows)], ignore_index=True
+        )
 
     alloc.loc[mask_i, "Player"] = "__TEMP__"
     alloc.loc[mask_c, "Player"] = initiator
     alloc.loc[alloc["Player"] == "__TEMP__", "Player"] = counterpart
     alloc.to_csv(allocation_path, index=False)
 
-    ts = timestamp or _now_iso()
     new_swap = {"Initiator": initiator, "Counterpart": counterpart, "Timestamp": ts}
     swaps = pd.concat([swaps, pd.DataFrame([new_swap])], ignore_index=True)
     audit_log = log_action(
@@ -250,7 +305,7 @@ def execute_team_swap(
         f"FULL ROSTER SWAP {initiator} ↔ {counterpart}",
         "allocation.csv updated", audit_log, ts,
     )
-    return swaps, audit_log, []
+    return swaps, swap_offsets, audit_log, []
 
 
 def load_events(path: Optional[Path | str] = None) -> pd.DataFrame:
@@ -749,6 +804,7 @@ def prize_leaderboard(
     statuses: pd.DataFrame,
     tournament_results: Optional[dict] = None,
     tiebreak_seed: Optional[int] = None,
+    swap_offsets: Optional[pd.DataFrame] = None,
 ) -> pd.DataFrame:
     """Prize Leaderboard — PAID players only, eligible for prizes."""
     paid = set(get_paid_players(statuses))
@@ -756,6 +812,7 @@ def prize_leaderboard(
     return _build_leaderboard(
         paid_participants, assignments, match_stats, purchases,
         captains, predictions, tournament_results, tiebreak_seed, statuses,
+        swap_offsets=swap_offsets,
     )
 
 
@@ -769,11 +826,13 @@ def overall_leaderboard(
     statuses: pd.DataFrame,
     tournament_results: Optional[dict] = None,
     tiebreak_seed: Optional[int] = None,
+    swap_offsets: Optional[pd.DataFrame] = None,
 ) -> pd.DataFrame:
     """Overall Leaderboard — all participants, paid and unpaid."""
     return _build_leaderboard(
         participants, assignments, match_stats, purchases,
         captains, predictions, tournament_results, tiebreak_seed, statuses,
+        swap_offsets=swap_offsets,
     )
 
 
@@ -787,12 +846,13 @@ def _build_leaderboard(
     tournament_results: Optional[dict],
     tiebreak_seed: Optional[int],
     statuses: pd.DataFrame,
+    swap_offsets: Optional[pd.DataFrame] = None,
 ) -> pd.DataFrame:
     scoring_purch = purchases_to_scoring_format(purchases)
 
     lb = _score_leaderboard(
         participants, assignments, match_stats, scoring_purch,
-        captains, predictions, tournament_results,
+        captains, predictions, tournament_results, swap_offsets=swap_offsets,
     )
     if lb.empty or "TotalPoints" not in lb.columns:
         return pd.DataFrame(columns=[

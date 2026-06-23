@@ -354,6 +354,7 @@ with tabs[1]:
     from src.competition import (
         load_swaps as _load_swaps, get_swapped_players as _get_swapped_players,
         execute_team_swap as _execute_team_swap, SWAPS_PATH as _SWAPS_PATH,
+        load_swap_offsets as _load_swap_offsets, SWAP_OFFSETS_PATH as _SWAP_OFFSETS_PATH,
     )
     from src.event_engine import load_allocation as _la_swap
 
@@ -363,7 +364,7 @@ with tabs[1]:
     _sw_already    = _get_swapped_players(_sw_df)
     _sw_eligible   = [p for p in _sw_all_players if p not in _sw_already]
 
-    _sw_init = st.selectbox("Initiator (pays €8)", ["—"] + _sw_eligible, key="sw_init")
+    _sw_init = st.selectbox("Initiator (pays €5)", ["—"] + _sw_eligible, key="sw_init")
     _sw_ctrp = st.selectbox(
         "Counterpart",
         ["—"] + [p for p in _sw_eligible if p != _sw_init],
@@ -381,7 +382,7 @@ with tabs[1]:
             st.markdown(f"**{_sw_ctrp}'s current teams** (→ go to {_sw_init})")
             st.markdown("  \n".join(f"• {t}" for t in _sw_c_teams))
 
-    _sw_confirm = st.checkbox("I've confirmed payment of €8 from the initiator", key="sw_confirm")
+    _sw_confirm = st.checkbox("I've confirmed payment of €5 from the initiator", key="sw_confirm")
     if st.button("Execute Swap", type="primary", key="sw_submit", disabled=not _sw_confirm):
         if _sw_init == "—" or _sw_ctrp == "—":
             st.error("Select both players.")
@@ -390,12 +391,17 @@ with tabs[1]:
         else:
             try:
                 from src.competition import load_audit_log as _lal_sw
-                _sw_audit = _lal_sw()
-                _sw_new, _sw_audit_new, _sw_errs = _execute_team_swap(
+                from dashboard.data import get_match_stats as _gms_sw, get_tier_map as _gtm_sw
+                _sw_audit      = _lal_sw()
+                _sw_offsets    = _load_swap_offsets()
+                _sw_new, _sw_offsets_new, _sw_audit_new, _sw_errs = _execute_team_swap(
                     initiator=_sw_init,
                     counterpart=_sw_ctrp,
                     allocation_path=DATA / "allocation.csv",
                     swaps=_sw_df, audit_log=_sw_audit,
+                    swap_offsets=_sw_offsets,
+                    match_stats=_gms_sw(),
+                    tier_map=_gtm_sw(),
                 )
                 if _sw_errs:
                     for _e in _sw_errs:
@@ -404,6 +410,9 @@ with tabs[1]:
                     _sw_new.to_csv(_SWAPS_PATH, index=False)
                     _push(_SWAPS_PATH, "data/swaps.csv",
                           f"TeamSwap: {_sw_init} ↔ {_sw_ctrp}")
+                    _sw_offsets_new.to_csv(_SWAP_OFFSETS_PATH, index=False)
+                    _push(_SWAP_OFFSETS_PATH, "data/swap_offsets.csv",
+                          f"SwapOffsets: {_sw_init} ↔ {_sw_ctrp}")
                     _sw_audit_new.to_csv(DATA / "audit_log.csv", index=False)
                     _push(DATA / "audit_log.csv", "data/audit_log.csv", "Audit: team swap")
                     _push(DATA / "allocation.csv", "data/allocation.csv",

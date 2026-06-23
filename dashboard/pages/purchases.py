@@ -209,9 +209,10 @@ with tab_shop:
                    "You choose which of your eliminated teams gets swapped out, and you choose the "
                    "replacement from surviving same-tier teams you don't own. "
                    "Replacement earns knockout points only. Maximum one per player.")
-        _shop_card("TeamSwap", "Team Swap", 8, _KO,
+        _shop_card("TeamSwap", "Team Swap", 5, _KO,
                    "Two players swap their entire roster — all 8 teams are exchanged. "
-                   "The player who chose the swap pays €8. "
+                   "Points already earned are not transferred — only future points from the swapped teams count. "
+                   "The player who chose the swap pays €5. "
                    "Each set of 8 teams can only be swapped once — first come, first served. Send Oisin a message to lock in. "
                    "Ninth Team and Resurrection follow your updated roster.")
 

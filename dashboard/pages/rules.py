@@ -215,9 +215,10 @@ with tab_purchases:
         )
         st.markdown(
             f'<div class="card"><div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.1rem">'
-            f'<h4 style="color:#D4A017;margin:0">Team Swap — €8</h4>{_SWAP_BADGE}</div>'
+            f'<h4 style="color:#D4A017;margin:0">Team Swap — €5</h4>{_SWAP_BADGE}</div>'
             '<p style="color:#9CA3AF;font-size:0.88rem;margin:0">'
-            'Two players exchange their entire roster — all 8 teams swap. The player who <strong>chose</strong> the swap pays €8. '
+            'Two players exchange their entire roster — all 8 teams swap. The player who <strong>chose</strong> the swap pays €5. '
+            '<strong>Points already earned are not transferred</strong> — only future points from the swapped teams count. '
             'Each set of 8 teams can only be swapped once — first come, first served. Send Oisin a message to lock in. '
             'Your Ninth Team and Resurrection follow your updated roster.'
             f'<strong style="color:#D4A017"> Deadline: {_swap_str}</strong>.</p></div>',

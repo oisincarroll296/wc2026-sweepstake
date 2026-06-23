@@ -214,6 +214,7 @@ Special events count toward Pre-Tournament Captain bonus but NOT Knockout Captai
 | Ninth Team | €3 |
 | Resurrection | €5 |
 | Insurance | €2 |
+| Team Swap | €5 |
 
 ---
 
