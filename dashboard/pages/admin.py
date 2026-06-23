@@ -347,7 +347,7 @@ with tabs[1]:
     st.subheader("Team Swaps")
     st.caption(
         "Execute a full roster swap between two players — all 8 teams are exchanged. "
-        "The initiator (the player who chose the swap) pays €8. "
+        "The initiator (the player who chose the swap) pays €5. "
         "Each set of 8 teams can only be swapped once — first come, first served. Send Oisin a message to lock in."
     )
 
