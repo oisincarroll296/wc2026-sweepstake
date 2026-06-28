@@ -618,13 +618,15 @@ def calculate_leaderboard(
                 bd[k] = bd.get(k, 0.0) + float(v)
 
         rows.append({
-            "Player":          player,
-            "BasePoints":      info["base_total"],
-            "CaptainBonus":    info["captain"]["total"],
-            "InsuranceBonus":  info["insurance_bonus"],
-            "SpecialBonus":    info["special_bonus"],
-            "PredictionBonus": info["predictions"]["total"],
-            "TotalPoints":     info["grand_total"],
+            "Player":            player,
+            "BasePoints":        info["base_total"],
+            "GroupStagePoints":  info["group_stage_points"],
+            "KnockoutPoints":    info["knockout_points"],
+            "CaptainBonus":      info["captain"]["total"],
+            "InsuranceBonus":    info["insurance_bonus"],
+            "SpecialBonus":      info["special_bonus"],
+            "PredictionBonus":   info["predictions"]["total"],
+            "TotalPoints":       info["grand_total"],
             # Detailed match-event breakdown
             "GoalsPoints":      bd.get("GroupGoals", 0) + bd.get("KnockoutGoals", 0),
             "CleanSheetPoints": bd.get("GroupCleanSheets", 0) + bd.get("KnockoutCleanSheets", 0),

@@ -58,18 +58,22 @@ st.divider()
 
 # ── 2. Points Breakdown Stacked Bar ───────────────────────────────────────
 if not lb.empty:
-    breakdown_cols = ["BasePoints", "CaptainBonus", "InsuranceBonus", "PredictionBonus"]
-    avail = [c for c in breakdown_cols if c in lb.columns]
-    if avail:
+    _breakdown_def = [
+        ("GroupStagePoints", "Group Stage",  "#4A9A7A"),
+        ("KnockoutPoints",   "Knockout",     "#105AAC"),
+        ("CaptainBonus",     "Captains",     COLORS["gold"]),
+        ("PredictionBonus",  "Predictions",  "#6A5ACD"),
+    ]
+    _avail_bd = [(col, lbl, clr) for col, lbl, clr in _breakdown_def if col in lb.columns]
+    if _avail_bd:
         st.subheader("📐 Points Breakdown")
         fig2 = go.Figure()
-        colors_stack = [COLORS["gold"], "#4A9A7A", "#A67C00", "#6A5ACD"]
-        for i, col in enumerate(avail):
+        for col, lbl, clr in _avail_bd:
             fig2.add_trace(go.Bar(
-                name=col.replace("Points", "").replace("Bonus", " Bonus").strip(),
+                name=lbl,
                 x=lb["Player"].tolist(),
                 y=lb[col].astype(float).tolist(),
-                marker_color=colors_stack[i % len(colors_stack)],
+                marker_color=clr,
             ))
         fig2.update_layout(**PLOTLY_LAYOUT, barmode="stack", height=350, title="Points Breakdown by Source")
         st.plotly_chart(fig2, use_container_width=True)
