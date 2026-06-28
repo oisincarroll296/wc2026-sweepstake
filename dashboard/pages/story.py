@@ -424,7 +424,7 @@ RULES:
 - Tone: passionate tabloid football journalist
 """
 
-    _models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "gemma2-9b-it"]
+    _models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "llama-3.1-70b-versatile"]
     raw = None
     last_err = None
     for _model in _models:
@@ -440,8 +440,8 @@ RULES:
             break
         except Exception as _e:
             last_err = _e
-            # Only fall through on rate-limit errors
-            if "429" in str(_e) or "rate_limit" in str(_e).lower():
+            _e_str = str(_e).lower()
+            if "429" in str(_e) or "rate_limit" in _e_str or "decommissioned" in _e_str:
                 continue
             raise
     if raw is None:
