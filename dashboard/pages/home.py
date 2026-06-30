@@ -187,20 +187,38 @@ _PRICES_LOOKUP = {
     "BuyIn": 5, "PredictionPack": 5, "Mulligan": 3,
     "NinthTeam": 3, "Resurrection": 3, "Insurance": 2, "TeamSwap": 5,
 }
-_ELIM_RNDS = {"GroupStage", "R16", "QF", "SF", "Final"}
 _TC = {1: "#105AAC", 2: "#15803D", 3: "#A16207", 4: "#B91C1C"}
 
 _ms_home    = get_match_stats()
 _tmap_home  = get_tier_map()
 _purch_home = get_purchases()
 
-_rr_home: dict[str, str] = {}
-if not _ms_home.empty:
-    for _, _msr in _ms_home.iterrows():
-        _rr_home[str(_msr["Team"])] = str(_msr.get("RoundReached", "") or "")
+# Build set of eliminated teams: group stage eliminations + KO losers from match results
+_elim_home: set[str] = set()
+if not _ms_home.empty and "RoundReached" in _ms_home.columns:
+    _elim_home = set(_ms_home[_ms_home["RoundReached"] == "GroupStage"]["Team"].tolist())
+_fix_home = get_fixtures()
+_res_home = get_match_results()
+if not _res_home.empty and not _fix_home.empty and "match_number" in _res_home.columns:
+    for _, _hr in _res_home.iterrows():
+        _hmn = int(pd.to_numeric(_hr.get("match_number", 0), errors="coerce") or 0)
+        if _hmn < 73 or _hmn == 103:
+            continue
+        _hfix = _fix_home[_fix_home["match_number"] == _hmn]
+        if _hfix.empty:
+            continue
+        _hf = _hfix.iloc[0]
+        _hh = str(_hf["home_team"]); _ha = str(_hf["away_team"])
+        _hhg = int(float(_hr.get("home_goals", 0) or 0))
+        _hag = int(float(_hr.get("away_goals", 0) or 0))
+        _hpw = str(_hr.get("penalty_winner", "") or "").strip()
+        if _hpw == "home" or (not _hpw and _hhg > _hag):
+            _elim_home.add(_ha)
+        elif _hpw == "away" or (not _hpw and _hag > _hhg):
+            _elim_home.add(_hh)
 
 def _alive_home(t: str) -> bool:
-    return _rr_home.get(t, "") not in _ELIM_RNDS
+    return t not in _elim_home
 
 _pp_home: dict[str, set] = {}
 if not _purch_home.empty:
