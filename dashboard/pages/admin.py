@@ -750,6 +750,34 @@ with tabs[4]:
         fixtures_df = get_fixtures()
         results_df  = get_match_results()
 
+        # Build winner_of dict so KO placeholder names resolve to real teams
+        _winner_of: dict[int, str] = {}
+        if not results_df.empty and not fixtures_df.empty:
+            for _, _rr in results_df.iterrows():
+                _rmn = int(pd.to_numeric(_rr.get("match_number", 0), errors="coerce") or 0)
+                if _rmn < 73:
+                    continue
+                _rf = fixtures_df[fixtures_df["match_number"] == _rmn]
+                if _rf.empty:
+                    continue
+                _rh = str(_rf.iloc[0]["home_team"]); _ra = str(_rf.iloc[0]["away_team"])
+                _rhg = int(float(_rr.get("home_goals", 0) or 0))
+                _rag = int(float(_rr.get("away_goals", 0) or 0))
+                _rpw = str(_rr.get("penalty_winner", "") or "").strip()
+                if _rpw == "home" or (not _rpw and _rhg > _rag):
+                    _winner_of[_rmn] = _rh
+                elif _rpw == "away" or (not _rpw and _rag > _rhg):
+                    _winner_of[_rmn] = _ra
+
+        def _resolve_team(raw: str) -> str:
+            s = str(raw or "").strip()
+            if s.startswith("Winner match "):
+                mn_ = int(s.split()[-1])
+                return _winner_of.get(mn_, s)
+            if s.startswith("Runner-up match "):
+                return s  # keep as-is (rare)
+            return s
+
         if fixtures_df.empty:
             st.warning("No fixture data found. Ensure data/fixtures.csv exists.")
         else:
@@ -814,10 +842,10 @@ with tabs[4]:
                         if et:
                             score_str += " (AET)"
                         if pwin:
-                            pw_label = m["home_team"] if pwin == "home" else m["away_team"]
+                            pw_label = _resolve_team(m["home_team"]) if pwin == "home" else _resolve_team(m["away_team"])
                             score_str += f" · {pw_label} win on pens"
 
-                    label = f"{dot} M{mn}: {m['home_team']} v {m['away_team']}"
+                    label = f"{dot} M{mn}: {_resolve_team(m['home_team'])} v {_resolve_team(m['away_team'])}"
                     match_options.append((label + score_str, mn, m))
 
                 sel_label = st.selectbox(
@@ -828,8 +856,8 @@ with tabs[4]:
                 sel_mn   = match_options[sel_idx][1]
                 sel_fix  = match_options[sel_idx][2]
 
-                home_team = sel_fix["home_team"]
-                away_team = sel_fix["away_team"]
+                home_team = _resolve_team(sel_fix["home_team"])
+                away_team = _resolve_team(sel_fix["away_team"])
                 is_group  = bool(str(sel_fix.get("group", "")).strip())
 
                 # Pre-fill if already entered
