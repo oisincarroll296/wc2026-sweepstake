@@ -115,12 +115,15 @@ with tab_scoring:
 | Runner-Up (2nd place) correct | +20 |
 | Bronze Medal (3rd place) correct | +15 |
 | Golden Boot correct | +25 |
-| Dark Horse reaches QF | +15 |
-| Dark Horse reaches SF | +30 |
+| First Knocked Out correct | +20 |
+| Dark Horse reaches Round of 32 | +5 |
+| Dark Horse reaches Round of 16 | +10 |
+| Dark Horse reaches Quarter-final | +15 |
+| Dark Horse reaches Semi-final | +30 |
 | Dark Horse reaches Final | +40 |
 | Dark Horse wins tournament | +50 |
 """)
-    st.caption("Dark Horse bonuses are cumulative. A Dark Horse that wins earns 15+30+40+50 = **135 pts** total.")
+    st.caption("Dark Horse bonuses are cumulative — each row adds to the previous. A Dark Horse that wins earns 5+10+15+30+40+50 = **150 pts** total.")
 
 # ── PURCHASES ─────────────────────────────────────────────────────────────────
 with tab_purchases:
@@ -157,8 +160,8 @@ with tab_purchases:
             f'<div class="card"><div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.1rem">'
             f'<h4 style="color:#D4A017;margin:0">Prediction Pack — €5</h4>{_PRED_BADGE}</div>'
             '<p style="color:#9CA3AF;font-size:0.88rem;margin:0">'
-            'Unlocks five predictions: World Cup Winner (+30), Runner-Up (+20), '
-            'Bronze Medal (+15), Golden Boot (+25), and Dark Horse (up to +135 cumulative). '
+            'Unlocks six predictions: World Cup Winner (+30), Runner-Up (+20), '
+            'Bronze Medal (+15), Golden Boot (+25), First Knocked Out (+20), and Dark Horse (up to +150 cumulative). '
             f'<strong style="color:#D4A017">Predictions lock: {_pred_str}</strong> (before knockout stage).</p></div>',
             unsafe_allow_html=True,
         )
@@ -231,14 +234,16 @@ with tab_purchases:
 - Must be a **Tier 3 or Tier 4** team
 - Cannot be a team you already own
 
-| Achievement | Bonus |
+| Achievement | Bonus (cumulative total) |
 |---|---|
-| Reaches Quarter Final | +15 |
-| Reaches Semi Final | +30 |
-| Reaches Final | +40 |
-| Wins Tournament | +50 |
+| Reaches Round of 32 | +5 (total: 5) |
+| Reaches Round of 16 | +10 (total: 15) |
+| Reaches Quarter-final | +15 (total: 30) |
+| Reaches Semi-final | +30 (total: 60) |
+| Reaches Final | +40 (total: 100) |
+| Wins Tournament | +50 (total: 150) |
 
-Bonuses are cumulative. A Dark Horse that reaches the Final earns **15 + 30 + 40 = 85 pts**. World Cup winner earns **135 pts**.
+Bonuses are cumulative — each round adds to the previous. A Dark Horse that reaches the Final earns **150 pts** if they win.
 """)
 
 # ── CAPTAINS ──────────────────────────────────────────────────────────────────
