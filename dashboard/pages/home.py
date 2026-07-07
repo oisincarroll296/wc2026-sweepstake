@@ -346,6 +346,48 @@ try:
     for _pl_name, _teams in _asgn_top.items():
         for _t in _teams:
             _owners_of.setdefault(_t, []).append(_pl_name)
+
+    # Chip style: (icon+label, colour) per breakdown source, in display order.
+    # Each entry sums one or more raw breakdown keys into a single readable chip.
+    _CHIP_SPEC: list[tuple[str, str, list[str]]] = [
+        ("⚽ Goals",        "#93C5FD", ["GroupGoals", "KnockoutGoals"]),
+        ("🧤 Clean Sheet",  "#6EE7B7", ["GroupCleanSheets", "KnockoutCleanSheets"]),
+        ("✅ Win",          "#6EE7B7", ["GroupWins", "KnockoutWins"]),
+        ("🥅 Penalty Win",  "#6EE7B7", ["GroupPenaltyWins", "KnockoutPenaltyWins"]),
+        ("🔄 Comeback Win", "#6EE7B7", ["GroupComebackWins", "KnockoutComebackWins"]),
+        ("🎩 Hat Trick",    "#FB923C", ["GroupHatTricks", "KnockoutHatTricks"]),
+        ("👑 Group Winner", "#D4A017", ["GroupWinner"]),
+        ("⚡ Upset (+1 tier)",  "#FCD34D", ["GroupUpsetWins1", "KnockoutUpsetWins1"]),
+        ("⚡ Upset (+2 tiers)", "#FCD34D", ["GroupUpsetWins2", "KnockoutUpsetWins2"]),
+        ("⚡ Upset (+3 tiers)", "#FCD34D", ["GroupUpsetWins3", "KnockoutUpsetWins3"]),
+        ("🕺 Shirt Off",    "#F472B6", ["ShirtRemovals"]),
+        ("🧤⚽ GK Goal",     "#F472B6", ["GKGoals"]),
+        ("🟥 Red Card",     "#EF4444", ["RedCards"]),
+        ("☠️ First Out",   "#F472B6", ["FirstEliminated"]),
+    ]
+
+    def _build_chips(bd: dict, round_reached: str) -> str:
+        chips = []
+        for label, colour, keys in _CHIP_SPEC:
+            pts = sum(float(bd.get(k, 0)) for k in keys)
+            if pts:
+                chips.append((label, colour, pts))
+        prog_pts = sum(v for k, v in bd.items() if k.startswith("Progression_"))
+        if prog_pts:
+            rr_label = round_reached or "?"
+            chips.append((f"📈 Progression → {rr_label}", "#C4B5FD", prog_pts))
+        if not chips:
+            return '<span style="color:#4B5563;font-size:0.72rem">no points yet</span>'
+        html = ""
+        for label, colour, pts in chips:
+            html += (
+                f'<span style="background:{colour}1F;color:{colour};border-radius:999px;'
+                f'padding:0.15rem 0.55rem;font-size:0.68rem;font-weight:700;'
+                f'margin:0.12rem;display:inline-block;white-space:nowrap">'
+                f'{label} {pts:+.0f}</span>'
+            )
+        return html
+
     # Compute points for every team that has stats
     _rows_top = []
     if not _ms_top.empty:
@@ -354,35 +396,12 @@ try:
             _tier = _tm_top.get(_tn, 1)
             _tp   = _calc_tp(_tn, _ms_top, _tier)
             _bd   = _tp.get("breakdown", {})
-            # Aggregate goals (group + knockout)
-            _goals  = int(_bd.get("GroupGoals", 0)) + int(_bd.get("KnockoutGoals", 0))
-            # Clean sheets
-            _cs     = int(_bd.get("GroupCleanSheets", 0) // 2) + int(_bd.get("KnockoutCleanSheets", 0) // 2)
-            # Wins (regular + penalty + comeback)
-            _wins   = (int(_bd.get("GroupWins", 0) // 3)
-                       + int(_bd.get("GroupPenaltyWins", 0) // 3)
-                       + int(_bd.get("GroupComebackWins", 0) // 3)
-                       + int(_bd.get("KnockoutWins", 0) // 3)
-                       + int(_bd.get("KnockoutPenaltyWins", 0) // 3)
-                       + int(_bd.get("KnockoutComebackWins", 0) // 3))
-            _group_winner = bool(_bd.get("GroupWinner", 0))
-            # Progression bonuses total
-            _prog_pts = sum(v for k, v in _bd.items() if k.startswith("Progression_"))
-            # Upset wins points total
-            _upset_pts = sum(
-                v for k, v in _bd.items()
-                if ("UpsetWins" in k)
-            )
-            # Special events points total
-            _special_keys = {"ShirtRemovals", "GKGoals", "RedCards", "FirstEliminated"}
-            _sp_pts = sum(v for k, v in _bd.items() if k in _special_keys)
+            _rr   = str(_tr.get("RoundReached", "") or "")
             _rows_top.append({
                 "team": _tn, "tier": _tier, "total": _tp.get("total", 0),
                 "group_pts": _tp.get("group_stage", 0),
                 "ko_pts": _tp.get("knockout", 0),
-                "goals": _goals, "clean_sheets": _cs, "wins": _wins,
-                "group_winner": _group_winner,
-                "progression": _prog_pts, "upset": _upset_pts, "special": _sp_pts,
+                "chips": _build_chips(_bd, _rr),
                 "owners": ", ".join(_owners_of.get(_tn, ["—"])),
             })
     _rows_top.sort(key=lambda x: -x["total"])
@@ -392,32 +411,24 @@ try:
         _rows_html = ""
         for _i, _r in enumerate(_top15, 1):
             _tc   = _TIER_C.get(_r["tier"], "#6B7280")
-            _wins_str = f'{_r["wins"]} win{"s" if _r["wins"] != 1 else ""}'
-            if _r["group_winner"]:
-                _wins_str += " · group winner"
-            _prog_str  = f'+{_r["progression"]:.0f}' if _r["progression"] else "—"
-            _upset_str = f'+{_r["upset"]:.0f}'       if _r["upset"]       else "—"
-            _sp_str    = f'{_r["special"]:+.0f}'      if _r["special"]     else "—"
             _row_bg = "#1A2535" if _i % 2 == 0 else "#1E2937"
             _rows_html += (
                 f'<tr style="background:{_row_bg}">'
-                f'<td style="color:#6B7280;padding:0.35rem 0.5rem;font-size:0.75rem">{_i}</td>'
-                f'<td style="padding:0.35rem 0.5rem">'
+                f'<td style="color:#6B7280;padding:0.4rem 0.5rem;font-size:0.75rem;vertical-align:top">{_i}</td>'
+                f'<td style="padding:0.4rem 0.5rem;vertical-align:top">'
                 f'<span style="display:inline-block;width:3px;height:14px;background:{_tc};'
                 f'border-radius:2px;margin-right:5px;vertical-align:middle"></span>'
                 f'<span style="color:#F5F5F5;font-weight:600;font-size:0.82rem">{_r["team"]}</span>'
                 f'<span style="color:#6B7280;font-size:0.65rem;margin-left:5px">T{_r["tier"]}</span>'
+                f'<div style="color:#9CA3AF;font-size:0.68rem;margin-top:0.15rem">{_r["owners"]}</div>'
                 f'</td>'
-                f'<td style="color:#9CA3AF;font-size:0.72rem;padding:0.35rem 0.5rem">{_r["owners"]}</td>'
-                f'<td style="color:#D4A017;font-weight:700;font-size:0.85rem;padding:0.35rem 0.5rem;text-align:right">{_r["total"]:.0f}</td>'
-                f'<td style="color:#93C5FD;font-size:0.75rem;padding:0.35rem 0.5rem;text-align:right">{_r["group_pts"]:.0f}</td>'
-                f'<td style="color:#6EE7B7;font-size:0.75rem;padding:0.35rem 0.5rem;text-align:right">{_r["ko_pts"]:.0f}</td>'
-                f'<td style="color:#9CA3AF;font-size:0.73rem;padding:0.35rem 0.5rem;text-align:right">{_r["goals"]} goals</td>'
-                f'<td style="color:#9CA3AF;font-size:0.73rem;padding:0.35rem 0.5rem;text-align:right">{_r["clean_sheets"]} clean sheet{"s" if _r["clean_sheets"] != 1 else ""}</td>'
-                f'<td style="color:#9CA3AF;font-size:0.73rem;padding:0.35rem 0.5rem;text-align:right">{_wins_str}</td>'
-                f'<td style="color:#C4B5FD;font-size:0.73rem;padding:0.35rem 0.5rem;text-align:right">{_prog_str}</td>'
-                f'<td style="color:#FCD34D;font-size:0.73rem;padding:0.35rem 0.5rem;text-align:right">{_upset_str}</td>'
-                f'<td style="color:#F472B6;font-size:0.73rem;padding:0.35rem 0.5rem;text-align:right">{_sp_str}</td>'
+                f'<td style="color:#D4A017;font-weight:800;font-size:0.9rem;padding:0.4rem 0.5rem;text-align:right;vertical-align:top">'
+                f'{_r["total"]:.0f}'
+                f'<div style="color:#6B7280;font-size:0.63rem;font-weight:400;white-space:nowrap">'
+                f'<span style="color:#93C5FD">{_r["group_pts"]:.0f} grp</span> + '
+                f'<span style="color:#6EE7B7">{_r["ko_pts"]:.0f} ko</span></div>'
+                f'</td>'
+                f'<td style="padding:0.4rem 0.5rem;vertical-align:top">{_r["chips"]}</td>'
                 f'</tr>'
             )
         _header_style = "color:#9CA3AF;font-size:0.7rem;padding:0.3rem 0.5rem;border-bottom:1px solid #2A3A4A"
@@ -427,17 +438,9 @@ try:
                 f'<table style="width:100%;border-collapse:collapse;font-family:inherit">'
                 f'<thead><tr style="background:#0D1B2A">'
                 f'<th style="{_header_style};text-align:left">#</th>'
-                f'<th style="{_header_style};text-align:left">Country</th>'
-                f'<th style="{_header_style};text-align:left">Owners</th>'
-                f'<th style="{_header_style};text-align:right">Total pts</th>'
-                f'<th style="{_header_style};text-align:right;color:#93C5FD">Group stage</th>'
-                f'<th style="{_header_style};text-align:right;color:#6EE7B7">Knockout</th>'
-                f'<th style="{_header_style};text-align:right">Goals</th>'
-                f'<th style="{_header_style};text-align:right">Clean sheets</th>'
-                f'<th style="{_header_style};text-align:right">Wins</th>'
-                f'<th style="{_header_style};text-align:right;color:#C4B5FD">Progression</th>'
-                f'<th style="{_header_style};text-align:right;color:#FCD34D">Upset wins</th>'
-                f'<th style="{_header_style};text-align:right;color:#F472B6">Special events</th>'
+                f'<th style="{_header_style};text-align:left">Country / Owners</th>'
+                f'<th style="{_header_style};text-align:right">Total</th>'
+                f'<th style="{_header_style};text-align:left">Where the points came from</th>'
                 f'</tr></thead>'
                 f'<tbody>{_rows_html}</tbody>'
                 f'</table>'
@@ -446,11 +449,9 @@ try:
             )
             st.markdown(
                 '<div style="font-size:0.65rem;color:#4B5563;margin-top:0.4rem">'
-                'Group stage = goals + clean sheets + wins + group-stage upsets &nbsp;·&nbsp; '
-                'Knockout = same plus progression bonuses &nbsp;·&nbsp; '
-                'Progression = bonus for reaching each knockout round &nbsp;·&nbsp; '
-                'Upset wins = bonus for beating a higher-tier team &nbsp;·&nbsp; '
-                'Special events = shirt removal (+25), goalkeeper goal (+75), red card (−5), first team out (+35)'
+                'Each chip is one scoring event and the exact points it added &nbsp;·&nbsp; '
+                'grp = group stage points, ko = knockout points (incl. progression bonuses) &nbsp;·&nbsp; '
+                'Total = grp + ko + special events'
                 '</div>',
                 unsafe_allow_html=True,
             )
