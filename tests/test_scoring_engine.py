@@ -520,28 +520,29 @@ class TestCalculatePredictionPoints:
         preds = _predictions(("Alice", "", "", "Panama"))
         results = {"world_cup_winner": "", "golden_boot_winner": "", "dark_horse_rounds": {"Panama": "QF"}}
         result = calculate_prediction_points("Alice", preds, results)
-        assert result["dark_horse_bonus"] == 15.0
+        # R32=5 + R16=10 + QF=15 = 30
+        assert result["dark_horse_bonus"] == 30.0
 
     def test_dark_horse_reaches_sf_cumulative(self):
         preds = _predictions(("Alice", "", "", "Panama"))
         results = {"world_cup_winner": "", "golden_boot_winner": "", "dark_horse_rounds": {"Panama": "SF"}}
         result = calculate_prediction_points("Alice", preds, results)
-        # QF=15 + SF=30 = 45
-        assert result["dark_horse_bonus"] == 45.0
+        # 5+10+15 + SF=30 = 60
+        assert result["dark_horse_bonus"] == 60.0
 
     def test_dark_horse_reaches_final(self):
         preds = _predictions(("Alice", "", "", "Panama"))
         results = {"world_cup_winner": "", "golden_boot_winner": "", "dark_horse_rounds": {"Panama": "Final"}}
         result = calculate_prediction_points("Alice", preds, results)
-        # 15+30+40 = 85
-        assert result["dark_horse_bonus"] == 85.0
+        # 5+10+15+30+40 = 100
+        assert result["dark_horse_bonus"] == 100.0
 
     def test_dark_horse_wins_tournament(self):
         preds = _predictions(("Alice", "", "", "Panama"))
         results = {"world_cup_winner": "", "golden_boot_winner": "", "dark_horse_rounds": {"Panama": "Winner"}}
         result = calculate_prediction_points("Alice", preds, results)
-        # 15+30+40+50 = 135
-        assert result["dark_horse_bonus"] == 135.0
+        # 5+10+15+30+40+50 = 150
+        assert result["dark_horse_bonus"] == 150.0
 
     def test_dark_horse_eliminated_groups_zero(self):
         preds = _predictions(("Alice", "", "", "Panama"))
@@ -563,8 +564,8 @@ class TestCalculatePredictionPoints:
             "dark_horse_rounds": {"Panama": "SF"},
         }
         result = calculate_prediction_points("Alice", preds, results)
-        # 30 + 25 + 45 = 100
-        assert result["total"] == 100.0
+        # 30 + 25 + 60 = 115
+        assert result["total"] == 115.0
 
     def test_player_not_in_predictions_zero(self):
         preds = _predictions(("Bob", "France", "", ""))
@@ -706,7 +707,7 @@ class TestCalculatePlayerPoints:
             _EMPTY_CAPTAINS, _EMPTY_PREDICTIONS,
         )
         expected = {
-            "player", "group_stage_teams", "knockout_teams", "team_points",
+            "player", "group_stage_teams", "knockout_teams", "historical_teams", "team_points",
             "group_stage_points", "knockout_points", "base_total",
             "captain", "insurance_bonus", "predictions", "special_bonus", "grand_total",
         }
@@ -836,9 +837,9 @@ class TestCalculateLeaderboard:
                                   "Norway", "Panama", "Qatar", "Haiti"]},
             ms, _EMPTY_PURCHASES, _EMPTY_CAPTAINS, preds,
         )
-        # Alice's dark horse Panama reached SF → 15+30=45 pts
+        # Alice's dark horse Panama reached SF → 5+10+15+30=60 pts
         alice_row = lb[lb["Player"] == "Alice"].iloc[0]
-        assert alice_row["PredictionBonus"] == 45.0
+        assert alice_row["PredictionBonus"] == 60.0
 
 # ---------------------------------------------------------------------------
 # TestValidateCaptains

@@ -115,7 +115,6 @@ with tab_scoring:
 | Runner-Up (2nd place) correct | +20 |
 | Bronze Medal (3rd place) correct | +15 |
 | Golden Boot correct | +25 |
-| First Knocked Out correct | +20 |
 | Dark Horse reaches Round of 32 | +5 |
 | Dark Horse reaches Round of 16 | +10 |
 | Dark Horse reaches Quarter-final | +15 |
@@ -160,8 +159,8 @@ with tab_purchases:
             f'<div class="card"><div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.1rem">'
             f'<h4 style="color:#D4A017;margin:0">Prediction Pack — €5</h4>{_PRED_BADGE}</div>'
             '<p style="color:#9CA3AF;font-size:0.88rem;margin:0">'
-            'Unlocks six predictions: World Cup Winner (+30), Runner-Up (+20), '
-            'Bronze Medal (+15), Golden Boot (+25), First Knocked Out (+20), and Dark Horse (up to +150 cumulative). '
+            'Unlocks five predictions: World Cup Winner (+30), Runner-Up (+20), '
+            'Bronze Medal (+15), Golden Boot (+25), and Dark Horse (up to +150 cumulative). '
             f'<strong style="color:#D4A017">Predictions lock: {_pred_str}</strong> (before knockout stage).</p></div>',
             unsafe_allow_html=True,
         )

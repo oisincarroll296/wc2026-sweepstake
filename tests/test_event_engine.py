@@ -802,7 +802,7 @@ class TestPaymentLedger:
     def test_resurrection_amount_correct(self):
         purch = pd.DataFrame([_purch(_ALICE, "Resurrection")])
         df = generate_payment_ledger(purch)
-        assert df.iloc[0]["Amount"] == 5.0
+        assert df.iloc[0]["Amount"] == 3.0
 
     def test_insurance_amount_correct(self):
         purch = pd.DataFrame([_purch(_ALICE, "Insurance")])

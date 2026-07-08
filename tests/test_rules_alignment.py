@@ -109,8 +109,8 @@ class TestPrices:
     def test_ninth_team_is_3_euros(self):
         assert PRICES["NinthTeam"] == 3.0
 
-    def test_resurrection_is_5_euros(self):
-        assert PRICES["Resurrection"] == 5.0
+    def test_resurrection_is_3_euros(self):
+        assert PRICES["Resurrection"] == 3.0
 
     def test_insurance_is_2_euros(self):
         assert PRICES["Insurance"] == 2.0
@@ -411,6 +411,12 @@ class TestInsuranceBonus:
 # ---------------------------------------------------------------------------
 
 class TestDarkHorseBonus:
+    def test_r32_bonus_is_5(self):
+        assert DARK_HORSE_BONUSES["R32"] == 5
+
+    def test_r16_bonus_is_10(self):
+        assert DARK_HORSE_BONUSES["R16"] == 10
+
     def test_qf_bonus_is_15(self):
         assert DARK_HORSE_BONUSES["QF"] == 15
 
@@ -423,37 +429,53 @@ class TestDarkHorseBonus:
     def test_winner_bonus_is_50(self):
         assert DARK_HORSE_BONUSES["Winner"] == 50
 
-    def test_qf_cumulative_total_is_15(self):
+    def test_r32_cumulative_total_is_5(self):
+        preds = _preds(("Alice", "", "", "Panama"))
+        result = calculate_prediction_points("Alice", preds, {
+            "world_cup_winner": "", "golden_boot_winner": "",
+            "dark_horse_rounds": {"Panama": "R32"},
+        })
+        assert result["dark_horse_bonus"] == 5.0
+
+    def test_r16_cumulative_total_is_15(self):
+        preds = _preds(("Alice", "", "", "Panama"))
+        result = calculate_prediction_points("Alice", preds, {
+            "world_cup_winner": "", "golden_boot_winner": "",
+            "dark_horse_rounds": {"Panama": "R16"},
+        })
+        assert result["dark_horse_bonus"] == 15.0
+
+    def test_qf_cumulative_total_is_30(self):
         preds = _preds(("Alice", "", "", "Panama"))
         result = calculate_prediction_points("Alice", preds, {
             "world_cup_winner": "", "golden_boot_winner": "",
             "dark_horse_rounds": {"Panama": "QF"},
         })
-        assert result["dark_horse_bonus"] == 15.0
+        assert result["dark_horse_bonus"] == 30.0
 
-    def test_sf_cumulative_total_is_45(self):
+    def test_sf_cumulative_total_is_60(self):
         preds = _preds(("Alice", "", "", "Panama"))
         result = calculate_prediction_points("Alice", preds, {
             "world_cup_winner": "", "golden_boot_winner": "",
             "dark_horse_rounds": {"Panama": "SF"},
         })
-        assert result["dark_horse_bonus"] == 45.0
+        assert result["dark_horse_bonus"] == 60.0
 
-    def test_final_cumulative_total_is_85(self):
+    def test_final_cumulative_total_is_100(self):
         preds = _preds(("Alice", "", "", "Panama"))
         result = calculate_prediction_points("Alice", preds, {
             "world_cup_winner": "", "golden_boot_winner": "",
             "dark_horse_rounds": {"Panama": "Final"},
         })
-        assert result["dark_horse_bonus"] == 85.0
+        assert result["dark_horse_bonus"] == 100.0
 
-    def test_winner_cumulative_total_is_135(self):
+    def test_winner_cumulative_total_is_150(self):
         preds = _preds(("Alice", "", "", "Panama"))
         result = calculate_prediction_points("Alice", preds, {
             "world_cup_winner": "", "golden_boot_winner": "",
             "dark_horse_rounds": {"Panama": "Winner"},
         })
-        assert result["dark_horse_bonus"] == 135.0
+        assert result["dark_horse_bonus"] == 150.0
 
     def test_group_stage_elimination_no_bonus(self):
         preds = _preds(("Alice", "", "", "Panama"))
@@ -463,19 +485,10 @@ class TestDarkHorseBonus:
         })
         assert result["dark_horse_bonus"] == 0.0
 
-    def test_r16_elimination_no_bonus(self):
-        """Dark horse bonuses only start from QF — R16 exit earns nothing."""
-        preds = _preds(("Alice", "", "", "Panama"))
-        result = calculate_prediction_points("Alice", preds, {
-            "world_cup_winner": "", "golden_boot_winner": "",
-            "dark_horse_rounds": {"Panama": "R16"},
-        })
-        assert result["dark_horse_bonus"] == 0.0
-
-    def test_dark_horse_qualifying_rounds_starts_at_qf(self):
-        """Only QF and beyond count — R16 must NOT be in qualifying rounds."""
-        assert "R16" not in DARK_HORSE_QUALIFYING_ROUNDS
-        assert "QF" in DARK_HORSE_QUALIFYING_ROUNDS
+    def test_dark_horse_qualifying_rounds_starts_at_r32(self):
+        """R32 and beyond count — GroupStage must NOT be in qualifying rounds."""
+        assert "GroupStage" not in DARK_HORSE_QUALIFYING_ROUNDS
+        assert "R32" in DARK_HORSE_QUALIFYING_ROUNDS
 
     def test_team_not_in_round_map_no_bonus(self):
         preds = _preds(("Alice", "", "", "Panama"))

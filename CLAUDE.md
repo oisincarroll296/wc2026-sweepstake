@@ -142,20 +142,21 @@ Special events count toward Pre-Tournament Captain bonus but NOT Knockout Captai
 - Only original 8-team allocation counts (not Ninth/Resurrection)
 
 ### Dark Horse bonuses (cumulative)
-| Round reached | Bonus |
-|--------------|-------|
-| QF           | +15   |
-| SF           | +30   |
-| Final        | +40   |
-| Winner       | +50   |
+| Round reached | Bonus | Cumulative total |
+|--------------|-------|-------------------|
+| R32          | +5    | 5                 |
+| R16          | +10   | 15                |
+| QF           | +15   | 30                |
+| SF           | +30   | 60                |
+| Final        | +40   | 100               |
+| Winner       | +50   | 150               |
 
 ### Prediction Pack bonuses
 - WC Winner correct: +30 pts
 - Runner-Up correct: +20 pts
 - Bronze Medal correct: +15 pts
 - Golden Boot correct: +25 pts
-- First Knocked Out correct: +20 pts
-- Dark Horse bonuses: cumulative per round reached (QF to Winner, as above)
+- Dark Horse bonuses: cumulative per round reached (R32 to Winner, as above)
 
 ### Round order
 `GroupStage → R32 → R16 → QF → SF → Final → Winner`

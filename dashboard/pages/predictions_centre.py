@@ -63,7 +63,7 @@ else:
         )
 
     _pick_check_cols = ["WorldCupWinner", "GoldenBoot", "DarkHorse",
-                        "RunnerUp", "BronzeMedal", "FirstKnockedOut"]
+                        "RunnerUp", "BronzeMedal"]
 
     def _has_picks(player: str) -> bool:
         if preds_df.empty:
@@ -257,16 +257,15 @@ _pick_card(col3, "Bronze Medal",     "🥉", data.get("bronze_winner", {}),    "
 st.divider()
 
 # Row 2: individual & special
-col4, col5, col6 = st.columns(3)
-_pick_card(col4, "Golden Boot",      "👟", data.get("golden_boot", {}),      "+25 pts")
-_pick_card(col5, "Dark Horse",       "🌟", data.get("dark_horse", {}),       "+5→15→30→60→100→150 pts")
-_pick_card(col6, "First Knocked Out","💀", data.get("first_knocked_out", {}), "+20 pts")
+col4, col5 = st.columns(2)
+_pick_card(col4, "Golden Boot", "👟", data.get("golden_boot", {}), "+25 pts")
+_pick_card(col5, "Dark Horse",  "🌟", data.get("dark_horse", {}),  "+5→15→30→60→100→150 pts")
 
 st.divider()
 st.subheader("All Picks")
 if not preds_df.empty:
     _display_cols = [c for c in [
         "Player", "WorldCupWinner", "RunnerUp", "BronzeMedal",
-        "GoldenBoot", "DarkHorse", "FirstKnockedOut",
+        "GoldenBoot", "DarkHorse",
     ] if c in preds_df.columns]
     st.dataframe(preds_df[_display_cols], use_container_width=True, hide_index=True)
