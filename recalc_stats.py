@@ -60,14 +60,64 @@ for col in ["GroupGoals","GroupCleanSheets","GroupPenaltyWins","GroupComebackWin
     if col in ms.columns:
         ms[col] = 0
 
-for _, res in results.iterrows():
+# Reset KO-derived RoundReached (R16+) so it rebuilds from match results below.
+# "GroupStage" and "R32" are preserved (manual/group-stage-derived).
+_KO_RR_RESET = {"R16", "QF", "SF", "Final", "Winner"}
+if "RoundReached" in ms.columns:
+    ms.loc[ms["RoundReached"].isin(_KO_RR_RESET), "RoundReached"] = "R32"
+
+_MATCH_TO_CUR_RR = (
+    {mn: "R32"  for mn in range(73, 89)}  |
+    {mn: "R16"  for mn in range(89, 97)}  |
+    {mn: "QF"   for mn in range(97, 101)} |
+    {mn: "SF"   for mn in range(101, 103)} |
+    {104: "Final"}
+)
+_MATCH_TO_NEXT_RR = (
+    {mn: "R16"   for mn in range(73, 89)}  |
+    {mn: "QF"    for mn in range(89, 97)}  |
+    {mn: "SF"    for mn in range(97, 101)} |
+    {mn: "Final" for mn in range(101, 103)} |
+    {104: "Winner"}
+)
+
+# Process in match_number order and resolve each fixture's home/away through
+# the growing winner_of/loser_of dicts first. A QF fixture's text is itself a
+# placeholder like "Winner match 89", and match 89's own fixture text is in
+# turn a placeholder referencing an R32 match — resolving in order (instead
+# of using the raw fixture text) is what makes R16+ stats actually attribute
+# to a real team instead of silently matching no row in ms["Team"].
+def _resolve(raw: str, winner_of: dict, loser_of: dict) -> str:
+    s = str(raw or "").strip()
+    seen = set()
+    while (s.startswith("Winner match ") or s.startswith("Runner-up match ")) and s not in seen:
+        seen.add(s)
+        try:
+            mn_ = int(s.split()[-1])
+        except ValueError:
+            break
+        src = winner_of if s.startswith("Winner match ") else loser_of
+        nxt = src.get(mn_, s)
+        if nxt == s:
+            break
+        s = nxt
+    return s
+
+winner_of: dict[int, str] = {}
+loser_of:  dict[int, str] = {}
+
+_results_sorted = results.copy()
+_results_sorted["_mn"] = pd.to_numeric(_results_sorted["match_number"], errors="coerce")
+_results_sorted = _results_sorted.dropna(subset=["_mn"]).sort_values("_mn")
+
+for _, res in _results_sorted.iterrows():
     mn = _int(res.get("match_number", 0))
     fix_rows = fixtures[pd.to_numeric(fixtures["match_number"], errors="coerce") == mn]
     if fix_rows.empty:
         continue
     fix = fix_rows.iloc[0]
-    home = str(fix["home_team"])
-    away = str(fix["away_team"])
+    home = _resolve(str(fix["home_team"]), winner_of, loser_of)
+    away = _resolve(str(fix["away_team"]), winner_of, loser_of)
     grp  = str(fix.get("group", "")).strip()
     pfx  = "Group" if grp else "Knockout"
 
@@ -107,6 +157,7 @@ for _, res in results.iterrows():
         ms.loc[ms["Team"] == away, f"{pfx}ComebackWins"] = ms.loc[ms["Team"] == away, f"{pfx}ComebackWins"].astype(int) + 1
 
     # Upset wins
+    loser = None
     if win_team:
         loser = away if win_team == home else home
         w_tier = tier_map.get(win_team, 0)
@@ -115,6 +166,18 @@ for _, res in results.iterrows():
         if diff in (1, 2, 3):
             col = f"{pfx}UpsetWins{diff}"
             ms.loc[ms["Team"] == win_team, col] = ms.loc[ms["Team"] == win_team, col].astype(int) + 1
+
+    # Record winner/loser for resolving later placeholder fixtures, and
+    # auto-advance RoundReached for both sides of a knockout match.
+    if not grp and win_team and loser:
+        winner_of[mn] = win_team
+        loser_of[mn]  = loser
+        _cur_rr  = _MATCH_TO_CUR_RR.get(mn)
+        _next_rr = _MATCH_TO_NEXT_RR.get(mn)
+        if _next_rr:
+            ms.loc[ms["Team"] == win_team, "RoundReached"] = _next_rr
+        if _cur_rr:
+            ms.loc[ms["Team"] == loser, "RoundReached"] = _cur_rr
 
     # Special events
     ht_col = f"{pfx}HatTricks"
