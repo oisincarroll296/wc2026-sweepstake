@@ -546,6 +546,63 @@ def _build_story_context(date_from: date | None = None, date_to: date | None = N
 
 # ── LLM ───────────────────────────────────────────────────────────────────────
 
+def _trim_context_for_llm(context: dict) -> dict:
+    """Shrink the context payload sent to the LLM.
+
+    The FULL context is used for the deterministic rendered sections (the
+    points breakdown, prize podium, etc.) — the model only needs enough to
+    write informed prose, not every field at full size. A "Full tournament"
+    context can run to 25-30KB (~7000+ tokens); combined with the system/
+    user prompt template and completion budget, that's large enough to 413
+    on smaller fallback models (some Groq free-tier models cap well under
+    10k tokens per request) and wastes tokens on the larger ones regardless.
+    """
+    trimmed = dict(context)
+
+    # prize_winners: the granular per-category prediction breakdown is
+    # already rendered deterministically in HTML — the model only needs
+    # the aggregate bonus figures to write about how each finisher built
+    # their total, not every pick/correct/points/max_points field.
+    trimmed["prize_winners"] = [
+        {k: v for k, v in w.items() if k != "prediction_breakdown"}
+        for w in context.get("prize_winners", [])
+    ]
+
+    # leaderboard_history: cap to the most relevant entries for a long
+    # tournament (most recent handovers matter most for "how it ended").
+    lh = context.get("leaderboard_history", {})
+    trimmed["leaderboard_history"] = {
+        "leader_changes": lh.get("leader_changes", [])[-12:],
+        "days_led_count": lh.get("days_led_count", {}),
+        "fell_from_top3": lh.get("fell_from_top3", [])[:6],
+    }
+
+    # match_results is consistently the single biggest contributor (each
+    # entry carries owners + notable_events) — cut it down harder than its
+    # upstream [:20] cap. The others are already small; cap defensively.
+    trimmed["match_results"]   = context.get("match_results", [])[:10]
+    trimmed["special_events"]  = context.get("special_events", [])[:10]
+    trimmed["hat_tricks"]      = context.get("hat_tricks", [])[:8]
+    trimmed["upsets"]          = context.get("upsets", [])[:8]
+
+    # ownership_summary: only keep teams that actually appear elsewhere in
+    # the trimmed payload — the model doesn't need all 48 teams' owners to
+    # write about the handful that actually feature in the story.
+    relevant_teams: set[str] = set(context.get("featured_teams", []))
+    for t in context.get("top_scoring_teams", []):
+        relevant_teams.add(t.get("team", ""))
+    for u in trimmed["upsets"]:
+        relevant_teams.add(u.get("winner", "")); relevant_teams.add(u.get("loser", ""))
+    for ev in trimmed["special_events"]:
+        relevant_teams.add(ev.get("team", ""))
+    full_ownership = context.get("ownership_summary", {})
+    trimmed["ownership_summary"] = {
+        t: full_ownership[t] for t in relevant_teams if t in full_ownership
+    }
+
+    return trimmed
+
+
 def _generate_story(context: dict, api_key: str, topic: str = "", suggestions: str = "") -> dict:
     from groq import Groq
     client = Groq(api_key=api_key)
@@ -597,7 +654,7 @@ def _generate_story(context: dict, api_key: str, topic: str = "", suggestions: s
 
 DATA:
 <data>
-{json.dumps(context, indent=2)}
+{json.dumps(_trim_context_for_llm(context), indent=2)}
 </data>
 
 OUTPUT — respond ONLY with a single valid JSON object, no markdown fences:
@@ -644,7 +701,10 @@ RULES:
 - Give each of the CURRENT top 3 (current_standings[0:3]) their own sentence or two explaining specifically how they built their final total — reference their prediction bonus, captain bonus, or standout teams from the data, not just their final point total.
 """
 
-    _models = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+    # llama-3.1-8b-instant deliberately excluded — its 6000 TPM limit is too
+    # small for this app's payload even after trimming (system+user prompt
+    # template alone runs well over that), so it would just 413 every time.
+    _models = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "llama-3.3-70b-versatile"]
     raw = None
     last_err = None
     for _model in _models:
