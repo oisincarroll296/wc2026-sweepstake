@@ -14,9 +14,10 @@ import pandas as pd
 
 from dashboard.data import (
     get_overall_leaderboard, get_prize_leaderboard, get_assignments, get_match_stats,
-    get_tier_map, get_captains, get_prize_pool,
+    get_tier_map, get_captains, get_prize_pool, get_predictions, get_tournament_results,
     get_ko_winner_of, get_ko_loser_of, _resolve_ko_placeholder,
 )
+from src.scoring_engine import calculate_prediction_points
 from dashboard.components.ui import page_header
 
 _ROOT               = Path(__file__).parent.parent.parent
@@ -246,6 +247,50 @@ def _build_story_context(date_from: date | None = None, date_to: date | None = N
         prize_pool = 0
         prize_splits = {"first_prize": 0, "second_prize": 0, "third_prize": 0}
 
+    # Full tournament_results (not just the winner) + dark_horse_rounds, so
+    # each top-3 finisher's prediction picks can be checked against the real
+    # outcome instead of leaving that to the LLM to approximate.
+    tr_full = dict(get_tournament_results())
+    if not stats.empty:
+        tr_full["dark_horse_rounds"] = {
+            str(r["Team"]): str(r.get("RoundReached", "") or "") for _, r in stats.iterrows()
+        }
+    preds_df = get_predictions()
+
+    _PRED_CATEGORIES = [
+        ("World Cup Winner", "world_cup_winner", "winner_bonus", 30),
+        ("Runner-Up",        "runner_up",        "runner_up_bonus", 20),
+        ("Bronze Medal",     "bronze_winner",    "bronze_bonus", 15),
+        ("Golden Boot",      "golden_boot",      "golden_boot_bonus", 25),
+    ]
+
+    def _player_breakdown(row) -> dict:
+        p = str(row.get("Player", ""))
+        pp = calculate_prediction_points(p, preds_df, tr_full)
+        pred_rows = []
+        for label, pick_key, bonus_key, max_pts in _PRED_CATEGORIES:
+            pick = pp.get(pick_key) or "—"
+            pts = float(pp.get(bonus_key, 0))
+            pred_rows.append({
+                "category": label, "pick": pick, "correct": pts > 0,
+                "points": pts, "max_points": max_pts,
+            })
+        dh_pick = pp.get("dark_horse") or "—"
+        dh_pts  = float(pp.get("dark_horse_bonus", 0))
+        dh_round = tr_full.get("dark_horse_rounds", {}).get(pp.get("dark_horse") or "", "")
+        pred_rows.append({
+            "category": "Dark Horse", "pick": dh_pick, "correct": dh_pts > 0,
+            "points": dh_pts, "round_reached": dh_round or "not yet qualified",
+        })
+        return {
+            "base_pts":      round(float(row.get("BasePoints", 0)), 1),
+            "captain_bonus": round(float(row.get("CaptainBonus", 0)), 1),
+            "insurance_bonus": round(float(row.get("InsuranceBonus", 0)), 1),
+            "special_bonus": round(float(row.get("SpecialBonus", 0)), 1),
+            "prediction_bonus": round(float(row.get("PredictionBonus", 0)), 1),
+            "prediction_breakdown": pred_rows,
+        }
+
     # PAID-only ranking — who actually wins prize money (unpaid players can
     # top the all-players standings but aren't eligible for a payout).
     try:
@@ -257,6 +302,7 @@ def _build_story_context(date_from: date | None = None, date_to: date | None = N
                 "total_pts": round(float(row.get("TotalPoints", 0)), 1),
                 "prize_eur": [prize_splits["first_prize"], prize_splits["second_prize"], prize_splits["third_prize"]][i]
                              if i < 3 else 0,
+                **_player_breakdown(row),
             }
             for i, (_, row) in enumerate(plb.iterrows())
         ][:3]
@@ -841,6 +887,54 @@ def _render_newspaper(story: dict, meta: dict, context: dict, best_days: list) -
         unsafe_allow_html=True,
     )
 
+    # ── Points breakdown — where each top-3 finisher's points came from ─────
+    # Computed directly (not left to the LLM), so it's exact rather than an
+    # approximation: match points, captain/special/insurance bonuses, and
+    # for predictions specifically, every pick vs the actual result.
+    if prize_winners:
+        _hr()
+        _section_banner("WHERE THE POINTS CAME FROM")
+        bd_cols = st.columns(len(prize_winners[:3]))
+        for bcol, s in zip(bd_cols, prize_winners[:3]):
+            medal = medals[s.get("rank", 1) - 1] if s.get("rank", 1) <= 3 else ""
+            base_row = (
+                f'<div style="font-size:0.68rem;color:{_MID};margin:0.3rem 0 0.5rem;line-height:1.6">'
+                f'Match <strong style="color:{_INK}">{s.get("base_pts",0):.0f}</strong>'
+                f' &nbsp;·&nbsp; Captain <strong style="color:{_INK}">+{s.get("captain_bonus",0):.0f}</strong>'
+                f' &nbsp;·&nbsp; Special <strong style="color:{_INK}">{s.get("special_bonus",0):+.0f}</strong>'
+                + (f' &nbsp;·&nbsp; Insurance <strong style="color:{_INK}">+{s.get("insurance_bonus",0):.0f}</strong>'
+                   if s.get("insurance_bonus", 0) else "")
+                + f' &nbsp;·&nbsp; Predictions <strong style="color:{_INK}">+{s.get("prediction_bonus",0):.0f}</strong>'
+                f'</div>'
+            )
+            pred_rows_html = ""
+            for pr in s.get("prediction_breakdown", []):
+                hit = pr.get("correct")
+                icon = "✅" if hit else "❌"
+                color = "#166534" if hit else "#9CA3AF"
+                extra = f' ({pr["round_reached"]})' if "round_reached" in pr else ""
+                pts_label = f'+{pr["points"]:.0f}' if hit else (
+                    "—" if "round_reached" in pr else f'0/{pr.get("max_points",0)}'
+                )
+                pred_rows_html += (
+                    f'<div style="display:flex;justify-content:space-between;gap:0.4rem;'
+                    f'padding:0.2rem 0;border-top:1px solid {_BORDER}18;font-size:0.68rem">'
+                    f'<span style="color:{_INK}">{icon} {pr["category"]}: '
+                    f'<strong>{pr["pick"]}</strong>{extra}</span>'
+                    f'<span style="color:{color};font-weight:700;white-space:nowrap">{pts_label}</span>'
+                    f'</div>'
+                )
+            bcol.markdown(
+                f'<div style="background:white;border:1px solid {_BORDER}22;border-radius:6px;'
+                f'padding:0.7rem 0.8rem;font-family:Georgia,serif;height:100%">'
+                f'<div style="font-weight:900;font-size:0.85rem;color:{_INK}">'
+                f'{medal} {s.get("player","")} <span style="color:{_RED}">— {s.get("total_pts",0):.0f} pts</span></div>'
+                f'{base_row}'
+                f'{pred_rows_html}'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
     # ── Stat boxes ─────────────────────────────────────────────────────────
     n_m = context.get("matches_in_period", 0)
     n_g = context.get("goals_in_period", 0)
@@ -891,6 +985,40 @@ def _render_newspaper(story: dict, meta: dict, context: dict, best_days: list) -
                 f'<div style="font-family:Georgia,serif;font-size:1.05rem;font-style:italic;'
                 f'color:{_INK};line-height:1.65">"{pull}"</div>'
                 f'</div>',
+                unsafe_allow_html=True,
+            )
+
+    # ── AI-generated gallery (image_subjects, via free Pollinations.ai) ──────
+    if img_subjs:
+        _hr()
+        _section_banner("GALLERY")
+        g_cols = st.columns(min(len(img_subjs), 3))
+        for gcol, subj in zip(g_cols, img_subjs[:3]):
+            gname = subj.get("name", "")
+            gteam = subj.get("team", "")
+            gctx  = subj.get("context", "")
+            if not gname:
+                continue
+            gflag = _flag_url(gteam, 80)
+            gimg  = _ai_img_url(
+                f"{gname}, {gteam} national football team, {gctx}, "
+                "editorial sports photo, dramatic stadium lighting, photorealistic",
+                w=500, h=360,
+            )
+            gcol.markdown(
+                f'<div style="background:white;border:1px solid {_BORDER}22;border-radius:6px;'
+                f'overflow:hidden;font-family:Georgia,serif;height:100%">'
+                f'<img src="{gimg}" loading="lazy" '
+                f'style="width:100%;height:170px;object-fit:cover;display:block;background:{_LIGHT}22" '
+                + (f'onerror="this.src=\'{gflag}\';this.style.objectFit=\'contain\';this.style.padding=\'1.5rem\'"'
+                   if gflag else
+                   'onerror="this.outerHTML=\'<div style=&quot;height:170px;display:flex;'
+                   'align-items:center;justify-content:center;font-size:2rem&quot;>⚽</div>\'"')
+                + f'>'
+                f'<div style="padding:0.5rem 0.7rem">'
+                f'<div style="font-size:0.8rem;font-weight:700;color:{_INK}">{gname}</div>'
+                f'<div style="font-size:0.65rem;color:{_MID}">{gctx}</div>'
+                f'</div></div>',
                 unsafe_allow_html=True,
             )
 
@@ -1012,14 +1140,20 @@ def _render_newspaper(story: dict, meta: dict, context: dict, best_days: list) -
         pcol_img, pcol_text = st.columns([1,2])
         with pcol_img:
             flag_u = _flag_url(pteam, 80)
+            portrait_u = _player_art_url(pname, pteam, pachieve)
             st.markdown(
                 f'<div style="background:white;border:2px solid {_BORDER};border-radius:6px;'
-                f'padding:1.2rem 0.8rem;text-align:center;font-family:Georgia,serif">'
-                + (f'<img src="{flag_u}" style="width:70px;border-radius:4px;margin-bottom:0.6rem"'
-                   f' onerror="this.outerHTML=\'<div style=&quot;font-size:2rem;margin-bottom:0.6rem&quot;>🏴</div>\'">'
-                   if flag_u else '<div style="font-size:2rem;margin-bottom:0.6rem">🏴</div>')
-                + f'<div style="font-size:0.65rem;font-weight:900;letter-spacing:0.1em;color:{_RED}">SPOTLIGHT</div>'
-                f'</div>',
+                f'overflow:hidden;font-family:Georgia,serif">'
+                f'<img src="{portrait_u}" loading="lazy" style="width:100%;height:200px;'
+                f'object-fit:cover;display:block;background:{_LIGHT}22" '
+                + (f'onerror="this.src=\'{flag_u}\';this.style.objectFit=\'contain\';this.style.padding=\'2rem\'"'
+                   if flag_u else
+                   'onerror="this.outerHTML=\'<div style=&quot;height:200px;display:flex;'
+                   'align-items:center;justify-content:center;font-size:2.5rem&quot;>🏴</div>\'"')
+                + f'>'
+                f'<div style="text-align:center;padding:0.5rem 0.8rem">'
+                f'<div style="font-size:0.65rem;font-weight:900;letter-spacing:0.1em;color:{_RED}">SPOTLIGHT</div>'
+                f'</div></div>',
                 unsafe_allow_html=True,
             )
         with pcol_text:
