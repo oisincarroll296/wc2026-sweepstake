@@ -650,7 +650,8 @@ h2h_opponent  = st.selectbox("Compare against", other_players, key="h2h_opponent
 if h2h_opponent:
     h2h_result = calculate_player_points(
         h2h_opponent, assignments, match_stats, scoring_purch,
-        captains, predictions, tier_map=tier_map, swap_offsets=swap_offsets,
+        captains, predictions, tournament_results=get_tournament_results(),
+        tier_map=tier_map, swap_offsets=swap_offsets,
     )
     h2h_eff        = get_effective_teams(h2h_opponent, assignments, scoring_purch)
     h2h_teams      = list(dict.fromkeys(h2h_eff["group_stage"] + h2h_eff["knockout"]))
